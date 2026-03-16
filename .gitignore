@@ -1,0 +1,12 @@
+.secondme/
+.env.local
+.env
+node_modules/
+.next/
+dist/
+build/
+*.log
+.DS_Store
+prisma/dev.db
+prisma/dev.db-journal
+tsconfig.tsbuildinfo
