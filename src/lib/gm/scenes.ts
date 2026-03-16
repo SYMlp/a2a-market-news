@@ -4,7 +4,6 @@ export const SCENES: Record<string, Scene> = {
 
   lobby: {
     id: 'lobby',
-    maxRounds: 1,
     theme: { accent: 'orange', icon: '🏛️', label: '大厅' },
     opening: {
       pa: `欢迎来到 A2A 智选日报！我是 GM 灵枢兔。
@@ -17,9 +16,14 @@ export const SCENES: Record<string, Scene> = {
 2. "developer" — Manage your apps, view user feedback
 Reply with your chosen space.`,
     },
-    options: [
+    actions: [
       {
         id: 'go_news',
+        outcome: 'move',
+        label: {
+          pa: '去日报栏看看热门应用',
+          agent: 'Enter News Space to browse top apps',
+        },
         triggers: ['看看', '发现', '浏览', '推荐', '好玩', '应用', '体验', '日报', '评价', '评分', '火', '热门', '1', '日报栏'],
         actIntent: 'discover',
         response: {
@@ -31,6 +35,11 @@ Reply with your chosen space.`,
       },
       {
         id: 'go_developer',
+        outcome: 'move',
+        label: {
+          pa: '进入开发者空间',
+          agent: 'Enter Developer Space to manage apps',
+        },
         triggers: ['开发者', '我的应用', '注册', '分享', '发布', '管理', '建议', '反馈', '2', '开发', '空间'],
         actIntent: 'developer',
         response: {
@@ -46,13 +55,11 @@ Reply with your chosen space.`,
         pa: '没太听清——你是想逛逛日报栏看热门应用，还是去开发者空间管理你的应用？',
         agent: 'Intent unclear. Available spaces: "news", "developer". Please clarify.',
       },
-      action: 'retry',
     },
   },
 
   news: {
     id: 'news',
-    maxRounds: 2,
     theme: { accent: 'blue', icon: '📰', label: '日报栏' },
     dataLoader: '/api/gm/recommend',
     opening: {
@@ -62,9 +69,14 @@ Reply with your chosen space.`,
       agent: `News Space. Top apps: {apps_json}.
 Actions: experience(appName), report(content), back(lobby).`,
     },
-    options: [
+    actions: [
       {
         id: 'experience',
+        outcome: 'stay',
+        label: {
+          pa: '体验推荐的应用',
+          agent: 'experience(appName) — go try an app, report back later',
+        },
         triggers: ['体验', '试试', '去看看', '玩一下', '第一个', '第二个', '第三个', '这个', '那个'],
         actIntent: 'experience',
         response: {
@@ -74,10 +86,14 @@ Actions: experience(appName), report(content), back(lobby).`,
           agent: 'Mission assigned: experience app {clientId}. Return with action=report when done.',
         },
         functionCall: { name: 'GM.assignMission', args: { type: 'experience' } },
-        transition: { type: 'external' },
       },
       {
         id: 'report',
+        outcome: 'stay',
+        label: {
+          pa: '提交体验报告',
+          agent: 'report(content) — submit experience report',
+        },
         triggers: ['体验完', '回来了', '感受', '建议', '觉得', '不错', '一般', '有意思', '报告', '很好', '太差', '挺好'],
         actIntent: 'report',
         response: {
@@ -85,10 +101,14 @@ Actions: experience(appName), report(content), back(lobby).`,
           agent: 'Report saved. Feedback forwarded to developer. Actions: browse, back(lobby).',
         },
         functionCall: { name: 'GM.saveReport', args: {} },
-        transition: { type: 'enter_space', target: 'news' },
       },
       {
         id: 'back_lobby',
+        outcome: 'move',
+        label: {
+          pa: '回到大厅',
+          agent: 'back — return to lobby',
+        },
         triggers: ['回去', '大厅', '回到', '不了', '够了', '返回'],
         actIntent: 'exit',
         response: {
@@ -104,13 +124,11 @@ Actions: experience(appName), report(content), back(lobby).`,
         pa: '你可以选一个应用去体验，或者回大厅。想做什么？',
         agent: 'Actions: experience(appName), report(content), back(lobby).',
       },
-      action: 'retry',
     },
   },
 
   developer: {
     id: 'developer',
-    maxRounds: 2,
     theme: { accent: 'slate', icon: '🛠️', label: '开发者空间' },
     dataLoader: '/api/gm/developer-status',
     opening: {
@@ -120,9 +138,14 @@ Actions: experience(appName), report(content), back(lobby).`,
       agent: `Developer Space. {feedback_summary}.
 Actions: view_feedback, register, back(lobby).`,
     },
-    options: [
+    actions: [
       {
         id: 'view_feedback',
+        outcome: 'stay',
+        label: {
+          pa: '查看用户建议',
+          agent: 'view_feedback — see user suggestions',
+        },
         triggers: ['看看', '建议', '反馈', '查看', '有什么', '新的', '详情'],
         actIntent: 'view_feedback',
         response: {
@@ -132,10 +155,14 @@ Actions: view_feedback, register, back(lobby).`,
           agent: 'Feedback: {feedback_json}. Actions: register, back(lobby).',
         },
         functionCall: { name: 'GM.showFeedback', args: {} },
-        transition: { type: 'enter_space', target: 'developer' },
       },
       {
         id: 'register_app',
+        outcome: 'move',
+        label: {
+          pa: '注册新应用',
+          agent: 'register — register a new app',
+        },
         triggers: ['注册', '新应用', '分享', '发布', '加入'],
         actIntent: 'register',
         response: {
@@ -147,6 +174,11 @@ Actions: view_feedback, register, back(lobby).`,
       },
       {
         id: 'back_lobby',
+        outcome: 'move',
+        label: {
+          pa: '回到大厅',
+          agent: 'back — return to lobby',
+        },
         triggers: ['回去', '大厅', '回到', '不了', '够了', '返回', '结束'],
         actIntent: 'exit',
         response: {
@@ -162,7 +194,6 @@ Actions: view_feedback, register, back(lobby).`,
         pa: '你可以查看用户建议、注册新应用，或者回大厅。想做什么？',
         agent: 'Actions: view_feedback, register, back(lobby).',
       },
-      action: 'retry',
     },
   },
 }

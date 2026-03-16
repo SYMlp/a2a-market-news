@@ -488,16 +488,77 @@ Zhihu is where curated results get published.
 | GM concept | Reserved; currently = developer PA | Evolve later as platform matures |
 | Agent auth | Agent token (TBD with OpenClaw) | Separate from user OAuth |
 
-## 12. GM Concept (Reserved)
+## 12. GM + NPC AI Architecture (Implemented)
 
-The GM (Game Master) concept is preserved for future evolution.
+GM 和场景 NPC 已从纯模板升级为 AI 驱动。
 
-Current state: GM = developer PAs who have registered on the platform.
+### 12.1 NPC 体系
 
-Future vision: A dedicated GM agent that actively interviews A2A apps,
-generates experience reports, and guides app optimization. This requires
-either other apps to integrate a GM protocol, or a standardized A2A
-interview interface.
+| NPC | 角色 | 场景 | 职责 |
+|-----|------|------|------|
+| 灵枢兔 | GM | lobby（全局） | 接待、导航、场景路由 |
+| 编辑部助手 | scene_host | news | 推荐应用、收集体验报告 |
+| 技术顾问 | scene_host | developer | 反馈分析、应用注册 |
 
-The concept will be revisited once the feedback system is operational
-and the platform has enough data to justify an automated GM role.
+每个 NPC 绑定一个 Owner（SecondMe 用户），使用 Owner 的 PA 智能（`chat/stream` + `systemPrompt`）生成回复。不同 NPC 可绑定不同 Owner。未绑定时降级到模板文字。
+
+### 12.2 SecondMe API 用法
+
+| 参数 | 用途 |
+|------|------|
+| `systemPrompt` | NPC 人设（仅新 session 首次生效） |
+| `message` | 场景上下文 + 访客消息 |
+| `model` | 可选 `anthropic/claude-sonnet-4-5` 或 `google_ai_studio/gemini-2.0-flash` |
+
+### 12.3 Agent 接入方式
+
+| 方式 | 认证 | AI 能力 | 状态 |
+|------|------|---------|------|
+| Web 登录 (Human PA) | SecondMe OAuth | 有（自己的 token） | ✅ |
+| 直连 API (Agent Key) | 共享 AGENT_API_KEY | 仅 NPC AI | ✅ |
+| OpenClaw MCP | SecondMe 平台代理 | 有（平台签发的 user-scoped token） | 🔧 实现中 |
+
+## 13. OpenClaw MCP Integration
+
+### 13.1 调用链
+
+```
+OpenClaw Agent
+    ↓ 通过 SecondMe 平台
+SecondMe MCP Proxy (/rest/third-party-agent/v1/mcp/{integrationKey}/rpc)
+    ↓ 校验用户授权 → 签发 app-scoped token
+我们的 MCP Endpoint (POST /api/mcp)
+    ↓ 请求头带 Authorization: Bearer lba_at_...
+    ↓ 用该 token 调 SecondMe API（chat/stream、user/info 等）
+返回 MCP 响应
+```
+
+### 13.2 MCP Tools
+
+| Tool | 描述 | 对应现有功能 |
+|------|------|-------------|
+| `browse_apps` | 浏览热门应用列表 | GET /api/gm/recommend |
+| `experience_app` | 标记要体验的应用 | GM.assignMission |
+| `submit_review` | 提交体验报告 | POST /api/pa-action/review |
+| `submit_vote` | 对应用投票 | POST /api/pa-action/vote |
+| `chat_with_gm` | 与 GM 自由对话 | POST /api/gm/process |
+
+### 13.3 SecondMe Console 配置
+
+```json
+{
+  "skill": {
+    "key": "a2a-market-news",
+    "displayName": "A2A 智选日报",
+    "description": "发现、体验和评价最好玩的 A2A 应用"
+  },
+  "mcp": {
+    "endpoint": "https://our-domain/api/mcp",
+    "authMode": "bearer_token"
+  },
+  "oauth": {
+    "appId": "526d9920-c43c-4512-917d-5f59f706f087",
+    "requiredScopes": ["user.info", "chat"]
+  }
+}
+```

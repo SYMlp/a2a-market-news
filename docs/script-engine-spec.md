@@ -2,130 +2,106 @@
 
 > 架构指导文档：定义 GM 如何引导 PA/Agent 在平台内交互
 > 推导来源：meta/derivation/a2a-interaction-paradigm-three-layer-projection-2026-03-16.md
+> **上层架构**：`docs/game-loop-architecture.md`（回合制交互模型 — 递归二叉决策树）
+
+## 上层架构关系
+
+本文档定义**场景内容**（每个场景有什么、能做什么）。
+上层的 Game Loop Architecture 定义**交互模型**（PA 如何在场景间流转、每回合的决策结构）。
+
+核心模型：PA 每回合做两层二选一决策 → REST(stay) | ACT → STAY | MOVE。
+类型定义见 `src/lib/gm/types.ts`。
 
 ## 核心约束
 
 | 约束 | 值 | 理由 |
 |:---|:---|:---|
-| 每场景对话节奏 | 1-2 轮后重新展示选项 | GM 不啰嗦，但 PA 可以一直待着 |
+| 回合决策 | REST or ACT | 递归二叉决策树的第一层 |
+| ACT 结果 | STAY or MOVE | 第二层，声明式写在 action 定义里 |
 | 场景切换方式 | Function Call | 统一执行层 |
 | 文本人称 | PA 视角 + Agent 视角 | 双模式呈现 |
 | 驻留自由 | PA 可以无限停留在任何场景 | 图中的节点，不是限时房间 |
+| 通用操作 | rest / back / help | 由引擎注入，场景不重复定义 |
 
 ## 类型定义
 
+> 完整类型定义见 `src/lib/gm/types.ts`
+> 架构设计见 `docs/game-loop-architecture.md` §3
+
+### v2 核心类型（当前）
+
 ```typescript
-// ─── 场景 ─────────────────────────────────────────
+// ─── 回合输入 ─────────────────────────────────────
 
-interface Scene {
-  id: string                    // lobby | news | developer
-  maxRounds: 1 | 2
+type PlayerTurn =
+  | { type: 'rest'; seconds: number }       // 休息：sleep → 刷新场景
+  | { type: 'act'; actionId: string; params?: Record<string, unknown> }  // 行动：选择场景内操作
 
-  // GM 进入此场景时说的话
-  opening: DualText
+// ─── 回合结果 ─────────────────────────────────────
 
-  // 此场景需要预加载的数据
-  dataLoader?: string           // API endpoint to call on enter
+type TurnOutcome =
+  | { type: 'stay'; effect: SceneEffect; message: DualText }   // 留在当前场景
+  | { type: 'move'; target: string; transitionType: TransitionType; message: DualText }  // 切换场景
 
-  // PA/Agent 可选的操作
-  options: SceneOption[]
+// ─── 场景行动（声明式 outcome）─────────────────────
 
-  // 所有选项都不匹配时的兜底
-  fallback: {
-    response: DualText          // GM 的兜底回复
-    action: 'retry' | 'exit'   // retry=重新提示, exit=回大厅
-  }
-
-  // 视觉主题 (Web 模式)
-  theme: {
-    accent: string              // tailwind color: orange | blue | slate
-    icon: string                // emoji
-    label: string               // 空间名称
-  }
-}
-
-// ─── 双人称文本 ───────────────────────────────────
-
-interface DualText {
-  pa: string                    // 给人看: 中文、对话语气、第二人称
-  agent: string                 // 给 API: 英文、指令式、含参数说明
-}
-
-// ─── 场景选项 ─────────────────────────────────────
-
-interface SceneOption {
-  id: string                    // discover | experience | report | ...
-  triggers: string[]            // 关键词列表 (手动模式匹配)
-  actIntent?: string            // act API 意图标签 (自动模式)
-
-  // GM 识别到此选项后的回复
-  response: DualText
-
-  // 触发的 Function Call
-  functionCall: {
-    name: string                // GM.enterSpace | GM.assignMission | ...
-    args: Record<string, unknown>
-  }
-
-  // 去向
-  transition: SceneTransition
-}
-
-// ─── 场景切换 ─────────────────────────────────────
-
-interface SceneTransition {
-  type: 'enter_space'           // 进入另一个空间
-      | 'sub_flow'              // 在当前空间内进入子流程 (如注册)
-      | 'external'              // 外部链接 (去体验应用)
-      | 'exit'                  // 结束会话
-  target?: string               // 目标场景 ID 或 URL
-}
-
-// ─── 会话状态 ─────────────────────────────────────
-
-interface GMSession {
+interface SceneAction {
   id: string
-  currentScene: string          // 当前场景 ID
-  round: number                 // 当前场景内的轮数 (0-based)
-  mode: 'manual' | 'auto'      // Web 模式
-  agentId?: string              // Agent API 模式
-  data?: Record<string, unknown> // dataLoader 的结果缓存
-  createdAt: number
-  lastActiveAt: number
+  outcome: 'stay' | 'move'     // 声明式：选这个行动会留还是走
+  label: DualText               // 给人/给 Agent 的行动描述
+  triggers: string[]
+  actIntent?: string
+  response: DualText
+  functionCall: FunctionCall
+  transition?: { type: TransitionType; target?: string }
+  precondition?: { check: string; failMessage: DualText }
+  params?: ParamSpec[]
 }
 
-// ─── GM 响应 ──────────────────────────────────────
+// ─── 场景呈现 ─────────────────────────────────────
 
-interface GMResponse {
-  message: DualText
-  currentScene: string
-  sessionId: string
-
-  // 场景数据 (如应用列表)
+interface ScenePresentation {
+  sceneId: string
+  opening: DualText
+  actions: ActionSlot[]         // 场景特有行动（含 available 状态）
+  meta: MetaActionType[]        // 通用操作：rest / back / help
   data?: Record<string, unknown>
+}
 
-  // 可用操作 (Agent API 用)
-  availableActions?: Array<{
-    action: string
-    description: string
-    params?: Record<string, string>
-  }>
+// ─── 行动槽位 ─────────────────────────────────────
 
-  // Function Call (如果触发了)
-  functionCall?: {
-    name: string
-    args: Record<string, unknown>
-    status: 'pending' | 'executed'
+interface ActionSlot {
+  id: string
+  label: DualText
+  outcome: 'stay' | 'move'
+  available: boolean
+  disabledReason?: string
+  params?: ParamSpec[]
+}
+
+// ─── 统一 API 响应 ─────────────────────────────────
+
+interface TurnResponse {
+  sessionId: string
+  scene: { id: string; label: DualText }
+  message: DualText
+  actions: ActionSlot[]
+  meta: MetaActionType[]
+  outcome?: {
+    type: 'stay' | 'move'
+    functionCall?: FunctionCall
+    transition?: { from: string; to: string }
   }
-
-  // 场景切换 (如果发生了)
-  sceneTransition?: {
-    from: string
-    to: string
-    type: SceneTransition['type']
-  }
+  data?: Record<string, unknown>
+  delay?: number                // REST 时建议的等待毫秒数
 }
 ```
+
+### v1 类型（兼容，逐步淘汰）
+
+v1 类型（SceneOption、SceneTransition、GMSession、GMResponse）仍保留在 `types.ts` 中，
+标记为 `@deprecated`，供现有 engine.ts / scenes.ts / API routes 继续使用。
+引擎重构（P2）完成后移除。
 
 ## 场景定义 (完整)
 

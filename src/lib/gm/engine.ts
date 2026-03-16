@@ -1,21 +1,28 @@
 import type {
-  GMSession,
-  GMResponse,
-  SceneOption,
+  GameSession,
+  SceneAction,
   DualText,
+  PlayerTurn,
+  TurnOutcome,
+  TurnResponse,
+  ScenePresentation,
+  ActionSlot,
+  MetaActionType,
+  GMResponse,
 } from './types'
 import { getScene, SCENES } from './scenes'
 
-const sessions = new Map<string, GMSession>()
+// ─── Session Store ───────────────────────────────
 
-const SESSION_TTL = 30 * 60 * 1000 // 30 min
+const sessions = new Map<string, GameSession>()
+const SESSION_TTL = 30 * 60 * 1000
 
 export function createSession(
   mode: 'manual' | 'auto',
   agentId?: string,
   agentName?: string,
-): GMSession {
-  const session: GMSession = {
+): GameSession {
+  const session: GameSession = {
     id: `sess_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
     currentScene: 'lobby',
     round: 0,
@@ -29,7 +36,7 @@ export function createSession(
   return session
 }
 
-export function getSession(id: string): GMSession | null {
+export function getSession(id: string): GameSession | null {
   const s = sessions.get(id)
   if (!s) return null
   if (Date.now() - s.lastActiveAt > SESSION_TTL) {
@@ -44,7 +51,7 @@ export function getOrCreateSession(
   mode: 'manual' | 'auto',
   agentId?: string,
   agentName?: string,
-): GMSession {
+): GameSession {
   if (sessionId) {
     const existing = getSession(sessionId)
     if (existing) return existing
@@ -52,24 +59,156 @@ export function getOrCreateSession(
   return createSession(mode, agentId, agentName)
 }
 
-/**
- * Enter a scene: returns the scene's opening message + available actions.
- * This is the first thing PA/Agent sees when arriving at a space.
- */
+// ─── V2 Core: Game Loop ─────────────────────────
+
+export function presentScene(session: GameSession): ScenePresentation {
+  const scene = getScene(session.currentScene)
+  return {
+    sceneId: scene.id,
+    opening: fillTemplate(scene.opening, session.data),
+    actions: scene.actions.map(a => toActionSlot(a, session)),
+    meta: buildMetaActions(scene.id),
+    data: session.data,
+  }
+}
+
+export function extractTurn(message: string, sceneId: string): PlayerTurn {
+  const scene = getScene(sceneId)
+  const matched = matchAction(scene.actions, message)
+  if (matched) {
+    return { type: 'act', actionId: matched.id }
+  }
+  return { type: 'act', actionId: '_fallback' }
+}
+
+export function resolveTurn(session: GameSession, turn: PlayerTurn): TurnOutcome {
+  const scene = getScene(session.currentScene)
+
+  if (turn.type === 'rest') {
+    return {
+      type: 'stay',
+      effect: {
+        functionCall: { name: 'GM.rest', args: { seconds: turn.seconds } },
+        refreshData: true,
+      },
+      message: {
+        pa: `休息一下，${turn.seconds}秒后看看有什么新动态。`,
+        agent: `Resting for ${turn.seconds}s. Scene data will refresh.`,
+      },
+    }
+  }
+
+  if (turn.actionId === '_back') {
+    return {
+      type: 'move',
+      target: 'lobby',
+      transitionType: 'enter_space',
+      message: { pa: '好的，回大厅了！', agent: 'Returning to lobby.' },
+    }
+  }
+
+  if (turn.actionId === '_help') {
+    return {
+      type: 'stay',
+      effect: {
+        functionCall: { name: 'GM.help', args: {} },
+        refreshData: false,
+      },
+      message: fillTemplate(scene.opening, session.data),
+    }
+  }
+
+  const action = scene.actions.find(a => a.id === turn.actionId)
+  if (!action) {
+    return {
+      type: 'stay',
+      effect: {
+        functionCall: { name: 'GM.fallback', args: {} },
+        refreshData: false,
+      },
+      message: fillTemplate(scene.fallback.response, session.data),
+    }
+  }
+
+  if (action.outcome === 'stay') {
+    return {
+      type: 'stay',
+      effect: {
+        functionCall: action.functionCall,
+        refreshData: true,
+      },
+      message: fillTemplate(action.response, session.data),
+    }
+  }
+
+  return {
+    type: 'move',
+    target: action.transition?.target || 'lobby',
+    transitionType: action.transition?.type || 'enter_space',
+    message: fillTemplate(action.response, session.data),
+  }
+}
+
+export function applyResult(session: GameSession, outcome: TurnOutcome): void {
+  if (outcome.type === 'stay') {
+    if (outcome.effect.dataUpdate) {
+      session.data = { ...session.data, ...outcome.effect.dataUpdate }
+    }
+    session.round++
+  } else {
+    session.currentScene = outcome.target
+    session.round = 0
+  }
+  session.lastActiveAt = Date.now()
+  sessions.set(session.id, session)
+}
+
+export function processTurn(session: GameSession, turn: PlayerTurn): TurnResponse {
+  const prevScene = session.currentScene
+  const outcome = resolveTurn(session, turn)
+  applyResult(session, outcome)
+
+  const presentation = presentScene(session)
+  const sceneDef = getScene(session.currentScene)
+
+  return {
+    sessionId: session.id,
+    scene: {
+      id: session.currentScene,
+      label: { pa: sceneDef.theme.label, agent: sceneDef.theme.label },
+    },
+    message: outcome.message,
+    actions: presentation.actions,
+    meta: presentation.meta,
+    outcome: {
+      type: outcome.type,
+      functionCall: outcome.type === 'stay'
+        ? outcome.effect.functionCall
+        : undefined,
+      transition: outcome.type === 'move'
+        ? { from: prevScene, to: outcome.target }
+        : undefined,
+    },
+    data: session.data,
+    delay: turn.type === 'rest' ? turn.seconds * 1000 : undefined,
+  }
+}
+
+// ─── V1 Compat ──────────────────────────────────
+
 export async function enterScene(
-  session: GMSession,
+  session: GameSession,
   sceneId: string,
   sceneData?: Record<string, unknown>,
 ): Promise<GMResponse> {
   const prevScene = session.currentScene
-  const scene = getScene(sceneId)
-
   session.currentScene = sceneId
   session.round = 0
   session.data = sceneData
   session.lastActiveAt = Date.now()
   sessions.set(session.id, session)
 
+  const scene = getScene(sceneId)
   const opening = fillTemplate(scene.opening, sceneData)
 
   return {
@@ -77,10 +216,9 @@ export async function enterScene(
     currentScene: scene.id,
     sessionId: session.id,
     data: sceneData,
-    availableActions: scene.options.map(o => ({
-      action: o.id,
-      description: o.response.agent.split('.')[0],
-      params: extractParams(o),
+    availableActions: scene.actions.map(a => ({
+      action: a.id,
+      description: a.label.agent,
     })),
     sceneTransition: prevScene !== sceneId
       ? { from: prevScene, to: sceneId, type: 'enter_space' }
@@ -88,109 +226,140 @@ export async function enterScene(
   }
 }
 
-/**
- * Process a message from PA/Agent within the current scene.
- * Matches intent → generates response + function call + transition.
- */
 export async function processMessage(
-  session: GMSession,
+  session: GameSession,
   message: string,
 ): Promise<GMResponse> {
-  const scene = getScene(session.currentScene)
-  session.lastActiveAt = Date.now()
+  const prevScene = session.currentScene
+  const scene = getScene(prevScene)
+  const matched = matchAction(scene.actions, message)
 
-  // Round limit reached → re-present current scene options (PA can stay as long as they want)
-  if (session.round >= scene.maxRounds) {
-    session.round = 0
-    sessions.set(session.id, session)
-  }
+  const turn: PlayerTurn = matched
+    ? { type: 'act', actionId: matched.id }
+    : { type: 'act', actionId: '_fallback' }
 
-  // Try to match an option
-  const matched = matchOption(scene.options, message)
+  const outcome = resolveTurn(session, turn)
+  applyResult(session, outcome)
 
-  if (matched) {
-    const response = fillTemplate(matched.response, session.data)
-    const fc = {
-      name: matched.functionCall.name,
-      args: { ...matched.functionCall.args, _message: message },
-      status: 'pending' as const,
-    }
-
-    // Execute transition
-    if (matched.transition.type === 'enter_space' && matched.transition.target) {
-      session.currentScene = matched.transition.target
-      session.round = 0
-    } else if (matched.transition.type === 'hub') {
-      session.currentScene = 'lobby'
-      session.round = 0
-    } else {
-      session.round++
-    }
-    sessions.set(session.id, session)
-
-    return {
-      message: response,
-      currentScene: session.currentScene,
-      sessionId: session.id,
-      data: session.data,
-      functionCall: fc,
-      sceneTransition: matched.transition.target
-        ? { from: scene.id, to: matched.transition.target, type: matched.transition.type }
-        : undefined,
-      availableActions: getActionsForScene(session.currentScene),
-    }
-  }
-
-  // No match → fallback
-  session.round++
-  sessions.set(session.id, session)
-
-  return {
-    message: fillTemplate(scene.fallback.response, session.data),
+  const currentSceneDef = getScene(session.currentScene)
+  const response: GMResponse = {
+    message: outcome.message,
     currentScene: session.currentScene,
     sessionId: session.id,
     data: session.data,
-    availableActions: getActionsForScene(session.currentScene),
-  }
-}
-
-function navigateToHub(session: GMSession): GMResponse {
-  const from = session.currentScene
-  session.currentScene = 'lobby'
-  session.round = 0
-  sessions.set(session.id, session)
-
-  const lobby = getScene('lobby')
-  return {
-    message: {
-      pa: '带你回大厅，重新选择想去的地方吧！',
-      agent: 'Returning to lobby.',
-    },
-    currentScene: 'lobby',
-    sessionId: session.id,
-    sceneTransition: { from, to: 'lobby', type: 'enter_space' },
-    availableActions: lobby.options.map(o => ({
-      action: o.id,
-      description: o.response.agent.split('.')[0],
-      params: extractParams(o),
+    availableActions: currentSceneDef.actions.map(a => ({
+      action: a.id,
+      description: a.label.agent,
     })),
   }
+
+  if (matched) {
+    response.functionCall = {
+      name: matched.functionCall.name,
+      args: { ...matched.functionCall.args, _message: message },
+      status: 'pending',
+    }
+  }
+
+  if (outcome.type === 'move') {
+    response.sceneTransition = {
+      from: prevScene,
+      to: outcome.target,
+      type: outcome.transitionType,
+    }
+  }
+
+  return response
 }
 
-/**
- * Keyword matching: check if the message contains any trigger words.
- * First match wins — options are ordered by priority in scene definition.
- */
-function matchOption(options: SceneOption[], message: string): SceneOption | null {
+// ─── AI-Enhanced Wrappers ───────────────────────
+
+interface VisitorInfo {
+  name?: string
+  type: 'pa' | 'agent'
+}
+
+export async function enterSceneWithAI(
+  session: GameSession,
+  sceneId: string,
+  sceneData?: Record<string, unknown>,
+  visitorInfo?: VisitorInfo,
+): Promise<GMResponse> {
+  const base = await enterScene(session, sceneId, sceneData)
+
+  const { generateNPCReply } = await import('./npc-ai')
+  const aiMessage = await generateNPCReply({
+    sceneId,
+    sceneData,
+    visitorInfo,
+    isOpening: true,
+  })
+  base.message = aiMessage
+
+  return base
+}
+
+export async function processMessageWithAI(
+  session: GameSession,
+  message: string,
+  visitorInfo?: VisitorInfo,
+): Promise<GMResponse> {
+  const prevScene = session.currentScene
+  const scene = getScene(prevScene)
+  const matched = matchAction(scene.actions, message)
+  const isFreeChat = !matched
+
+  const base = await processMessage(session, message)
+
+  const { generateNPCReply } = await import('./npc-ai')
+  const aiMessage = await generateNPCReply({
+    sceneId: isFreeChat ? prevScene : session.currentScene,
+    visitorMessage: message,
+    sceneData: base.data,
+    visitorInfo,
+    isFreeChat,
+  })
+  base.message = aiMessage
+
+  return base
+}
+
+// ─── Internal Utilities ─────────────────────────
+
+function toActionSlot(action: SceneAction, session: GameSession): ActionSlot {
+  const available = !action.precondition
+    || checkPrecondition(action.precondition.check, session)
+  return {
+    id: action.id,
+    label: action.label,
+    outcome: action.outcome,
+    available,
+    disabledReason: !available ? action.precondition?.failMessage.pa : undefined,
+    params: action.params,
+  }
+}
+
+function buildMetaActions(sceneId: string): MetaActionType[] {
+  const meta: MetaActionType[] = ['rest', 'help']
+  if (sceneId !== 'lobby') meta.push('back')
+  return meta
+}
+
+function matchAction(actions: SceneAction[], message: string): SceneAction | null {
   const lower = message.toLowerCase()
-  for (const opt of options) {
-    for (const trigger of opt.triggers) {
+  for (const action of actions) {
+    for (const trigger of action.triggers) {
       if (lower.includes(trigger.toLowerCase())) {
-        return opt
+        return action
       }
     }
   }
   return null
+}
+
+function checkPrecondition(check: string, session: GameSession): boolean {
+  if (check === 'hasExperienced') return session.flags?.hasExperienced === true
+  return true
 }
 
 function fillTemplate(
@@ -211,28 +380,6 @@ function replaceVars(s: string, data: Record<string, unknown>): string {
     if (typeof val === 'string') return val
     return JSON.stringify(val)
   })
-}
-
-function extractParams(option: SceneOption): Record<string, string> | undefined {
-  const args = option.functionCall.args
-  if (!args || Object.keys(args).length === 0) return undefined
-  const params: Record<string, string> = {}
-  for (const [k, v] of Object.entries(args)) {
-    if (typeof v === 'string' && v.startsWith('{')) {
-      params[k] = 'required'
-    }
-  }
-  return Object.keys(params).length > 0 ? params : undefined
-}
-
-function getActionsForScene(sceneId: string) {
-  const scene = SCENES[sceneId]
-  if (!scene) return []
-  return scene.options.map(o => ({
-    action: o.id,
-    description: o.response.agent.split('.')[0],
-    params: extractParams(o),
-  }))
 }
 
 export { SCENES }

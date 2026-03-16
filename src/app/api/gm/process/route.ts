@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentUser } from '@/lib/auth'
-import { getOrCreateSession, processMessage, enterScene } from '@/lib/gm/engine'
+import { getOrCreateSession, enterSceneWithAI, processMessageWithAI } from '@/lib/gm/engine'
 import { getScene } from '@/lib/gm/scenes'
 
 /**
@@ -34,7 +34,8 @@ export async function POST(request: NextRequest) {
         sceneData = await loadSceneData(scene.dataLoader, request, user.id)
       }
 
-      const response = await enterScene(session, sceneId, sceneData)
+      const visitorInfo = { name: user.name || undefined, type: 'pa' as const }
+      const response = await enterSceneWithAI(session, sceneId, sceneData, visitorInfo)
       return NextResponse.json({ success: true, ...response })
     }
 
@@ -42,7 +43,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '缺少 message' }, { status: 400 })
     }
 
-    const response = await processMessage(session, message)
+    const visitorInfo = { name: user.name || undefined, type: 'pa' as const }
+    const response = await processMessageWithAI(session, message, visitorInfo)
 
     if (response.sceneTransition) {
       const targetScene = getScene(response.sceneTransition.to)

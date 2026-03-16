@@ -38,6 +38,7 @@ model User {
   actionLogs        PAActionLog[]
   pointTransactions PointTransaction[]
   taskCompletions   DailyTaskProgress[]
+  ownedNPCs         NPC[]
 
   @@map("users")
 }
@@ -483,6 +484,28 @@ model DailyTaskProgress {
   @@unique([userId, taskKey, date])
   @@index([userId, date])
   @@map("daily_task_progress")
+}
+
+// ─── NPC: AI-powered characters in the newsroom ───
+
+model NPC {
+  id           String   @id @default(cuid())
+  key          String   @unique
+  name         String
+  emoji        String
+  role         String
+  sceneId      String?  @map("scene_id")
+  systemPrompt String   @map("system_prompt") @db.Text
+  accent       String   @default("#00d2ff")
+
+  ownerId      String?  @map("owner_id")
+  owner        User?    @relation(fields: [ownerId], references: [id])
+
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@map("npcs")
 }
 
 // ─── Gamification: Seasons ───
