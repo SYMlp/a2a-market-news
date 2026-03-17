@@ -10,3 +10,13 @@ build/
 prisma/dev.db
 prisma/dev.db-journal
 tsconfig.tsbuildinfo
+
+# Internal: Cursor rules, MCP config, agent skills
+.cursor/
+.agents/
+
+# Internal: AI guidance
+CLAUDE.md
+
+# Internal: Design docs
+docs/
