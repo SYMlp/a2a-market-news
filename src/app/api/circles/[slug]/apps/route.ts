@@ -29,8 +29,8 @@ export async function GET(
     }
 
     // 获取应用 PA 列表
-    const [appPAs, total] = await Promise.all([
-      prisma.appPA.findMany({
+    const [apps, total] = await Promise.all([
+      prisma.app.findMany({
         where: {
           circleId: circle.id,
           status: 'active',
@@ -59,7 +59,7 @@ export async function GET(
         skip,
         take: limit,
       }),
-      prisma.appPA.count({
+      prisma.app.count({
         where: {
           circleId: circle.id,
           status: 'active',
@@ -71,7 +71,7 @@ export async function GET(
       success: true,
       data: {
         circle,
-        apps: appPAs,
+        apps,
         pagination: {
           page,
           limit,

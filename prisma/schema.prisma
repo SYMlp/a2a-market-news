@@ -8,33 +8,32 @@ datasource db {
 }
 
 model User {
-  id                String   @id @default(cuid())
-  secondmeUserId    String   @unique @map("secondme_user_id")
-  email             String?
-  name              String?
-  avatarUrl         String?  @map("avatar_url")
+  id             String  @id @default(cuid())
+  secondmeUserId String  @unique @map("secondme_user_id")
+  email          String?
+  name           String?
+  avatarUrl      String? @map("avatar_url")
 
-  accessToken       String   @map("access_token")
-  refreshToken      String   @map("refresh_token")
-  tokenExpiresAt    DateTime @map("token_expires_at")
+  accessToken    String   @map("access_token")
+  refreshToken   String   @map("refresh_token")
+  tokenExpiresAt DateTime @map("token_expires_at")
 
-  shades            Json?
-  softMemory        Json?    @map("soft_memory")
+  shades     Json?
+  softMemory Json? @map("soft_memory")
 
-  isDeveloper       Boolean  @default(false) @map("is_developer")
-  developerName     String?  @map("developer_name")
-  callbackUrl       String?  @map("callback_url")
-  notifyPreference  String   @default("none") @map("notify_preference")
+  isDeveloper      Boolean @default(false) @map("is_developer")
+  developerName    String? @map("developer_name")
+  callbackUrl      String? @map("callback_url")
+  notifyPreference String  @default("none") @map("notify_preference")
 
-  createdAt         DateTime @default(now()) @map("created_at")
-  updatedAt         DateTime @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
-  a2aApps           A2AApp[]
-  appPAs            AppPA[]
+  apps              App[]
   votes             Vote[]
   notes             Note[]
-  comments          AppPAComment[]
-  feedbacksReceived AppFeedback[] @relation("DeveloperFeedbacks")
+  comments          AppComment[]
+  feedbacksReceived AppFeedback[]       @relation("DeveloperFeedbacks")
   actionLogs        PAActionLog[]
   pointTransactions PointTransaction[]
   taskCompletions   DailyTaskProgress[]
@@ -44,149 +43,130 @@ model User {
 }
 
 model Circle {
-  id          String   @id @default(cuid())
-  name        String   @unique
-  slug        String   @unique
+  id          String @id @default(cuid())
+  name        String @unique
+  slug        String @unique
   description String
   icon        String
   color       String
-  type        String   @unique
+  type        String @unique
 
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
-  appPAs      AppPA[]
-  posts       AppPAPost[]
+  apps  App[]
+  posts AppPost[]
 
   @@map("circles")
 }
 
-model AppPA {
-  id            String   @id @default(cuid())
-  name          String
-  description   String
-  website       String?
-  logo          String?
+model App {
+  id          String  @id @default(cuid())
+  name        String
+  description String
+  website     String?
+  logo        String?
+  category    String  @default("")
 
-  circleId      String   @map("circle_id")
-  circle        Circle   @relation(fields: [circleId], references: [id])
+  circleId String @map("circle_id")
+  circle   Circle @relation(fields: [circleId], references: [id])
 
-  developerId   String?  @map("developer_id")
-  developer     User?    @relation(fields: [developerId], references: [id])
+  developerId String? @map("developer_id")
+  developer   User?   @relation(fields: [developerId], references: [id])
 
-  persona       Json?
-  metadata      Json?
-  clientId      String?  @unique @map("client_id")
+  persona  Json?
+  metadata Json?
+  clientId String? @unique @map("client_id")
 
-  status        String   @default("pending")
-  featured      Boolean  @default(false)
+  shortPrompt    String? @map("short_prompt") @db.Text
+  detailedPrompt String? @map("detailed_prompt") @db.Text
+  systemSummary  String? @map("system_summary") @db.Text
 
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
+  viewCount Int   @default(0) @map("view_count")
+  voteCount Int   @default(0) @map("vote_count")
+  score     Float @default(0)
 
-  app           A2AApp?
-  metrics       AppPAMetrics[]
-  posts         AppPAPost[]
-  comments      AppPAComment[]
-  feedbacks     AppFeedback[]
+  status   String  @default("pending")
+  featured Boolean @default(false)
 
-  @@map("app_pas")
-}
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
-model AppPAMetrics {
-  id              String   @id @default(cuid())
-  appPAId         String   @map("app_pa_id")
-  appPA           AppPA    @relation(fields: [appPAId], references: [id], onDelete: Cascade)
-
-  totalUsers      Int      @default(0) @map("total_users")
-  activeUsers     Int      @default(0) @map("active_users")
-  totalVisits     Int      @default(0) @map("total_visits")
-  avgSessionTime  Int      @default(0) @map("avg_session_time")
-  rating          Float    @default(0)
-  newUsersToday   Int      @default(0) @map("new_users_today")
-  visitsToday     Int      @default(0) @map("visits_today")
-
-  date            DateTime @default(now())
-  createdAt       DateTime @default(now()) @map("created_at")
-
-  @@unique([appPAId, date])
-  @@map("app_pa_metrics")
-}
-
-model AppPAPost {
-  id           String   @id @default(cuid())
-  appPAId      String   @map("app_pa_id")
-  appPA        AppPA    @relation(fields: [appPAId], references: [id], onDelete: Cascade)
-
-  content      String
-  metrics      Json?
-  circleId     String?  @map("circle_id")
-  circle       Circle?  @relation(fields: [circleId], references: [id])
-
-  likeCount    Int      @default(0) @map("like_count")
-  commentCount Int      @default(0) @map("comment_count")
-
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
-
-  comments     AppPAComment[]
-
-  @@map("app_pa_posts")
-}
-
-model AppPAComment {
-  id        String    @id @default(cuid())
-  postId    String    @map("post_id")
-  post      AppPAPost @relation(fields: [postId], references: [id], onDelete: Cascade)
-
-  appPAId   String?   @map("app_pa_id")
-  appPA     AppPA?    @relation(fields: [appPAId], references: [id], onDelete: Cascade)
-
-  userId    String?   @map("user_id")
-  user      User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  content   String
-  createdAt DateTime  @default(now()) @map("created_at")
-
-  @@map("app_pa_comments")
-}
-
-model A2AApp {
-  id            String   @id @default(cuid())
-  name          String
-  description   String
-  category      String
-  website       String?
-  logo          String?
-
-  appPAId       String?  @unique @map("app_pa_id")
-  appPA         AppPA?   @relation(fields: [appPAId], references: [id])
-
-  developerId   String?  @map("developer_id")
-  developer     User?    @relation(fields: [developerId], references: [id])
-
-  viewCount     Int      @default(0) @map("view_count")
-  voteCount     Int      @default(0) @map("vote_count")
-  score         Float    @default(0)
-  status        String   @default("pending")
-  featured      Boolean  @default(false)
-
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
-
+  metrics        AppMetrics[]
+  posts          AppPost[]
+  comments       AppComment[]
+  feedbacks      AppFeedback[]
   votes          Vote[]
   rankings       RankingEntry[]
   contestEntries ContestEntry[]
 
-  @@map("a2a_apps")
+  @@map("apps")
+}
+
+model AppMetrics {
+  id    String @id @default(cuid())
+  appId String @map("app_id")
+  app   App    @relation(fields: [appId], references: [id], onDelete: Cascade)
+
+  totalUsers     Int   @default(0) @map("total_users")
+  activeUsers    Int   @default(0) @map("active_users")
+  totalVisits    Int   @default(0) @map("total_visits")
+  avgSessionTime Int   @default(0) @map("avg_session_time")
+  rating         Float @default(0)
+  newUsersToday  Int   @default(0) @map("new_users_today")
+  visitsToday    Int   @default(0) @map("visits_today")
+
+  date      DateTime @default(now())
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([appId, date])
+  @@map("app_metrics")
+}
+
+model AppPost {
+  id    String @id @default(cuid())
+  appId String @map("app_id")
+  app   App    @relation(fields: [appId], references: [id], onDelete: Cascade)
+
+  content  String
+  metrics  Json?
+  circleId String? @map("circle_id")
+  circle   Circle? @relation(fields: [circleId], references: [id])
+
+  likeCount    Int @default(0) @map("like_count")
+  commentCount Int @default(0) @map("comment_count")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  comments AppComment[]
+
+  @@map("app_posts")
+}
+
+model AppComment {
+  id     String  @id @default(cuid())
+  postId String  @map("post_id")
+  post   AppPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  appId String? @map("app_id")
+  app   App?    @relation(fields: [appId], references: [id], onDelete: Cascade)
+
+  userId String? @map("user_id")
+  user   User?   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  content   String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("app_comments")
 }
 
 model Vote {
-  id        String   @id @default(cuid())
-  userId    String   @map("user_id")
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  appId     String   @map("app_id")
-  app       A2AApp   @relation(fields: [appId], references: [id], onDelete: Cascade)
+  id          String   @id @default(cuid())
+  userId      String   @map("user_id")
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  appId       String   @map("app_id")
+  app         App      @relation(fields: [appId], references: [id], onDelete: Cascade)
   voteType    String   @map("vote_type")
   reasoning   String?
   paGenerated Boolean  @default(false) @map("pa_generated")
@@ -208,7 +188,7 @@ model Contest {
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
-  entries     ContestEntry[]
+  entries ContestEntry[]
 
   @@map("contests")
 }
@@ -218,7 +198,7 @@ model ContestEntry {
   contestId    String   @map("contest_id")
   contest      Contest  @relation(fields: [contestId], references: [id], onDelete: Cascade)
   appId        String   @map("app_id")
-  app          A2AApp   @relation(fields: [appId], references: [id], onDelete: Cascade)
+  app          App      @relation(fields: [appId], references: [id], onDelete: Cascade)
   introduction String
   highlights   Json?
   voteCount    Int      @default(0) @map("vote_count")
@@ -240,7 +220,7 @@ model Ranking {
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
 
-  entries     RankingEntry[]
+  entries RankingEntry[]
 
   @@map("rankings")
 }
@@ -250,7 +230,7 @@ model RankingEntry {
   rankingId String   @map("ranking_id")
   ranking   Ranking  @relation(fields: [rankingId], references: [id], onDelete: Cascade)
   appId     String   @map("app_id")
-  app       A2AApp   @relation(fields: [appId], references: [id], onDelete: Cascade)
+  app       App      @relation(fields: [appId], references: [id], onDelete: Cascade)
   rank      Int
   score     Float
   change    Int?
@@ -293,25 +273,28 @@ model MarketReport {
 }
 
 model AppFeedback {
-  id              String   @id @default(cuid())
-  targetClientId  String   @map("target_client_id")
-  appPAId         String?  @map("app_pa_id")
-  appPA           AppPA?   @relation(fields: [appPAId], references: [id])
+  id             String  @id @default(cuid())
+  targetClientId String  @map("target_client_id")
+  appId          String? @map("app_id")
+  app            App?    @relation(fields: [appId], references: [id])
 
-  developerId     String?  @map("developer_id")
-  developer       User?    @relation("DeveloperFeedbacks", fields: [developerId], references: [id])
+  developerId String? @map("developer_id")
+  developer   User?   @relation("DeveloperFeedbacks", fields: [developerId], references: [id])
 
-  agentId         String   @map("agent_id")
-  agentName       String   @map("agent_name")
-  agentType       String   @map("agent_type")
+  agentId   String @map("agent_id")
+  agentName String @map("agent_name")
+  agentType String @map("agent_type")
 
-  payload         Json
-  overallRating   Int      @map("overall_rating")
-  summary         String
-  source          String   @default("direct_api")
-  status          String   @default("published")
+  payload       Json
+  overallRating Int    @map("overall_rating")
+  summary       String
+  source        String @default("direct_api")
+  status        String @default("published")
 
-  createdAt       DateTime @default(now()) @map("created_at")
+  developerReply   String?   @map("developer_reply") @db.Text
+  developerReplyAt DateTime? @map("developer_reply_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
 
   @@index([targetClientId])
   @@index([developerId])
@@ -320,13 +303,13 @@ model AppFeedback {
 }
 
 model NotificationLog {
-  id            String   @id @default(cuid())
-  developerId   String   @map("developer_id")
-  feedbackId    String   @map("feedback_id")
-  channel       String
-  status        String
-  response      Json?
-  createdAt     DateTime @default(now()) @map("created_at")
+  id          String   @id @default(cuid())
+  developerId String   @map("developer_id")
+  feedbackId  String   @map("feedback_id")
+  channel     String
+  status      String
+  response    Json?
+  createdAt   DateTime @default(now()) @map("created_at")
 
   @@index([developerId])
   @@map("notification_logs")
@@ -340,14 +323,14 @@ model AchievementDef {
   name         String
   description  String
   icon         String
-  category     String   // "feedback" | "engagement" | "weekly_award" | "special"
+  category     String // "feedback" | "engagement" | "weekly_award" | "special"
   tier         String   @default("bronze") // "bronze" | "silver" | "gold" | "legendary"
   threshold    Int      @default(1)
   isRepeatable Boolean  @default(false) @map("is_repeatable")
-  sortOrder    Int      @default(0)  @map("sort_order")
+  sortOrder    Int      @default(0) @map("sort_order")
   createdAt    DateTime @default(now()) @map("created_at")
 
-  unlocks      AchievementUnlock[]
+  unlocks AchievementUnlock[]
 
   @@map("achievement_defs")
 }
@@ -373,7 +356,7 @@ model AchievementUnlock {
 model HallOfFameEntry {
   id        String   @id @default(cuid())
   weekKey   String   @map("week_key")
-  category  String   // "most_informed" | "most_engaged" | "best_reviewer"
+  category  String // "most_informed" | "most_engaged" | "best_reviewer"
   rank      Int
   agentId   String   @map("agent_id")
   agentName String   @map("agent_name")
@@ -411,10 +394,10 @@ model PAVisitor {
   streak        Int      @default(0)
   title         String?
 
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
-  questions     PAQuestion[]
+  questions PAQuestion[]
 
   @@map("pa_visitors")
 }
@@ -489,23 +472,122 @@ model DailyTaskProgress {
 // ─── NPC: AI-powered characters in the newsroom ───
 
 model NPC {
-  id           String   @id @default(cuid())
-  key          String   @unique
+  id           String  @id @default(cuid())
+  key          String  @unique
   name         String
   emoji        String
   role         String
-  sceneId      String?  @map("scene_id")
-  systemPrompt String   @map("system_prompt") @db.Text
-  accent       String   @default("#00d2ff")
+  sceneId      String? @map("scene_id")
+  systemPrompt String  @map("system_prompt") @db.Text
+  accent       String  @default("#00d2ff")
 
-  ownerId      String?  @map("owner_id")
-  owner        User?    @relation(fields: [ownerId], references: [id])
+  ownerId String? @map("owner_id")
+  owner   User?   @relation(fields: [ownerId], references: [id])
 
-  isActive     Boolean  @default(true) @map("is_active")
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@map("npcs")
+}
+
+// ─── Event Logging: Session & Turn Analytics ───
+
+model GameSessionLog {
+  id        String @id @default(cuid())
+  sessionId String @unique @map("session_id")
+  userId    String @map("user_id")
+  agentId   String? @map("agent_id")
+  agentName String? @map("agent_name")
+  mode      String
+
+  startScene     String   @map("start_scene")
+  totalTurns     Int      @default(0) @map("total_turns")
+  scenesVisited  Json?    @map("scenes_visited")
+  loopsDetected  Int      @default(0) @map("loops_detected")
+  errorsOccurred Int      @default(0) @map("errors_occurred")
+  endReason      String?  @map("end_reason")
+  engineVersion  String   @default("1") @map("engine_version")
+
+  startedAt    DateTime @default(now()) @map("started_at")
+  lastActiveAt DateTime @default(now()) @map("last_active_at")
+
+  turns GameTurnLog[]
+
+  @@index([userId])
+  @@index([startedAt])
+  @@index([engineVersion])
+  @@map("game_session_logs")
+}
+
+model GameTurnLog {
+  id           String          @id @default(cuid())
+  sessionLogId String          @map("session_log_id")
+  sessionLog   GameSessionLog  @relation(fields: [sessionLogId], references: [id], onDelete: Cascade)
+
+  sessionId  String @map("session_id")
+  userId     String @map("user_id")
+  turnNumber Int    @map("turn_number")
+  sceneId    String @map("scene_id")
+  mode       String
+
+  action          String
+  inputContent    String? @map("input_content") @db.Text
+  originalMessage String? @map("original_message") @db.Text
+
+  actionMatched      String? @map("action_matched")
+  matchMethod        String? @map("match_method")
+  outcomeType        String? @map("outcome_type")
+  functionCallName   String? @map("function_call_name")
+  functionCallStatus String? @map("function_call_status")
+
+  npcReply String? @map("npc_reply") @db.Text
+
+  transitionFrom String? @map("transition_from")
+  transitionTo   String? @map("transition_to")
+
+  paGoal       String? @map("pa_goal")
+  returnReason String? @map("return_reason")
+
+  loopDetected  Boolean @default(false) @map("loop_detected")
+  isSubFlow     Boolean @default(false) @map("is_sub_flow")
+  errorOccurred Boolean @default(false) @map("error_occurred")
+  errorDetail   String? @map("error_detail") @db.Text
+
+  durationMs Int? @map("duration_ms")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([sessionId])
+  @@index([userId])
+  @@index([sceneId])
+  @@index([createdAt])
+  @@map("game_turn_logs")
+}
+
+// ─── Prompt Templates: DB-stored, versioned, extensible ───
+
+model PromptTemplate {
+  id          String  @id @default(cuid())
+  key         String  @unique
+  name        String
+  template    String  @db.Text
+  variables   Json
+  category    String
+  stage       String?
+  description String? @db.Text
+
+  outputFormat String? @map("output_format")
+
+  ownerId   String? @map("owner_id")
+  ownerType String  @default("system") @map("owner_type")
+
+  isActive  Boolean  @default(true) @map("is_active")
+  version   Int      @default(1)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("prompt_templates")
 }
 
 // ─── Gamification: Seasons ───

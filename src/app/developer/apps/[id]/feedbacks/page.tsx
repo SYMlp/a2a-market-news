@@ -4,6 +4,12 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Header from '@/components/Header'
 
+interface AppInfo {
+  id: string
+  name: string
+  clientId: string | null
+}
+
 interface Feedback {
   id: string
   agentName: string
@@ -16,20 +22,32 @@ interface Feedback {
     tags?: string[]
     recommendation?: string
   }
+  developerReply?: string | null
+  developerReplyAt?: string | null
   createdAt: string
 }
 
 export default function AppFeedbacksPage() {
   const params = useParams()
-  const clientId = params.clientId as string
+  const appId = params.id as string
+  const [appInfo, setAppInfo] = useState<AppInfo | null>(null)
   const [feedbacks, setFeedbacks] = useState<Feedback[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    fetch(`/api/developer/apps/${appId}`)
+      .then(r => r.json())
+      .then(data => {
+        if (data.success) setAppInfo(data.data)
+      })
+      .catch(() => {})
+  }, [appId])
+
+  useEffect(() => {
     setLoading(true)
-    fetch(`/api/developer/feedbacks?clientId=${clientId}&page=${page}&limit=10`)
+    fetch(`/api/developer/feedbacks?appId=${appId}&page=${page}&limit=10`)
       .then(r => r.json())
       .then(data => {
         if (data.success) {
@@ -39,15 +57,29 @@ export default function AppFeedbacksPage() {
         setLoading(false)
       })
       .catch(() => setLoading(false))
-  }, [clientId, page])
+  }, [appId, page])
+
+  useEffect(() => {
+    fetch('/api/developer/notifications/mark-read', { method: 'POST' }).catch(() => {})
+  }, [])
+
+  const handleReplySubmitted = (fbId: string, reply: string) => {
+    setFeedbacks(prev =>
+      prev.map(fb =>
+        fb.id === fbId
+          ? { ...fb, developerReply: reply, developerReplyAt: new Date().toISOString() }
+          : fb
+      )
+    )
+  }
 
   const renderStars = (n: number) => '★'.repeat(n) + '☆'.repeat(5 - n)
 
   const recLabel: Record<string, string> = {
-    strongly_recommend: '🔥 强烈推荐',
-    recommend: '👍 推荐',
-    neutral: '😐 一般',
-    not_recommend: '👎 不推荐',
+    strongly_recommend: '强烈推荐',
+    recommend: '推荐',
+    neutral: '一般',
+    not_recommend: '不推荐',
   }
 
   const dimensionLabels: Record<string, string> = {
@@ -68,7 +100,9 @@ export default function AppFeedbacksPage() {
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="mb-8">
             <h2 className="text-3xl font-extrabold text-gray-800 mb-2 font-heading">应用反馈</h2>
-            <div className="text-xs text-gray-400 tracking-widest mb-2 font-mono">CLIENT ID: {clientId}</div>
+            <div className="text-sm text-gray-500 mb-2">
+              {appInfo ? appInfo.name : '加载中...'}
+            </div>
             <p className="text-gray-500">共 {total} 条评价</p>
           </div>
 
@@ -122,7 +156,7 @@ export default function AppFeedbacksPage() {
                     </div>
                   )}
 
-                  <div className="flex items-center gap-3 flex-wrap">
+                  <div className="flex items-center gap-3 flex-wrap mb-3">
                     {fb.payload.tags?.map(tag => (
                       <span key={tag} className="px-2 py-0.5 text-xs bg-orange-50 text-orange-500 border border-orange-200 rounded-full">
                         #{tag}
@@ -134,6 +168,13 @@ export default function AppFeedbacksPage() {
                       </span>
                     )}
                   </div>
+
+                  <ReplySection
+                    feedbackId={fb.id}
+                    existingReply={fb.developerReply}
+                    replyAt={fb.developerReplyAt}
+                    onReplySubmitted={handleReplySubmitted}
+                  />
                 </div>
               ))}
             </div>
@@ -162,6 +203,118 @@ export default function AppFeedbacksPage() {
           )}
         </div>
       </main>
+    </div>
+  )
+}
+
+function ReplySection({
+  feedbackId,
+  existingReply,
+  replyAt,
+  onReplySubmitted,
+}: {
+  feedbackId: string
+  existingReply?: string | null
+  replyAt?: string | null
+  onReplySubmitted: (fbId: string, reply: string) => void
+}) {
+  const [editing, setEditing] = useState(false)
+  const [reply, setReply] = useState(existingReply || '')
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState('')
+
+  if (existingReply && !editing) {
+    return (
+      <div className="mt-3 p-4 bg-blue-50/50 border border-blue-100 rounded-xl">
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-xs font-semibold text-blue-600">开发者回复</span>
+          {replyAt && (
+            <span className="text-xs text-gray-300">
+              {new Date(replyAt).toLocaleString('zh-CN')}
+            </span>
+          )}
+          <button
+            onClick={() => { setEditing(true); setReply(existingReply) }}
+            className="ml-auto text-xs text-gray-400 hover:text-blue-500 transition-colors"
+          >
+            编辑
+          </button>
+        </div>
+        <p className="text-gray-600 text-sm whitespace-pre-wrap">{existingReply}</p>
+      </div>
+    )
+  }
+
+  if (!editing && !existingReply) {
+    return (
+      <button
+        onClick={() => setEditing(true)}
+        className="mt-2 px-4 py-2 text-xs text-blue-500 border border-blue-200 rounded-lg
+                   hover:bg-blue-50 transition-colors"
+      >
+        回复
+      </button>
+    )
+  }
+
+  const handleSubmit = async () => {
+    if (!reply.trim() || submitting) return
+    setSubmitting(true)
+    setError('')
+
+    try {
+      const res = await fetch(`/api/developer/feedbacks/${feedbackId}/reply`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reply: reply.trim() }),
+      })
+      const data = await res.json()
+
+      if (data.success) {
+        onReplySubmitted(feedbackId, reply.trim())
+        setEditing(false)
+      } else {
+        setError(data.error || '回复失败')
+      }
+    } catch {
+      setError('网络错误')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <div className="mt-3 space-y-3">
+      {error && (
+        <div className="p-3 bg-red-50 border border-red-200 text-red-600 text-xs rounded-lg">
+          {error}
+        </div>
+      )}
+      <textarea
+        rows={3}
+        value={reply}
+        onChange={e => setReply(e.target.value)}
+        placeholder="感谢反馈！我们会..."
+        className="w-full bg-[#FFFBF5] border border-[#E8E0D8] text-gray-800 px-4 py-3 rounded-xl text-sm
+                   focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100
+                   transition-all resize-none placeholder:text-gray-300"
+      />
+      <div className="flex gap-3">
+        <button
+          onClick={handleSubmit}
+          disabled={submitting || !reply.trim()}
+          className="px-5 py-2 bg-gradient-to-r from-blue-500 to-indigo-500 text-white text-xs font-semibold
+                     rounded-lg hover:shadow-md transition-all disabled:opacity-40"
+        >
+          {submitting ? '提交中...' : existingReply ? '更新回复' : '发送回复'}
+        </button>
+        <button
+          onClick={() => { setEditing(false); setReply(existingReply || '') }}
+          className="px-4 py-2 text-gray-400 text-xs hover:text-gray-600 transition-colors"
+        >
+          取消
+        </button>
+      </div>
     </div>
   )
 }

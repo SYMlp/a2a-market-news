@@ -28,7 +28,7 @@ export async function GET(
     }
 
     // 获取圈子内所有应用 PA 及其最新指标
-    const appPAs = await prisma.appPA.findMany({
+    const apps = await prisma.app.findMany({
       where: {
         circleId: circle.id,
         status: 'active',
@@ -49,7 +49,7 @@ export async function GET(
     })
 
     // 根据指标排序
-    const sortedApps = appPAs
+    const sortedApps = apps
       .filter(app => app.metrics.length > 0)
       .map((app, index) => ({
         ...app,
@@ -68,15 +68,15 @@ export async function GET(
 
     // 计算圈子总体数据
     const circleStats = {
-      totalApps: appPAs.length,
-      totalUsers: appPAs.reduce((sum, app) => {
+      totalApps: apps.length,
+      totalUsers: apps.reduce((sum, app) => {
         const metrics = app.metrics[0]
         return sum + (metrics?.totalUsers || 0)
       }, 0),
-      avgRating: appPAs.reduce((sum, app) => {
+      avgRating: apps.reduce((sum, app) => {
         const metrics = app.metrics[0]
         return sum + (metrics?.rating || 0)
-      }, 0) / appPAs.length || 0,
+      }, 0) / apps.length || 0,
     }
 
     return NextResponse.json({

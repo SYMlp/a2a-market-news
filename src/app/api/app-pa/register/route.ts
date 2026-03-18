@@ -29,6 +29,9 @@ export async function POST(request: NextRequest) {
       persona,
       metadata,
       metrics,
+      shortPrompt,
+      detailedPrompt,
+      systemSummary,
     } = body
 
     if (!name || !description || !circleType) {
@@ -50,22 +53,26 @@ export async function POST(request: NextRequest) {
     }
 
     const clientId = metadata?.clientId || `app-${crypto.randomUUID().slice(0, 8)}`
-    const existingClient = await prisma.appPA.findUnique({ where: { clientId } })
+    const existingClient = await prisma.app.findUnique({ where: { clientId } })
     if (existingClient) {
       return NextResponse.json({ error: 'Client ID 已被注册' }, { status: 409 })
     }
 
-    const appPA = await prisma.appPA.create({
+    const app = await prisma.app.create({
       data: {
         name,
         description,
         website,
         logo,
         circleId: circle.id,
+        category: circleType,
         persona,
         metadata,
         developerId: user.id,
         clientId,
+        shortPrompt,
+        detailedPrompt,
+        systemSummary,
         status: 'active',
       },
       include: {
@@ -73,23 +80,10 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    await prisma.a2AApp.create({
-      data: {
-        name,
-        description,
-        category: circleType,
-        website,
-        logo,
-        appPAId: appPA.id,
-        developerId: user.id,
-        status: 'active',
-      },
-    })
-
     if (metrics) {
-      await prisma.appPAMetrics.create({
+      await prisma.appMetrics.create({
         data: {
-          appPAId: appPA.id,
+          appId: app.id,
           totalUsers: metrics.totalUsers || 0,
           activeUsers: metrics.activeUsers || 0,
           totalVisits: metrics.totalVisits || 0,
@@ -101,9 +95,9 @@ export async function POST(request: NextRequest) {
         },
       })
     } else {
-      await prisma.appPAMetrics.create({
+      await prisma.appMetrics.create({
         data: {
-          appPAId: appPA.id,
+          appId: app.id,
           date: new Date(),
         },
       })
@@ -111,7 +105,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      data: appPA,
+      data: app,
     })
   } catch (error) {
     console.error('应用 PA 注册失败:', error)

@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
 
     const payload = body as FeedbackPayload
 
-    const appPA = await prisma.appPA.findUnique({
+    const appRecord = await prisma.app.findUnique({
       where: { clientId: payload.targetClientId },
       include: { developer: true },
     })
@@ -42,8 +42,8 @@ export async function POST(request: NextRequest) {
     const feedback = await prisma.appFeedback.create({
       data: {
         targetClientId: payload.targetClientId,
-        appPAId: appPA?.id ?? null,
-        developerId: appPA?.developerId ?? null,
+        appId: appRecord?.id ?? null,
+        developerId: appRecord?.developerId ?? null,
         agentId: payload.agentId,
         agentName: payload.agentName,
         agentType: payload.agentType,
@@ -54,12 +54,12 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    if (appPA?.developerId) {
+    if (appRecord?.developerId) {
       notifyDeveloper({
-        developerId: appPA.developerId,
+        developerId: appRecord.developerId,
         feedbackId: feedback.id,
         appClientId: payload.targetClientId,
-        appName: appPA.name,
+        appName: appRecord.name,
         summary: payload.summary,
         overallRating: payload.overallRating,
       }).catch(err => console.error('Notification failed:', err))

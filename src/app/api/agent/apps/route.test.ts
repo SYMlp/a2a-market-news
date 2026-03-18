@@ -8,7 +8,7 @@ vi.mock('@/lib/agent-auth', () => ({
 vi.mock('@/lib/prisma', () => ({
   prisma: {
     circle: { findFirst: vi.fn() },
-    appPA: { findMany: vi.fn(), count: vi.fn() },
+    app: { findMany: vi.fn(), count: vi.fn() },
     appFeedback: { groupBy: vi.fn() },
   },
 }))
@@ -17,8 +17,8 @@ import { prisma } from '@/lib/prisma'
 import { GET } from './route'
 
 const mockCircleFind = vi.mocked(prisma.circle.findFirst)
-const mockAppFindMany = vi.mocked(prisma.appPA.findMany)
-const mockAppCount = vi.mocked(prisma.appPA.count)
+const mockAppFindMany = vi.mocked(prisma.app.findMany)
+const mockAppCount = vi.mocked(prisma.app.count)
 const mockFeedbackGroupBy = vi.mocked(prisma.appFeedback.groupBy)
 
 function req(url: string): NextRequest {
@@ -78,8 +78,8 @@ describe('GET /api/agent/apps', () => {
     ] as never)
     mockAppCount.mockResolvedValue(2 as never)
     mockFeedbackGroupBy.mockResolvedValue([
-      { appPAId: 'app-1', _avg: { overallRating: 4.5 } },
-      { appPAId: 'app-2', _avg: { overallRating: 2.0 } },
+      { appId: 'app-1', _avg: { overallRating: 4.5 } },
+      { appId: 'app-2', _avg: { overallRating: 2.0 } },
     ] as never)
 
     const res = await GET(req('/api/agent/apps?rating=4'))

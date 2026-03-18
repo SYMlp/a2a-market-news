@@ -3,7 +3,7 @@ import { NextRequest } from 'next/server'
 
 vi.mock('@/lib/prisma', () => ({
   prisma: {
-    appPA: { findUnique: vi.fn() },
+    app: { findUnique: vi.fn() },
     appFeedback: { create: vi.fn(), findMany: vi.fn(), count: vi.fn() },
   },
 }))
@@ -22,7 +22,7 @@ import { notifyDeveloper } from '@/lib/notification'
 import { POST, GET } from './route'
 
 const mockValidate = vi.mocked(validateFeedback)
-const mockAppPAFind = vi.mocked(prisma.appPA.findUnique)
+const mockAppFind = vi.mocked(prisma.app.findUnique)
 const mockFeedbackCreate = vi.mocked(prisma.appFeedback.create)
 const mockFeedbackFindMany = vi.mocked(prisma.appFeedback.findMany)
 const mockFeedbackCount = vi.mocked(prisma.appFeedback.count)
@@ -66,7 +66,7 @@ describe('POST /api/feedback', () => {
 
   it('creates feedback and returns success', async () => {
     mockValidate.mockReturnValue({ valid: true, errors: null })
-    mockAppPAFind.mockResolvedValue(null as never)
+    mockAppFind.mockResolvedValue(null as never)
     const created = { id: 'fb-001', ...VALID_BODY }
     mockFeedbackCreate.mockResolvedValue(created as never)
 
@@ -78,9 +78,9 @@ describe('POST /api/feedback', () => {
     expect(json.data.id).toBe('fb-001')
   })
 
-  it('resolves developer from appPA and triggers notification', async () => {
+  it('resolves developer from app and triggers notification', async () => {
     mockValidate.mockReturnValue({ valid: true, errors: null })
-    mockAppPAFind.mockResolvedValue({
+    mockAppFind.mockResolvedValue({
       id: 'app-001',
       name: 'TestApp',
       developerId: 'dev-001',
@@ -100,9 +100,9 @@ describe('POST /api/feedback', () => {
     )
   })
 
-  it('does not notify when appPA has no developer', async () => {
+  it('does not notify when app has no developer', async () => {
     mockValidate.mockReturnValue({ valid: true, errors: null })
-    mockAppPAFind.mockResolvedValue({ id: 'app-002', developerId: null } as never)
+    mockAppFind.mockResolvedValue({ id: 'app-002', developerId: null } as never)
     mockFeedbackCreate.mockResolvedValue({ id: 'fb-003' } as never)
 
     await POST(makeRequest('POST', '/api/feedback', VALID_BODY))
@@ -112,7 +112,7 @@ describe('POST /api/feedback', () => {
 
   it('still creates feedback for unknown clientId (appPA not found)', async () => {
     mockValidate.mockReturnValue({ valid: true, errors: null })
-    mockAppPAFind.mockResolvedValue(null as never)
+    mockAppFind.mockResolvedValue(null as never)
     mockFeedbackCreate.mockResolvedValue({ id: 'fb-004' } as never)
 
     const res = await POST(makeRequest('POST', '/api/feedback', VALID_BODY))
@@ -121,7 +121,7 @@ describe('POST /api/feedback', () => {
     expect(json.success).toBe(true)
     expect(mockFeedbackCreate).toHaveBeenCalledWith({
       data: expect.objectContaining({
-        appPAId: null,
+        appId: null,
         developerId: null,
       }),
     })
@@ -129,7 +129,7 @@ describe('POST /api/feedback', () => {
 
   it('returns 500 on unexpected error', async () => {
     mockValidate.mockReturnValue({ valid: true, errors: null })
-    mockAppPAFind.mockRejectedValue(new Error('DB down'))
+    mockAppFind.mockRejectedValue(new Error('DB down'))
 
     const res = await POST(makeRequest('POST', '/api/feedback', VALID_BODY))
     expect(res.status).toBe(500)

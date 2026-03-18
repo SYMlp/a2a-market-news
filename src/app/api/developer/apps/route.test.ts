@@ -3,8 +3,8 @@ import { NextRequest } from 'next/server'
 
 vi.mock('@/lib/prisma', () => ({
   prisma: {
-    appPA: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn() },
-    appPAMetrics: { create: vi.fn() },
+    app: { findMany: vi.fn(), findUnique: vi.fn(), create: vi.fn() },
+    appMetrics: { create: vi.fn() },
     appFeedback: { groupBy: vi.fn() },
     circle: { findUnique: vi.fn() },
   },
@@ -19,11 +19,11 @@ import { getCurrentUser } from '@/lib/auth'
 import { GET, POST } from './route'
 
 const mockGetUser = vi.mocked(getCurrentUser)
-const mockAppFindMany = vi.mocked(prisma.appPA.findMany)
-const mockAppFindUnique = vi.mocked(prisma.appPA.findUnique)
-const mockAppCreate = vi.mocked(prisma.appPA.create)
+const mockAppFindMany = vi.mocked(prisma.app.findMany)
+const mockAppFindUnique = vi.mocked(prisma.app.findUnique)
+const mockAppCreate = vi.mocked(prisma.app.create)
 const mockCircleFind = vi.mocked(prisma.circle.findUnique)
-const mockMetricsCreate = vi.mocked(prisma.appPAMetrics.create)
+const mockMetricsCreate = vi.mocked(prisma.appMetrics.create)
 
 function req(method: string, body?: unknown): NextRequest {
   return new NextRequest(new URL('http://localhost/api/developer/apps'), {
@@ -36,16 +36,23 @@ beforeEach(() => vi.clearAllMocks())
 
 // ─── GET /api/developer/apps ──────────────────────────────────────────
 
+function getReq(includeArchived?: boolean): NextRequest {
+  const url = includeArchived
+    ? 'http://localhost/api/developer/apps?includeArchived=true'
+    : 'http://localhost/api/developer/apps'
+  return new NextRequest(url)
+}
+
 describe('GET /api/developer/apps', () => {
   it('returns 401 when not logged in', async () => {
     mockGetUser.mockResolvedValue(null as never)
-    const res = await GET()
+    const res = await GET(getReq())
     expect(res.status).toBe(401)
   })
 
   it('returns 403 when not a developer', async () => {
     mockGetUser.mockResolvedValue({ id: 'u-1', isDeveloper: false } as never)
-    const res = await GET()
+    const res = await GET(getReq())
     expect(res.status).toBe(403)
   })
 
@@ -57,14 +64,14 @@ describe('GET /api/developer/apps', () => {
     const mockGroupBy = vi.mocked(prisma.appFeedback.groupBy)
     mockGroupBy.mockResolvedValue([] as never)
 
-    const res = await GET()
+    const res = await GET(getReq())
     const json = await res.json()
 
     expect(json.success).toBe(true)
     expect(json.data).toHaveLength(1)
     expect(mockAppFindMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { developerId: 'u-1' },
+        where: { developerId: 'u-1', status: { not: 'archived' } },
       })
     )
   })
@@ -153,7 +160,7 @@ describe('POST /api/developer/apps', () => {
     await POST(req('POST', validBody))
 
     expect(mockMetricsCreate).toHaveBeenCalledWith({
-      data: expect.objectContaining({ appPAId: 'app-new' }),
+      data: expect.objectContaining({ appId: 'app-new' }),
     })
   })
 

@@ -1,12 +1,14 @@
 'use client'
 
-import { SCENE_CONFIG } from '@/lib/gm/scene-config'
+import { SCENE_CONFIG } from '@/lib/scene-visuals'
 
 const SCENE_ORDER = ['lobby', 'news', 'developer'] as const
 
+type GameMode = 'advisor' | 'auto' | 'manual'
+
 interface NavigationHUDProps {
   currentScene: string
-  mode: 'manual' | 'auto' | null
+  mode: GameMode | null
   onNavigate: (sceneId: string) => void
   onBack: () => void
   onModeToggle: () => void
@@ -55,7 +57,7 @@ export default function NavigationHUD({
           <button className="nav-hud__mode" onClick={onModeToggle}>
             <span className="nav-hud__mode-dot" />
             <span className="nav-hud__mode-label">
-              {mode === 'auto' ? 'AI AUTO' : 'MANUAL'}
+              {mode === 'auto' ? 'AUTO' : mode === 'advisor' ? 'ADVISOR' : 'MANUAL'}
             </span>
           </button>
         )}

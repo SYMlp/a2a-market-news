@@ -11,11 +11,10 @@ export async function GET(
 ) {
   try {
     const { id } = await params
-    const appPA = await prisma.appPA.findUnique({
+    const app = await prisma.app.findUnique({
       where: { id },
       include: {
         circle: true,
-        app: true,
         developer: {
           select: {
             id: true,
@@ -40,7 +39,7 @@ export async function GET(
       },
     })
 
-    if (!appPA) {
+    if (!app) {
       return NextResponse.json(
         { error: '应用 PA 不存在' },
         { status: 404 }
@@ -49,7 +48,7 @@ export async function GET(
 
     return NextResponse.json({
       success: true,
-      data: appPA,
+      data: app,
     })
   } catch (error) {
     console.error('获取应用 PA 失败:', error)
@@ -79,9 +78,12 @@ export async function PUT(
       logo,
       persona,
       status,
+      shortPrompt,
+      detailedPrompt,
+      systemSummary,
     } = body
 
-    const existing = await prisma.appPA.findUnique({
+    const existing = await prisma.app.findUnique({
       where: { id },
     })
 
@@ -92,8 +94,7 @@ export async function PUT(
       )
     }
 
-    // 更新应用 PA
-    const appPA = await prisma.appPA.update({
+    const app = await prisma.app.update({
       where: { id },
       data: {
         ...(name && { name }),
@@ -102,6 +103,9 @@ export async function PUT(
         ...(logo !== undefined && { logo }),
         ...(persona && { persona }),
         ...(status && { status }),
+        ...(shortPrompt !== undefined && { shortPrompt }),
+        ...(detailedPrompt !== undefined && { detailedPrompt }),
+        ...(systemSummary !== undefined && { systemSummary }),
       },
       include: {
         circle: true,
@@ -110,7 +114,7 @@ export async function PUT(
 
     return NextResponse.json({
       success: true,
-      data: appPA,
+      data: app,
     })
   } catch (error) {
     console.error('更新应用 PA 失败:', error)

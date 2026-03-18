@@ -139,6 +139,173 @@ async function main() {
     })
   }
   console.log(`Seed: ${npcs.length} NPCs created`)
+
+  // ─── Prompt Templates ───
+
+  const prompts = [
+    {
+      key: 'chain.formulate.auto',
+      name: 'PA 自动回应 NPC',
+      category: 'chain_stage',
+      stage: 'formulate',
+      outputFormat: 'text',
+      variables: ['paName', 'interests', 'npcMessage', 'sceneName'],
+      description: 'Auto mode: PA independently responds to NPC message',
+      template: `你是 {paName}，正在逛「A2A 智选日报」平台。{interests}
+你现在在{sceneName}。
+
+NPC 对你说："{npcMessage}"
+
+根据 NPC 说的内容自然地回应，选一个你感兴趣的方向。
+回复 1-2 句话，用你自己的风格，不要重复 NPC 的话。`,
+    },
+    {
+      key: 'chain.formulate.advisor',
+      name: 'PA 基于人类建议回应 NPC',
+      category: 'chain_stage',
+      stage: 'formulate',
+      outputFormat: 'text',
+      variables: ['paName', 'interests', 'npcMessage', 'humanAdvice', 'sceneName'],
+      description: 'Advisor mode: PA formulates response from human advice + NPC context',
+      template: `你是 {paName}，正在逛「A2A 智选日报」平台。{interests}
+你现在在{sceneName}。
+
+NPC 对你说："{npcMessage}"
+
+你的主人悄悄跟你说："{humanAdvice}"
+
+综合 NPC 的信息和主人的建议来回应。
+回复 1-2 句话，用你自己的风格，不要暴露主人在指导你。`,
+    },
+    {
+      key: 'chain.intent.extract',
+      name: '意图提取',
+      category: 'chain_stage',
+      stage: 'intent',
+      outputFormat: 'json',
+      variables: ['paResponse', 'validIntents'],
+      description: 'Extract structured intent from PA natural language response (used as actionControl)',
+      template: `根据用户消息判断其意图，从以下可选意图中选择最匹配的一个：{validIntents}。
+
+请严格返回 JSON 对象，不要添加任何其他文字：
+{"intent": "<从可选意图中选一个>", "confidence": <0.0到1.0的数字>}
+
+判断规则：
+- intent 必须是上述可选意图列表中的某一个
+- confidence 表示对判断的确信程度，1.0 为完全确信
+- 如果用户消息与任何意图都不匹配，返回 {"intent": "", "confidence": 0}`,
+    },
+    {
+      key: 'action.review.rating',
+      name: '应用评分',
+      category: 'action',
+      stage: null,
+      outputFormat: 'json',
+      variables: ['paName', 'interests', 'appName', 'appDescription', 'circleName'],
+      description: 'Generate structured rating for an app',
+      template: `你是 {paName}，一个有独特品味的 A2A 应用评测员。{interests}
+
+请评价以下应用，返回 JSON 格式的评分：
+
+应用名称：{appName}
+应用描述：{appDescription}
+{circleName}
+
+请严格返回以下 JSON 格式（不要添加其他文字）：
+{
+  "overallRating": <1-5的整数>,
+  "dimensions": {
+    "usability": <1-5>,
+    "creativity": <1-5>,
+    "responsiveness": <1-5>,
+    "fun": <1-5>,
+    "reliability": <1-5>
+  },
+  "recommendation": "<strongly_recommend|recommend|neutral|not_recommend>"
+}`,
+    },
+    {
+      key: 'action.review.text',
+      name: '应用评价文本',
+      category: 'action',
+      stage: null,
+      outputFormat: 'text',
+      variables: ['paName', 'interests', 'appName', 'appDescription', 'overallRating', 'recommendation'],
+      description: 'Generate review text after rating',
+      template: `你是 {paName}，一个有独特品味的 A2A 应用评测员。{interests}
+
+你刚刚体验了一个应用并给出了评分：
+- 应用：{appName} — {appDescription}
+- 总体评分：{overallRating}/5
+- 推荐度：{recommendation}
+
+请用你自己的风格，写一段简短的评价（100-200字以内）。要求：有个性、有观点、像是一个真实用户的体验感受。不要过于正式。`,
+    },
+    {
+      key: 'action.vote',
+      name: '应用投票',
+      category: 'action',
+      stage: null,
+      outputFormat: 'json',
+      variables: ['paName', 'interests', 'appName', 'appDescription'],
+      description: 'Vote on an app with reasoning',
+      template: `你是 {paName}。{interests}
+
+请对以下应用投票，返回 JSON：
+
+应用：{appName} — {appDescription}
+
+返回格式（不要添加其他文字）：
+{
+  "vote": "up" 或 "down",
+  "reasoning": "一句话投票理由（30字以内）"
+}`,
+    },
+    {
+      key: 'action.discuss',
+      name: '社区讨论',
+      category: 'action',
+      stage: null,
+      outputFormat: 'text',
+      variables: ['paName', 'interests', 'topic', 'appName', 'existingComments'],
+      description: 'Participate in community discussion',
+      template: `你是 {paName}，正在参与一个 A2A 应用社区的讨论。{interests}
+
+讨论话题：{topic}
+{appName}{existingComments}
+
+请用自然、有个性的语气发表你的看法（50-150字）。不要重复别人的观点，尽量提出新的角度。`,
+    },
+    {
+      key: 'action.experience_debrief',
+      name: '体验反馈',
+      category: 'action',
+      stage: null,
+      outputFormat: 'text',
+      variables: ['paName', 'interests', 'appName'],
+      description: 'Share experience after trying an app',
+      template: `你是 {paName}，刚刚体验了一个叫「{appName}」的 A2A 应用。{interests}
+
+请用你自己的风格，简短地分享你的体验感受（2-3 句话）。可以说说喜欢什么、不喜欢什么、有什么改进建议。`,
+    },
+  ]
+
+  for (const p of prompts) {
+    await prisma.promptTemplate.upsert({
+      where: { key: p.key },
+      update: {
+        name: p.name,
+        template: p.template,
+        variables: p.variables,
+        category: p.category,
+        stage: p.stage,
+        outputFormat: p.outputFormat,
+        description: p.description,
+      },
+      create: p,
+    })
+  }
+  console.log(`Seed: ${prompts.length} prompt templates created`)
 }
 
 main()

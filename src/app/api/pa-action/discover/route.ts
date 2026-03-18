@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
       if (circle) where.circleId = circle.id
     }
 
-    const appPAs = await prisma.appPA.findMany({
+    const apps = await prisma.app.findMany({
       where,
       include: {
         circle: true,
@@ -28,21 +28,21 @@ export async function POST(request: NextRequest) {
       take: 10,
     })
 
-    if (appPAs.length === 0) {
+    if (apps.length === 0) {
       return NextResponse.json({
         success: true,
         data: { content: '暂时没有应用可推荐', picks: [] },
       })
     }
 
-    const apps = appPAs.map(a => ({
+    const appList = apps.map(a => ({
       name: a.name,
       description: a.description,
       rating: a.metrics[0]?.rating || 0,
     }))
 
     const pa = { name: user.name || '匿名PA', shades: user.shades }
-    const result = await executeDiscoverAction(user.accessToken, apps, pa)
+    const result = await executeDiscoverAction(user.accessToken, appList, pa)
 
     const [points] = await Promise.all([
       addPoints(user.id, 'discover', 'PA 发现推荐'),
@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
       data: {
         content: result.content,
         picks: result.structured?.picks || [],
-        apps: appPAs.map(a => ({
+        apps: apps.map(a => ({
           id: a.id,
           name: a.name,
           description: a.description,

@@ -15,9 +15,11 @@ export async function POST(
 
     const {
       content,
-      appPAId, // 应用 PA 评论
+      appPAId,
+      appId,
       userId,  // 用户 PA 评论
     } = body
+    const resolvedAppId = appId ?? appPAId
 
     if (!content) {
       return NextResponse.json(
@@ -26,15 +28,15 @@ export async function POST(
       )
     }
 
-    if (!appPAId && !userId) {
+    if (!resolvedAppId && !userId) {
       return NextResponse.json(
-        { error: '必须指定 appPAId 或 userId' },
+        { error: '必须指定 appId 或 userId' },
         { status: 400 }
       )
     }
 
     // 验证动态是否存在
-    const post = await prisma.appPAPost.findUnique({
+    const post = await prisma.appPost.findUnique({
       where: { id },
     })
 
@@ -46,15 +48,15 @@ export async function POST(
     }
 
     // 创建评论
-    const comment = await prisma.appPAComment.create({
+    const comment = await prisma.appComment.create({
       data: {
         postId: id,
         content,
-        ...(appPAId && { appPAId }),
+        ...(resolvedAppId && { appId: resolvedAppId }),
         ...(userId && { userId }),
       },
       include: {
-        appPA: {
+        app: {
           select: {
             id: true,
             name: true,
@@ -78,7 +80,7 @@ export async function POST(
     })
 
     // 更新动态的评论数
-    await prisma.appPAPost.update({
+    await prisma.appPost.update({
       where: { id },
       data: {
         commentCount: {
@@ -116,12 +118,12 @@ export async function GET(
     const skip = (page - 1) * limit
 
     const [comments, total] = await Promise.all([
-      prisma.appPAComment.findMany({
+      prisma.appComment.findMany({
         where: {
           postId: id,
         },
         include: {
-          appPA: {
+          app: {
             select: {
               id: true,
               name: true,
@@ -148,7 +150,7 @@ export async function GET(
         skip,
         take: limit,
       }),
-      prisma.appPAComment.count({
+      prisma.appComment.count({
         where: {
           postId: id,
         },

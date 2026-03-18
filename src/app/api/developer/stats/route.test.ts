@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 vi.mock('@/lib/prisma', () => ({
   prisma: {
-    appPA: { count: vi.fn(), findFirst: vi.fn() },
+    app: { count: vi.fn(), findFirst: vi.fn() },
     appFeedback: { count: vi.fn(), aggregate: vi.fn(), groupBy: vi.fn() },
     notificationLog: { count: vi.fn() },
   },
@@ -35,7 +35,7 @@ describe('GET /api/developer/stats', () => {
 
   it('returns aggregated stats', async () => {
     mockGetUser.mockResolvedValue({ id: 'u-1', isDeveloper: true } as never)
-    vi.mocked(prisma.appPA.count).mockResolvedValue(3 as never)
+    vi.mocked(prisma.app.count).mockResolvedValue(3 as never)
     vi.mocked(prisma.appFeedback.count).mockResolvedValue(25 as never)
     vi.mocked(prisma.appFeedback.aggregate).mockResolvedValue({
       _avg: { overallRating: 4.2 },
@@ -44,7 +44,7 @@ describe('GET /api/developer/stats', () => {
     vi.mocked(prisma.appFeedback.groupBy).mockResolvedValue([
       { targetClientId: 'c-1', _count: 10, _avg: { overallRating: 4.5 } },
     ] as never)
-    vi.mocked(prisma.appPA.findFirst).mockResolvedValue({
+    vi.mocked(prisma.app.findFirst).mockResolvedValue({
       name: 'App1',
       clientId: 'c-1',
     } as never)
@@ -68,7 +68,7 @@ describe('GET /api/developer/stats', () => {
 
   it('handles zero feedbacks gracefully', async () => {
     mockGetUser.mockResolvedValue({ id: 'u-1', isDeveloper: true } as never)
-    vi.mocked(prisma.appPA.count).mockResolvedValue(1 as never)
+    vi.mocked(prisma.app.count).mockResolvedValue(1 as never)
     vi.mocked(prisma.appFeedback.count).mockResolvedValue(0 as never)
     vi.mocked(prisma.appFeedback.aggregate).mockResolvedValue({
       _avg: { overallRating: null },

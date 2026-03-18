@@ -1,0 +1,141 @@
+{
+  "functionCalls": {
+    "GM.assignMission": {
+      "label": "分配体验任务",
+      "scene": "news",
+      "category": "business",
+      "requires": "session.data.apps 非空",
+      "produces": "设置 experiencingApp 和 hasExperienced",
+      "failHint": "平台目前没有应用入驻",
+      "npcHint": "访客将去体验应用，完成后回来可以提交报告"
+    },
+    "GM.saveReport": {
+      "label": "保存体验报告",
+      "scene": "news",
+      "category": "business",
+      "requires": "experiencingApp.clientId 存在",
+      "produces": "清除 experiencingApp，totalReports +1",
+      "failHint": "没有正在体验的应用",
+      "npcHint": "报告已保存并通知开发者",
+      "sideEffects": ["写入 AppFeedback", "通知开发者"]
+    },
+    "GM.startRegistration": {
+      "label": "启动应用注册",
+      "scene": "developer",
+      "category": "subflow",
+      "requires": null,
+      "produces": "进入 register 子流程",
+      "npcHint": "注册流程已开始，需要收集应用名称、描述、圈子类型"
+    },
+    "GM.startAppSettings": {
+      "label": "编辑应用设置",
+      "scene": "developer",
+      "category": "subflow",
+      "requires": null,
+      "produces": "进入 app_settings 子流程",
+      "npcHint": "设置流程已开始"
+    },
+    "GM.startAppLifecycle": {
+      "label": "应用生命周期管理",
+      "scene": "developer",
+      "category": "subflow",
+      "requires": null,
+      "produces": "进入 app_lifecycle 子流程",
+      "npcHint": "选择要操作的应用和目标状态"
+    },
+    "GM.startProfile": {
+      "label": "编辑开发者资料",
+      "scene": "developer",
+      "category": "subflow",
+      "requires": null,
+      "produces": "进入 profile 子流程",
+      "npcHint": "资料编辑流程已开始"
+    },
+    "GM.showApps": {
+      "label": "展示应用列表",
+      "scene": "developer",
+      "category": "display",
+      "requires": null,
+      "produces": null,
+      "npcHint": "应用列表数据已加载"
+    },
+    "GM.showFeedback": {
+      "label": "展示用户反馈",
+      "scene": "developer",
+      "category": "display",
+      "requires": null,
+      "produces": null,
+      "npcHint": "反馈数据已加载"
+    },
+    "GM.enterSpace": {
+      "label": "进入场景",
+      "scene": null,
+      "category": "navigation",
+      "requires": null,
+      "produces": null,
+      "npcHint": null
+    },
+    "GM.rest": {
+      "label": "休息",
+      "scene": null,
+      "category": "navigation",
+      "requires": null,
+      "produces": null,
+      "npcHint": null
+    },
+    "GM.help": {
+      "label": "帮助",
+      "scene": null,
+      "category": "navigation",
+      "requires": null,
+      "produces": null,
+      "npcHint": null
+    },
+    "GM.fallback": {
+      "label": "未匹配",
+      "scene": null,
+      "category": "navigation",
+      "requires": null,
+      "produces": null,
+      "npcHint": null
+    },
+    "GM.leavePlatform": {
+      "label": "离开平台",
+      "scene": null,
+      "category": "navigation",
+      "requires": null,
+      "produces": "结束会话",
+      "npcHint": null
+    }
+  },
+  "dataLoaders": {
+    "/api/gm/recommend": {
+      "scene": "news",
+      "provides": ["hasApps", "apps", "apps_greeting", "apps_hint", "apps_json"],
+      "meaning": "获取平台当前入驻的应用列表和推荐语"
+    },
+    "/api/gm/developer-status": {
+      "scene": "developer",
+      "provides": ["hasApps", "isDeveloper", "apps_json", "apps_summary", "apps_summary_brief", "feedback_json", "feedback_list", "feedback_hint", "feedback_summary"],
+      "meaning": "获取当前用户的开发者身份、应用列表和反馈数据"
+    }
+  },
+  "preconditions": {
+    "hasExperienced": {
+      "meaning": "访客已体验过应用",
+      "unlocks": "提交体验报告"
+    },
+    "hasApps": {
+      "meaning": "平台有应用入驻",
+      "unlocks": "体验应用、分配任务"
+    },
+    "notDeveloper": {
+      "meaning": "访客不是开发者",
+      "unlocks": "成为开发者"
+    },
+    "isDeveloper": {
+      "meaning": "访客已是开发者",
+      "unlocks": "注册新应用"
+    }
+  }
+}

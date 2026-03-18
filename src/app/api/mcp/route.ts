@@ -74,7 +74,7 @@ const TOOLS = [
 async function handleBrowseApps(args: Record<string, unknown>) {
   const limit = Math.min(Math.max(Number(args.limit) || 5, 1), 20)
 
-  const apps = await prisma.appPA.findMany({
+  const apps = await prisma.app.findMany({
     where: { status: 'active' },
     include: {
       circle: { select: { name: true } },
@@ -112,12 +112,12 @@ async function handleGetAppDetail(args: Record<string, unknown>) {
 
   let app
   if (clientId) {
-    app = await prisma.appPA.findUnique({
+    app = await prisma.app.findUnique({
       where: { clientId: clientId as string },
       include: { circle: true, metrics: { orderBy: { date: 'desc' }, take: 1 }, _count: { select: { feedbacks: true } } },
     })
   } else if (name) {
-    app = await prisma.appPA.findFirst({
+    app = await prisma.app.findFirst({
       where: { name: { contains: name as string, mode: 'insensitive' } },
       include: { circle: true, metrics: { orderBy: { date: 'desc' }, take: 1 }, _count: { select: { feedbacks: true } } },
     })
@@ -143,14 +143,14 @@ async function handleSubmitReview(
 ) {
   const { clientId } = args as { clientId: string }
 
-  const appPA = await prisma.appPA.findUnique({
+  const appRecord = await prisma.app.findUnique({
     where: { clientId },
     include: { circle: true, developer: true },
   })
-  if (!appPA) return { text: `App with clientId "${clientId}" not found.` }
+  if (!appRecord) return { text: `App with clientId "${clientId}" not found.` }
 
   const pa = { name: user.name, shades: user.shades, softMemory: user.softMemory }
-  const app = { name: appPA.name, description: appPA.description, circleName: appPA.circle.name }
+  const app = { name: appRecord.name, description: appRecord.description, circleName: appRecord.circle.name }
 
   const result = await executeReviewAction(user.accessToken, app, pa)
   const overallRating = Math.max(1, Math.min(5, (result.structured?.overallRating as number) || 4))
@@ -158,8 +158,8 @@ async function handleSubmitReview(
   await prisma.appFeedback.create({
     data: {
       targetClientId: clientId,
-      appPAId: appPA.id,
-      developerId: appPA.developerId,
+      appId: appRecord.id,
+      developerId: appRecord.developerId,
       agentId: user.secondmeUserId,
       agentName: user.name,
       agentType: 'openclaw',
@@ -171,12 +171,12 @@ async function handleSubmitReview(
   })
 
   await Promise.all([
-    addPoints(user.id, 'review', `评价了 ${appPA.name}`).catch(() => {}),
+    addPoints(user.id, 'review', `评价了 ${appRecord.name}`).catch(() => {}),
     incrementDailyTask(user.id, 'review').catch(() => {}),
   ])
 
   return {
-    text: `Review submitted for ${appPA.name}!\nRating: ${overallRating}/5\n${result.content}`,
+    text: `Review submitted for ${appRecord.name}!\nRating: ${overallRating}/5\n${result.content}`,
     data: { rating: overallRating, content: result.content, structured: result.structured },
   }
 }
@@ -187,40 +187,39 @@ async function handleSubmitVote(
 ) {
   const { appName } = args as { appName: string }
 
-  const a2aApp = await prisma.a2AApp.findFirst({
+  const appRecord = await prisma.app.findFirst({
     where: { name: { contains: appName, mode: 'insensitive' } },
-    include: { appPA: true },
   })
-  if (!a2aApp) return { text: `App "${appName}" not found.` }
+  if (!appRecord) return { text: `App "${appName}" not found.` }
 
   const existing = await prisma.vote.findUnique({
-    where: { userId_appId: { userId: user.id, appId: a2aApp.id } },
+    where: { userId_appId: { userId: user.id, appId: appRecord.id } },
   })
-  if (existing) return { text: `You've already voted on ${a2aApp.name}.` }
+  if (existing) return { text: `You've already voted on ${appRecord.name}.` }
 
   const pa = { name: user.name, shades: user.shades }
-  const app = { name: a2aApp.name, description: a2aApp.description }
+  const app = { name: appRecord.name, description: appRecord.description }
 
   const result = await executeVoteAction(user.accessToken, app, pa)
   const voteType = (result.structured?.vote as string) === 'down' ? 'down' : 'up'
   const reasoning = (result.structured?.reasoning as string) || result.content
 
   await prisma.vote.create({
-    data: { userId: user.id, appId: a2aApp.id, voteType, reasoning, paGenerated: true },
+    data: { userId: user.id, appId: appRecord.id, voteType, reasoning, paGenerated: true },
   })
 
-  await prisma.a2AApp.update({
-    where: { id: a2aApp.id },
+  await prisma.app.update({
+    where: { id: appRecord.id },
     data: {
       voteCount: { increment: voteType === 'up' ? 1 : -1 },
       score: { increment: voteType === 'up' ? 1 : -0.5 },
     },
   })
 
-  await addPoints(user.id, 'vote', `为 ${a2aApp.name} 投票`).catch(() => {})
+  await addPoints(user.id, 'vote', `为 ${appRecord.name} 投票`).catch(() => {})
 
   return {
-    text: `Voted ${voteType} on ${a2aApp.name}! Reason: ${reasoning}`,
+    text: `Voted ${voteType} on ${appRecord.name}! Reason: ${reasoning}`,
     data: { voteType, reasoning },
   }
 }

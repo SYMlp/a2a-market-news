@@ -3,11 +3,15 @@ import { prisma } from '@/lib/prisma'
 
 /**
  * GET /api/gm/recommend
- * Returns top apps for the News Space, formatted for GM scene data.
+ * Returns top apps for the News Space, ranked by activity score.
+ * Score = feedbackCount * 2 + avgRating * 3 + recentFeedback7d * 5
+ * Falls back to createdAt desc when all scores are 0 (cold start).
  */
 export async function GET() {
   try {
-    const apps = await prisma.appPA.findMany({
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+
+    const apps = await prisma.app.findMany({
       where: { status: 'active' },
       include: {
         circle: { select: { name: true, type: true } },
@@ -16,22 +20,42 @@ export async function GET() {
           take: 1,
         },
         _count: { select: { feedbacks: true } },
+        feedbacks: {
+          where: { createdAt: { gte: sevenDaysAgo } },
+          select: { id: true },
+        },
       },
-      orderBy: { createdAt: 'desc' },
-      take: 5,
     })
 
-    const formatted = apps.map((app, i) => ({
+    const scored = apps.map(app => {
+      const feedbackCount = app._count.feedbacks
+      const avgRating = app.metrics[0]?.rating ?? 0
+      const recentCount = app.feedbacks.length
+      const score = feedbackCount * 2 + avgRating * 3 + recentCount * 5
+      return { app, score, feedbackCount, avgRating, recentCount }
+    })
+
+    const hasActivity = scored.some(s => s.score > 0)
+    scored.sort((a, b) =>
+      hasActivity
+        ? b.score - a.score
+        : b.app.createdAt.getTime() - a.app.createdAt.getTime()
+    )
+
+    const top = scored.slice(0, 5)
+
+    const formatted = top.map((s, i) => ({
       index: i + 1,
-      id: app.id,
-      name: app.name,
-      description: app.description,
-      website: app.website,
-      clientId: app.clientId,
-      circle: app.circle?.name || '',
-      circleType: app.circle?.type || '',
-      feedbackCount: app._count.feedbacks,
-      rating: app.metrics[0]?.rating ?? 0,
+      id: s.app.id,
+      name: s.app.name,
+      description: s.app.description,
+      website: s.app.website,
+      clientId: s.app.clientId,
+      circle: s.app.circle?.name || '',
+      circleType: s.app.circle?.type || '',
+      feedbackCount: s.feedbackCount,
+      rating: s.avgRating,
+      score: Math.round(s.score * 10) / 10,
     }))
 
     const appsList = formatted
@@ -48,12 +72,21 @@ export async function GET() {
       }))
     )
 
+    const hasApps = formatted.length > 0
+
     return NextResponse.json({
       success: true,
       data: {
         apps: formatted,
-        apps_list: appsList || '暂时还没有注册的应用，你可以回大厅去开发者空间注册第一个！',
+        hasApps,
+        apps_list: appsList,
         apps_json: appsJson,
+        apps_greeting: hasApps
+          ? `这是最近最受欢迎的 A2A 应用：\n${appsList}`
+          : '目前还没有应用入驻，平台刚开张呢。',
+        apps_hint: hasApps
+          ? '想体验哪个？体验完回来告诉我感受，我会把你的建议转达给开发者。'
+          : '你可以先回大厅，去开发者空间注册第一个应用，抢个头彩！',
       },
     })
   } catch (error) {

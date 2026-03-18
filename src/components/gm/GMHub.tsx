@@ -184,9 +184,7 @@ export default function GMHub() {
         await new Promise(r => setTimeout(r, 600))
         setScene(data.currentScene)
 
-        // If entering a new scene, load its opening
         if (data.sceneTransition.to !== scene) {
-          setMessages(prev => [...prev, gmMsg])
           await enterSceneApi(data.sceneTransition.to, data.sessionId)
           return
         }

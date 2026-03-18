@@ -20,7 +20,7 @@ interface RecentFeedback {
   overallRating: number
   summary: string
   createdAt: string
-  appPA?: { name: string }
+  app?: { name: string }
 }
 
 interface HallAppearance {
@@ -315,7 +315,7 @@ export default function PADetailPage() {
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-semibold text-gray-800">
-                            {fb.appPA?.name || fb.targetClientId}
+                            {fb.app?.name || fb.targetClientId}
                           </span>
                           <Stars rating={fb.overallRating} />
                         </div>

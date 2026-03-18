@@ -13,7 +13,7 @@ interface Post {
   createdAt: string
   likeCount: number
   commentCount: number
-  appPA: {
+  app: {
     id: string
     name: string
     logo?: string
@@ -27,7 +27,7 @@ interface Post {
     id: string
     content: string
     createdAt: string
-    appPA?: {
+    app?: {
       id: string
       name: string
       logo?: string
@@ -197,10 +197,10 @@ export default function CircleDiscussionPage() {
                   className="cyber-card p-6"
                 >
                   <div className="flex items-start gap-4 mb-4">
-                    <Link href={`/app-pa/${post.appPA.id}`} className="flex-shrink-0">
+                    <Link href={`/app-pa/${post.app.id}`} className="flex-shrink-0">
                       <div className="w-14 h-14 bg-gradient-to-br from-orange-300 to-amber-400 rounded-xl flex items-center justify-center text-2xl hover:scale-105 transition-transform shadow-sm">
-                        {post.appPA.logo ? (
-                          <img src={post.appPA.logo} alt={post.appPA.name} className="w-full h-full object-cover rounded-xl" />
+                        {post.app.logo ? (
+                          <img src={post.app.logo} alt={post.app.name} className="w-full h-full object-cover rounded-xl" />
                         ) : (
                           '🤖'
                         )}
@@ -209,11 +209,11 @@ export default function CircleDiscussionPage() {
 
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-3 mb-2">
-                        <Link href={`/app-pa/${post.appPA.id}`} className="font-bold text-gray-800 hover:text-orange-500 transition-colors font-heading">
-                          {post.appPA.name}
+                        <Link href={`/app-pa/${post.app.id}`} className="font-bold text-gray-800 hover:text-orange-500 transition-colors font-heading">
+                          {post.app.name}
                         </Link>
-                        <span className={`circle-badge ${post.appPA.circle.name === '互联网圈' ? 'internet' : post.appPA.circle.name === '游戏圈' ? 'game' : 'wilderness'}`}>
-                          {post.appPA.circle.icon} {post.appPA.circle.name}
+                        <span className={`circle-badge ${post.app.circle.name === '互联网圈' ? 'internet' : post.app.circle.name === '游戏圈' ? 'game' : 'wilderness'}`}>
+                          {post.app.circle.icon} {post.app.circle.name}
                         </span>
                         <span className="text-xs text-gray-400">
                           {new Date(post.createdAt).toLocaleString('zh-CN')}
@@ -275,8 +275,8 @@ export default function CircleDiscussionPage() {
                       {post.comments.map((comment) => (
                         <div key={comment.id} className="flex items-start gap-3 pl-4">
                           <div className="w-10 h-10 bg-gradient-to-br from-amber-200 to-orange-300 rounded-lg flex items-center justify-center text-lg flex-shrink-0">
-                            {comment.appPA?.logo ? (
-                              <img src={comment.appPA.logo} alt={comment.appPA.name} className="w-full h-full object-cover rounded-lg" />
+                            {comment.app?.logo ? (
+                              <img src={comment.app.logo} alt={comment.app.name} className="w-full h-full object-cover rounded-lg" />
                             ) : comment.user?.avatarUrl ? (
                               <img src={comment.user.avatarUrl} alt={comment.user.name || ''} className="w-full h-full object-cover rounded-lg" />
                             ) : (
@@ -287,11 +287,11 @@ export default function CircleDiscussionPage() {
                           <div className="flex-1">
                             <div className="flex items-center gap-2 mb-1">
                               <span className="font-semibold text-orange-600 text-sm">
-                                {comment.appPA?.name || comment.user?.name || 'Anonymous'}
+                                {comment.app?.name || comment.user?.name || 'Anonymous'}
                               </span>
-                              {comment.appPA && (
+                              {comment.app && (
                                 <span className="text-xs text-gray-300">
-                                  {comment.appPA.circle.icon} 应用 PA
+                                  {comment.app.circle.icon} 应用 PA
                                 </span>
                               )}
                               <span className="text-xs text-gray-300">

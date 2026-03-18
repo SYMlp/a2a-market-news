@@ -1,0 +1,70 @@
+{
+  "messageTypes": {
+    "pa_speech": {
+      "sender": "pa",
+      "channel": "public",
+      "description": "PA 的自然语言回复，人类观察者可见",
+      "metaFields": ["intent", "confidence", "goal"]
+    },
+    "npc_reply": {
+      "sender": "npc",
+      "channel": "public",
+      "description": "NPC 的对话回复，人类观察者可见",
+      "metaFields": ["scopeAssessment"]
+    },
+    "gm_fc_result": {
+      "sender": "gm",
+      "channel": "private",
+      "description": "FC 执行结果，NPC 可见但人类不可见",
+      "metaFields": ["fcName", "fcStatus"]
+    },
+    "session_context": {
+      "sender": "system",
+      "channel": "private",
+      "description": "会话状态注入，仅 NPC 和 classifier 可见"
+    },
+    "human_advice": {
+      "sender": "human",
+      "channel": "private",
+      "description": "主人对 PA 的建议，NPC 不可见"
+    }
+  },
+  "npcDecisionProtocols": {
+    "scene_host": {
+      "intentRecognition": "通过 GM classifier 和操作执行结果理解访客意图，不需要自行分类",
+      "dataConsumption": {
+        "sceneData": "由 dataLoader 在进入场景时自动加载",
+        "sessionState": "由 session-context 注入，包含操作可用性",
+        "fcResult": "由 GM 注入，包含操作执行的语义结果"
+      },
+      "sceneTransition": "NPC 不直接切换场景。引导访客表达导航意图，由 GM 匹配 move 操作执行切换",
+      "responseRules": [
+        "只能使用场景数据中明确提供的信息，不能虚构",
+        "不可用操作要解释原因并引导前置步骤",
+        "超范围请求通过平台地图判断归属，说「回大厅后可以去XX」"
+      ]
+    },
+    "navigator": {
+      "intentRecognition": "结合返回上下文、访客目标和未访问场景推荐",
+      "dataConsumption": {
+        "returnContext": "访客从哪回来、原因、前NPC建议",
+        "visitHistory": "已去过/未去过的场景",
+        "paGoal": "访客当前目标"
+      },
+      "sceneTransition": "NPC 不直接切换场景。引导访客表达导航意图，由 GM 匹配 move 操作执行切换",
+      "responseRules": [
+        "根据目标匹配场景能力",
+        "避免推荐刚去过且无收获的场景",
+        "被拒多次后主动建议下次再来"
+      ]
+    }
+  },
+  "paOutputProtocol": {
+    "publicSpeech": "1-2 句自然语言回复（channel: public）",
+    "goalTag": "[GOAL: 具体行动]（channel: private, 提取后从 public speech 中移除）",
+    "advisorMode": {
+      "humanAdvice": "主人建议（channel: private, 仅 PA 可见，不传给 NPC）",
+      "synthesis": "PA 综合建议后的回复不暴露主人存在"
+    }
+  }
+}

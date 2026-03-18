@@ -16,12 +16,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '缺少 appId' }, { status: 400 })
     }
 
-    const a2aApp = await prisma.a2AApp.findUnique({
+    const appRecord = await prisma.app.findUnique({
       where: { id: appId },
-      include: { appPA: true },
     })
 
-    if (!a2aApp) {
+    if (!appRecord) {
       return NextResponse.json({ error: '应用不存在' }, { status: 404 })
     }
 
@@ -34,7 +33,7 @@ export async function POST(request: NextRequest) {
     }
 
     const pa = { name: user.name || '匿名PA', shades: user.shades }
-    const app = { name: a2aApp.name, description: a2aApp.description }
+    const app = { name: appRecord.name, description: appRecord.description }
 
     const result = await executeVoteAction(user.accessToken, app, pa)
     const voteType = (result.structured?.vote as string) === 'down' ? 'down' : 'up'
@@ -50,7 +49,7 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    await prisma.a2AApp.update({
+    await prisma.app.update({
       where: { id: appId },
       data: {
         voteCount: { increment: voteType === 'up' ? 1 : -1 },
@@ -59,9 +58,9 @@ export async function POST(request: NextRequest) {
     })
 
     const [points] = await Promise.all([
-      addPoints(user.id, 'vote', `为 ${a2aApp.name} 投票`),
+      addPoints(user.id, 'vote', `为 ${appRecord.name} 投票`),
       incrementDailyTask(user.id, 'vote'),
-      logPAAction(user.id, 'vote', appId, `vote:${a2aApp.name}`, reasoning, result.structured, 5),
+      logPAAction(user.id, 'vote', appId, `vote:${appRecord.name}`, reasoning, result.structured, 5),
     ])
 
     return NextResponse.json({

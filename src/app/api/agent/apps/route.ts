@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
     }
 
     const [apps, total] = await Promise.all([
-      prisma.appPA.findMany({
+      prisma.app.findMany({
         where,
         include: {
           circle: { select: { name: true, slug: true, type: true } },
@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
         skip: (page - 1) * limit,
         take: limit,
       }),
-      prisma.appPA.count({ where }),
+      prisma.app.count({ where }),
     ])
 
     let results = apps.map(app => ({
@@ -57,11 +57,11 @@ export async function GET(request: NextRequest) {
       const threshold = parseInt(minRating)
       const appIds = results.map(a => a.id)
       const ratings = await prisma.appFeedback.groupBy({
-        by: ['appPAId'],
-        where: { appPAId: { in: appIds } },
+        by: ['appId'],
+        where: { appId: { in: appIds } },
         _avg: { overallRating: true },
       })
-      const ratingMap = new Map(ratings.map(r => [r.appPAId, r._avg.overallRating ?? 0]))
+      const ratingMap = new Map(ratings.map(r => [r.appId, r._avg.overallRating ?? 0]))
       results = results.filter(a => (ratingMap.get(a.id) ?? 0) >= threshold)
     }
 

@@ -1,6 +1,6 @@
 'use client'
 
-import { SCENE_CONFIG } from '@/lib/gm/scene-config'
+import { SCENE_CONFIG } from '@/lib/scene-visuals'
 
 interface SceneTransitionProps {
   from: string

@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
       include: {
         _count: {
           select: {
-            appPAs: true,
+            apps: true,
             posts: true,
           },
         },

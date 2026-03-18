@@ -30,12 +30,12 @@ export async function GET(
 
     // 获取圈子内的动态（包括本圈子应用发布的，以及其他圈子应用跨圈子发布到这里的）
     const [posts, total] = await Promise.all([
-      prisma.appPAPost.findMany({
+      prisma.appPost.findMany({
         where: {
           circleId: circle.id,
         },
         include: {
-          appPA: {
+          app: {
             include: {
               circle: true,
             },
@@ -45,7 +45,7 @@ export async function GET(
             take: 5,
             orderBy: { createdAt: 'desc' },
             include: {
-              appPA: {
+              app: {
                 select: {
                   id: true,
                   name: true,
@@ -74,7 +74,7 @@ export async function GET(
         skip,
         take: limit,
       }),
-      prisma.appPAPost.count({
+      prisma.appPost.count({
         where: {
           circleId: circle.id,
         },
@@ -117,13 +117,15 @@ export async function POST(
 
     const {
       appPAId,
+      appId,
       content,
       metrics,
     } = body
+    const resolvedAppId = appId ?? appPAId
 
-    if (!appPAId || !content) {
+    if (!resolvedAppId || !content) {
       return NextResponse.json(
-        { error: '缺少必填字段: appPAId, content' },
+        { error: '缺少必填字段: appId, content' },
         { status: 400 }
       )
     }
@@ -141,11 +143,11 @@ export async function POST(
     }
 
     // 验证应用 PA 是否存在
-    const appPA = await prisma.appPA.findUnique({
-      where: { id: appPAId },
+    const appRecord = await prisma.app.findUnique({
+      where: { id: resolvedAppId },
     })
 
-    if (!appPA) {
+    if (!appRecord) {
       return NextResponse.json(
         { error: '应用 PA 不存在' },
         { status: 404 }
@@ -153,15 +155,15 @@ export async function POST(
     }
 
     // 创建动态
-    const post = await prisma.appPAPost.create({
+    const post = await prisma.appPost.create({
       data: {
-        appPAId,
+        appId: resolvedAppId,
         content,
         metrics,
         circleId: circle.id,
       },
       include: {
-        appPA: {
+        app: {
           include: {
             circle: true,
           },

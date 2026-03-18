@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Header from '@/components/Header'
 
-interface AppPA {
+interface App {
   id: string
   name: string
   description: string

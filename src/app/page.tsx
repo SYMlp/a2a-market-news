@@ -2,12 +2,14 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import { useAuth } from '@/contexts/AuthContext'
 
 const TITLE = '准备好进入A2A智选报社了嘛~'
 const CHAR_DELAY = 80
 
 export default function LandingPage() {
   const router = useRouter()
+  const { user, loading: authLoading } = useAuth()
   const [phase, setPhase] = useState(0)
   const [exiting, setExiting] = useState(false)
 
@@ -21,10 +23,14 @@ export default function LandingPage() {
   }, [])
 
   const handleEnter = useCallback(() => {
-    if (exiting) return
+    if (exiting || authLoading) return
     setExiting(true)
-    setTimeout(() => router.push('/lobby'), 800)
-  }, [exiting, router])
+    if (user) {
+      setTimeout(() => router.push('/lobby'), 800)
+    } else {
+      setTimeout(() => { window.location.href = '/api/auth/login' }, 800)
+    }
+  }, [exiting, authLoading, user, router])
 
   return (
     <div className={`landing-page ${exiting ? 'landing-page--exit' : ''}`}>

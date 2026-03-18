@@ -84,8 +84,7 @@ export async function GET(request: NextRequest) {
       maxAge: 60 * 60 * 24 * 30, // 30 天
     })
 
-    // 重定向到首页
-    return NextResponse.redirect(new URL('/', request.url))
+    return NextResponse.redirect(new URL('/lobby', request.url))
   } catch (error) {
     console.error('OAuth callback error:', error)
     return NextResponse.redirect(new URL('/?error=auth_failed', request.url))

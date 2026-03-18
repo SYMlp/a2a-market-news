@@ -1,9 +1,13 @@
 import { prisma } from './prisma'
+import { parseJSONLoose } from './json-utils'
+import { MODEL_FOR } from './model-config'
 
 export interface PAActionResult {
   content: string
   structured?: Record<string, unknown>
 }
+
+const STREAM_TIMEOUT_MS = 12_000
 
 export async function callSecondMeStream(
   endpoint: string,
@@ -12,45 +16,57 @@ export async function callSecondMeStream(
 ): Promise<string> {
   const url = `${process.env.SECONDME_API_BASE_URL}${endpoint}`
 
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${accessToken}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(body),
-  })
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), STREAM_TIMEOUT_MS)
 
-  if (!response.ok) {
-    const errText = await response.text().catch(() => '')
-    throw new Error(`SecondMe API error ${response.status}: ${errText}`)
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    })
+
+    if (!response.ok) {
+      const errText = await response.text().catch(() => '')
+      throw new Error(`SecondMe API error ${response.status}: ${errText}`)
+    }
+
+    const contentType = response.headers.get('content-type') || ''
+
+    if (contentType.includes('text/event-stream') || contentType.includes('stream')) {
+      return await readSSEStream(response)
+    }
+
+    const data = await response.json()
+    if (data.code === 0) {
+      return typeof data.data === 'string' ? data.data : JSON.stringify(data.data)
+    }
+
+    throw new Error(`SecondMe API returned error: ${JSON.stringify(data)}`)
+  } finally {
+    clearTimeout(timer)
   }
-
-  const contentType = response.headers.get('content-type') || ''
-
-  if (contentType.includes('text/event-stream') || contentType.includes('stream')) {
-    return readSSEStream(response)
-  }
-
-  const data = await response.json()
-  if (data.code === 0) {
-    return typeof data.data === 'string' ? data.data : JSON.stringify(data.data)
-  }
-
-  throw new Error(`SecondMe API returned error: ${JSON.stringify(data)}`)
 }
 
 async function readSSEStream(response: Response): Promise<string> {
   const reader = response.body!.getReader()
   const decoder = new TextDecoder()
   let result = ''
+  let carry = ''
 
   while (true) {
     const { done, value } = await reader.read()
     if (done) break
 
-    const chunk = decoder.decode(value, { stream: true })
-    for (const line of chunk.split('\n')) {
+    const chunk = carry + decoder.decode(value, { stream: true })
+    const lines = chunk.split('\n')
+    carry = lines.pop() ?? ''
+
+    for (const line of lines) {
       const trimmed = line.trim()
       if (!trimmed || !trimmed.startsWith('data:')) continue
 
@@ -59,9 +75,34 @@ async function readSSEStream(response: Response): Promise<string> {
 
       try {
         const parsed = JSON.parse(data)
-        result += parsed.content || parsed.text || parsed.data || ''
+        const delta = parsed.choices?.[0]?.delta?.content
+        if (typeof delta === 'string') {
+          result += delta
+        } else if (typeof parsed.content === 'string') {
+          result += parsed.content
+        } else if (typeof parsed.text === 'string') {
+          result += parsed.text
+        }
       } catch {
-        result += data
+        // incomplete JSON or non-JSON data — skip, don't leak raw payload
+      }
+    }
+  }
+
+  if (carry.trim()) {
+    const trimmed = carry.trim()
+    if (trimmed.startsWith('data:')) {
+      const data = trimmed.slice(5).trim()
+      if (data && data !== '[DONE]') {
+        try {
+          const parsed = JSON.parse(data)
+          const delta = parsed.choices?.[0]?.delta?.content
+          if (typeof delta === 'string') result += delta
+          else if (typeof parsed.content === 'string') result += parsed.content
+          else if (typeof parsed.text === 'string') result += parsed.text
+        } catch {
+          // skip
+        }
       }
     }
   }
@@ -89,7 +130,7 @@ export async function executeReviewAction(
   app: { name: string; description: string; circleName: string },
   pa: { name: string; shades: unknown; softMemory: unknown }
 ): Promise<PAActionResult> {
-  const { buildReviewRatingPrompt, buildReviewTextPrompt } = await import('./pa-prompts')
+  const { buildReviewRatingPrompt, buildReviewTextPrompt } = await import('./pa')
 
   const ratingPrompt = buildReviewRatingPrompt(app, pa)
   let structured: Record<string, unknown>
@@ -98,9 +139,9 @@ export async function executeReviewAction(
     const ratingRaw = await callSecondMeStream(
       '/api/secondme/act/stream',
       accessToken,
-      { message: ratingPrompt }
+      { message: ratingPrompt, model: MODEL_FOR.paReview }
     )
-    structured = JSON.parse(ratingRaw)
+    structured = parseJSONLoose(ratingRaw) as Record<string, unknown>
   } catch {
     structured = generateFallbackRating()
   }
@@ -112,7 +153,7 @@ export async function executeReviewAction(
     content = await callSecondMeStream(
       '/api/secondme/chat/stream',
       accessToken,
-      { message: textPrompt }
+      { message: textPrompt, model: MODEL_FOR.paReview }
     )
   } catch {
     content = `${app.name}是一个有趣的应用，值得一试。`
@@ -126,7 +167,7 @@ export async function executeVoteAction(
   app: { name: string; description: string },
   pa: { name: string; shades: unknown }
 ): Promise<PAActionResult> {
-  const { buildVotePrompt } = await import('./pa-prompts')
+  const { buildVotePrompt } = await import('./pa')
 
   const prompt = buildVotePrompt(app, pa)
   let content = ''
@@ -136,9 +177,9 @@ export async function executeVoteAction(
     const raw = await callSecondMeStream(
       '/api/secondme/act/stream',
       accessToken,
-      { message: prompt }
+      { message: prompt, model: MODEL_FOR.paVote }
     )
-    structured = JSON.parse(raw)
+    structured = parseJSONLoose(raw) as Record<string, unknown>
     content = (structured.reasoning as string) || ''
   } catch {
     structured = { vote: 'up', reasoning: `${app.name}看起来不错！` }
@@ -153,7 +194,7 @@ export async function executeDiscussAction(
   context: { topic: string; existingComments: string[]; appName?: string },
   pa: { name: string; shades: unknown }
 ): Promise<PAActionResult> {
-  const { buildDiscussPrompt } = await import('./pa-prompts')
+  const { buildDiscussPrompt } = await import('./pa')
 
   const prompt = buildDiscussPrompt(context, pa)
   let content: string
@@ -162,7 +203,7 @@ export async function executeDiscussAction(
     content = await callSecondMeStream(
       '/api/secondme/chat/stream',
       accessToken,
-      { message: prompt }
+      { message: prompt, model: MODEL_FOR.paDiscuss }
     )
   } catch {
     content = '这个话题很有意思，我也来分享一下我的看法。'
@@ -176,7 +217,7 @@ export async function executeDiscoverAction(
   apps: Array<{ name: string; description: string; rating: number }>,
   pa: { name: string; shades: unknown }
 ): Promise<PAActionResult> {
-  const { buildDiscoverPrompt } = await import('./pa-prompts')
+  const { buildDiscoverPrompt } = await import('./pa')
 
   const prompt = buildDiscoverPrompt(apps, pa)
   let content: string
@@ -186,7 +227,7 @@ export async function executeDiscoverAction(
     content = await callSecondMeStream(
       '/api/secondme/chat/stream',
       accessToken,
-      { message: prompt }
+      { message: prompt, model: MODEL_FOR.paDiscover }
     )
     const jsonMatch = content.match(/\[[\s\S]*?\]/)
     if (jsonMatch) structured = { picks: JSON.parse(jsonMatch[0]) }
@@ -202,7 +243,7 @@ export async function executeDailyReportAction(
   activities: { reviews: number; votes: number; discussions: number; apps: string[] },
   pa: { name: string; shades: unknown }
 ): Promise<PAActionResult> {
-  const { buildDailyReportPrompt } = await import('./pa-prompts')
+  const { buildDailyReportPrompt } = await import('./pa')
 
   const prompt = buildDailyReportPrompt(activities, pa)
   let content: string
@@ -211,7 +252,7 @@ export async function executeDailyReportAction(
     content = await callSecondMeStream(
       '/api/secondme/chat/stream',
       accessToken,
-      { message: prompt }
+      { message: prompt, model: MODEL_FOR.paDailyReport }
     )
   } catch {
     content = `今天共评价了 ${activities.reviews} 个应用，投了 ${activities.votes} 票，参与了 ${activities.discussions} 次讨论。`

@@ -13,7 +13,7 @@ interface Circle {
   color: string
   description: string
   _count: {
-    appPAs: number
+    apps: number
     posts: number
   }
 }
@@ -34,7 +34,7 @@ export default function CirclesPage() {
       .catch(() => setLoading(false))
   }, [])
 
-  const totalAgents = circles.reduce((sum, c) => sum + c._count.appPAs, 0)
+  const totalAgents = circles.reduce((sum, c) => sum + c._count.apps, 0)
   const totalPosts = circles.reduce((sum, c) => sum + c._count.posts, 0)
 
   return (
@@ -140,7 +140,7 @@ export default function CirclesPage() {
                             className="text-2xl font-bold mb-1"
                             style={{ color: circle.color }}
                           >
-                            {circle._count.appPAs}
+                            {circle._count.apps}
                           </div>
                           <div className="text-xs text-gray-400 tracking-wider">Agents</div>
                         </div>

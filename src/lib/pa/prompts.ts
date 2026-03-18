@@ -1,10 +1,10 @@
-interface AppInfo {
+export interface AppInfo {
   name: string
   description: string
   circleName?: string
 }
 
-interface PAContext {
+export interface PAContext {
   name: string
   shades: unknown
   softMemory?: unknown
@@ -144,15 +144,19 @@ export function buildGMAutoPrompt(
 export function buildGMIntentExtractPrompt(
   paResponse: string,
   validIntents: string[]
-): string {
-  return `根据以下 PA 的回复，判断其意图。
+): { message: string; actionControl: string } {
+  return {
+    message: paResponse,
+    actionControl: `根据用户消息判断其意图，从以下可选意图中选择最匹配的一个：${validIntents.join(', ')}。
 
-PA 的回复："${paResponse}"
+请严格返回 JSON 对象，不要添加任何其他文字：
+{"intent": "<从可选意图中选一个>", "confidence": <0.0到1.0的数字>}
 
-可选意图：${validIntents.join(', ')}
-
-请严格返回 JSON（不要添加其他文字）：
-{"intent": "<从可选意图中选一个>", "confidence": <0.0-1.0>}`
+判断规则：
+- intent 必须是上述可选意图列表中的某一个
+- confidence 表示对判断的确信程度，1.0 为完全确信
+- 如果用户消息与任何意图都不匹配，返回 {"intent": "", "confidence": 0}`,
+  }
 }
 
 export function buildGMExperienceDebriefPrompt(

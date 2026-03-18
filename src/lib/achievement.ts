@@ -75,10 +75,10 @@ export async function processAchievements(
 
   const distinctCircles = await prisma.appFeedback.findMany({
     where: { agentId, status: 'published' },
-    select: { appPA: { select: { circleId: true } } },
-    distinct: ['appPAId'],
+    select: { app: { select: { circleId: true } } },
+    distinct: ['appId'],
   })
-  const circleSet = new Set(distinctCircles.map(f => f.appPA?.circleId).filter(Boolean))
+  const circleSet = new Set(distinctCircles.map(f => f.app?.circleId).filter(Boolean))
 
   const multiCircleDef = await prisma.achievementDef.findUnique({ where: { key: 'multi_circle' } })
   if (multiCircleDef && circleSet.size >= multiCircleDef.threshold) {

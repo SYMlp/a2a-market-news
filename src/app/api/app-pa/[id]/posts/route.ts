@@ -27,12 +27,12 @@ export async function POST(
     }
 
     // 验证应用 PA 是否存在
-    const appPA = await prisma.appPA.findUnique({
+    const appRecord = await prisma.app.findUnique({
       where: { id },
       include: { circle: true },
     })
 
-    if (!appPA) {
+    if (!appRecord) {
       return NextResponse.json(
         { error: '应用 PA 不存在' },
         { status: 404 }
@@ -40,7 +40,7 @@ export async function POST(
     }
 
     // 如果指定了目标圈子，查找圈子 ID
-    let targetCircleId = appPA.circleId // 默认发布到自己的圈子
+    let targetCircleId = appRecord.circleId // 默认发布到自己的圈子
 
     if (targetCircleSlug) {
       const targetCircle = await prisma.circle.findUnique({
@@ -53,15 +53,15 @@ export async function POST(
     }
 
     // 创建动态
-    const post = await prisma.appPAPost.create({
+    const post = await prisma.appPost.create({
       data: {
-        appPAId: id,
+        appId: id,
         content,
         metrics,
         circleId: targetCircleId,
       },
       include: {
-        appPA: {
+        app: {
           include: {
             circle: true,
           },
@@ -99,12 +99,12 @@ export async function GET(
     const skip = (page - 1) * limit
 
     const [posts, total] = await Promise.all([
-      prisma.appPAPost.findMany({
+      prisma.appPost.findMany({
         where: {
-          appPAId: id,
+          appId: id,
         },
         include: {
-          appPA: {
+          app: {
             include: {
               circle: true,
             },
@@ -114,7 +114,7 @@ export async function GET(
             take: 5,
             orderBy: { createdAt: 'desc' },
             include: {
-              appPA: {
+              app: {
                 select: {
                   id: true,
                   name: true,
@@ -137,9 +137,9 @@ export async function GET(
         skip,
         take: limit,
       }),
-      prisma.appPAPost.count({
+      prisma.appPost.count({
         where: {
-          appPAId: id,
+          appId: id,
         },
       }),
     ])

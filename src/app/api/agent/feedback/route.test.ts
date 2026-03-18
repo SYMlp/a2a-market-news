@@ -7,7 +7,7 @@ vi.mock('@/lib/agent-auth', () => ({
 
 vi.mock('@/lib/prisma', () => ({
   prisma: {
-    appPA: { findUnique: vi.fn() },
+    app: { findUnique: vi.fn() },
     appFeedback: { create: vi.fn() },
   },
 }))
@@ -30,7 +30,7 @@ import { notifyDeveloper } from '@/lib/notification'
 import { POST } from './route'
 
 const mockValidate = vi.mocked(validateFeedback)
-const mockAppFind = vi.mocked(prisma.appPA.findUnique)
+const mockAppFind = vi.mocked(prisma.app.findUnique)
 const mockFeedbackCreate = vi.mocked(prisma.appFeedback.create)
 const mockNotify = vi.mocked(notifyDeveloper)
 
@@ -80,7 +80,7 @@ describe('POST /api/agent/feedback', () => {
     expect(mockFeedbackCreate).toHaveBeenCalledWith({
       data: expect.objectContaining({
         targetClientId: 'client-abc',
-        appPAId: 'app-1',
+        appId: 'app-1',
         developerId: 'dev-1',
         source: 'direct_api',
       }),

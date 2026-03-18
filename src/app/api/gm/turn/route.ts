@@ -5,7 +5,7 @@ import {
   processTurn,
   presentScene,
 } from '@/lib/gm/engine'
-import { getScene } from '@/lib/gm/scenes'
+import { getScene } from '@/lib/scenes'
 import type { PlayerTurn } from '@/lib/gm/types'
 
 /**

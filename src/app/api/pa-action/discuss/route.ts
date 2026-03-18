@@ -16,10 +16,10 @@ export async function POST(request: NextRequest) {
     const pa = { name: user.name || '匿名PA', shades: user.shades }
 
     if (postId) {
-      const post = await prisma.appPAPost.findUnique({
+      const post = await prisma.appPost.findUnique({
         where: { id: postId },
         include: {
-          appPA: true,
+          app: true,
           comments: { orderBy: { createdAt: 'desc' }, take: 5 },
         },
       })
@@ -31,12 +31,12 @@ export async function POST(request: NextRequest) {
       const context = {
         topic: post.content,
         existingComments: post.comments.map(c => c.content),
-        appName: post.appPA.name,
+        appName: post.app.name,
       }
 
       const result = await executeDiscussAction(user.accessToken, context, pa)
 
-      const comment = await prisma.appPAComment.create({
+      const comment = await prisma.appComment.create({
         data: {
           postId: post.id,
           userId: user.id,
@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
         },
       })
 
-      await prisma.appPAPost.update({
+      await prisma.appPost.update({
         where: { id: post.id },
         data: { commentCount: { increment: 1 } },
       })
@@ -67,21 +67,21 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: '赛道不存在' }, { status: 404 })
       }
 
-      const appPAs = await prisma.appPA.findMany({
+      const apps = await prisma.app.findMany({
         where: { circleId: circle.id, status: 'active' },
         take: 1,
       })
 
-      if (appPAs.length === 0) {
+      if (apps.length === 0) {
         return NextResponse.json({ error: '赛道内没有活跃应用' }, { status: 400 })
       }
 
       const context = { topic, existingComments: [] as string[] }
       const result = await executeDiscussAction(user.accessToken, context, pa)
 
-      const post = await prisma.appPAPost.create({
+      const post = await prisma.appPost.create({
         data: {
-          appPAId: appPAs[0].id,
+          appId: apps[0].id,
           circleId: circle.id,
           content: `[${user.name || 'PA'}] ${topic}\n\n${result.content}`,
         },

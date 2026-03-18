@@ -23,11 +23,11 @@ export async function POST(
       visitsToday,
     } = body
 
-    const appPA = await prisma.appPA.findUnique({
+    const appRecord = await prisma.app.findUnique({
       where: { id },
     })
 
-    if (!appPA) {
+    if (!appRecord) {
       return NextResponse.json(
         { error: '应用 PA 不存在' },
         { status: 404 }
@@ -39,10 +39,10 @@ export async function POST(
     today.setHours(0, 0, 0, 0)
 
     // 检查今天是否已经有指标记录
-    const existingMetrics = await prisma.appPAMetrics.findUnique({
+    const existingMetrics = await prisma.appMetrics.findUnique({
       where: {
-        appPAId_date: {
-          appPAId: id,
+        appId_date: {
+          appId: id,
           date: today,
         },
       },
@@ -52,10 +52,10 @@ export async function POST(
 
     if (existingMetrics) {
       // 更新今天的指标
-      metrics = await prisma.appPAMetrics.update({
+      metrics = await prisma.appMetrics.update({
         where: {
-          appPAId_date: {
-            appPAId: id,
+          appId_date: {
+            appId: id,
             date: today,
           },
         },
@@ -71,9 +71,9 @@ export async function POST(
       })
     } else {
       // 创建新的指标记录
-      metrics = await prisma.appPAMetrics.create({
+      metrics = await prisma.appMetrics.create({
         data: {
-          appPAId: id,
+          appId: id,
           totalUsers: totalUsers || 0,
           activeUsers: activeUsers || 0,
           totalVisits: totalVisits || 0,
@@ -112,9 +112,9 @@ export async function GET(
     const { searchParams } = new URL(request.url)
     const days = parseInt(searchParams.get('days') || '30')
 
-    const metrics = await prisma.appPAMetrics.findMany({
+    const metrics = await prisma.appMetrics.findMany({
       where: {
-        appPAId: id,
+        appId: id,
       },
       orderBy: {
         date: 'desc',

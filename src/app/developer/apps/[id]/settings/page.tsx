@@ -10,6 +10,7 @@ interface AppData {
   id: string
   name: string
   description: string
+  status: string
   clientId: string | null
   website: string | null
   logo: string | null
@@ -29,7 +30,7 @@ interface AppData {
 export default function AppSettingsPage() {
   const params = useParams()
   const router = useRouter()
-  const clientId = params.clientId as string
+  const appId = params.id as string
   const { user, loading: authLoading } = useAuth()
 
   const [app, setApp] = useState<AppData | null>(null)
@@ -49,22 +50,17 @@ export default function AppSettingsPage() {
     detailedDescription: '',
     accessibility: 'none',
   })
+  const [showArchivedConfirm, setShowArchivedConfirm] = useState(false)
 
   useEffect(() => {
     if (authLoading) return
     if (!user) return
 
-    fetch(`/api/developer/apps?clientId=${clientId}`)
+    fetch(`/api/developer/apps/${appId}`)
       .then(r => r.json())
       .then(data => {
         if (data.success) {
-          const apps = data.data as AppData[]
-          const a = apps.find(app => app.clientId === clientId)
-          if (!a) {
-            setError('应用不存在')
-            setLoading(false)
-            return
-          }
+          const a = data.data as AppData
           setApp(a)
           setForm({
             name: a.name || '',
@@ -86,41 +82,75 @@ export default function AppSettingsPage() {
         setError('Network error')
         setLoading(false)
       })
-  }, [clientId, user, authLoading])
+  }, [appId, user, authLoading])
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleStatusChange = async (newStatus: string) => {
+    if (!app || saving || app.status === 'archived') return
+    setSaving(true)
+    setError('')
+    setSuccess('')
+    try {
+      const res = await fetch(`/api/developer/apps/${app.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        setSuccess('状态已更新')
+        setApp(data.data)
+        setTimeout(() => setSuccess(''), 3000)
+      } else {
+        setError(data.error || '更新失败')
+      }
+    } catch {
+      setError('网络错误')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleSubmit = async (e: React.FormEvent, statusOverride?: string) => {
     e.preventDefault()
     setSaving(true)
     setError('')
     setSuccess('')
 
     try {
+      const payload: Record<string, unknown> = {
+        name: form.name,
+        description: form.description,
+        clientId: form.clientId || null,
+        website: form.projectUrl || null,
+        logo: form.coverImage || null,
+        metadata: {
+          ...(app?.metadata || {}),
+          accessibility: form.accessibility,
+          detailedDescription: form.detailedDescription,
+          links: {
+            github: form.githubUrl || undefined,
+            project: form.projectUrl || undefined,
+            video: form.videoUrl || undefined,
+          },
+        },
+      }
+      if (statusOverride !== undefined) payload.status = statusOverride
+
       const res = await fetch(`/api/developer/apps/${app!.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: form.name,
-          description: form.description,
-          clientId: form.clientId || null,
-          website: form.projectUrl || null,
-          logo: form.coverImage || null,
-          metadata: {
-            ...(app?.metadata || {}),
-            accessibility: form.accessibility,
-            detailedDescription: form.detailedDescription,
-            links: {
-              github: form.githubUrl || undefined,
-              project: form.projectUrl || undefined,
-              video: form.videoUrl || undefined,
-            },
-          },
-        }),
+        body: JSON.stringify(payload),
       })
       const data = await res.json()
       if (data.success) {
-        setSuccess('保存成功')
+        setSuccess(statusOverride === 'archived' ? '已归档' : '保存成功')
         setApp(data.data)
-        setTimeout(() => setSuccess(''), 3000)
+        setShowArchivedConfirm(false)
+        if (statusOverride === 'archived') {
+          setTimeout(() => router.push('/developer'), 1500)
+        } else {
+          setTimeout(() => setSuccess(''), 3000)
+        }
       } else {
         setError(data.error || '保存失败')
       }
@@ -319,6 +349,89 @@ export default function AppSettingsPage() {
                 />
               </div>
             </div>
+
+            <div className="cyber-card p-8 space-y-6">
+              <h3 className="text-xl font-bold text-gray-800 font-heading">应用状态</h3>
+              <div className="flex items-center gap-4 mb-4">
+                <label className="block text-sm font-semibold text-gray-600">当前状态</label>
+                <div className="flex gap-3">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="status"
+                      checked={app.status === 'active'}
+                      onChange={() => handleStatusChange('active')}
+                      disabled={app.status === 'archived' || saving}
+                      className="text-orange-500"
+                    />
+                    <span>活跃</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="status"
+                      checked={app.status === 'inactive'}
+                      onChange={() => handleStatusChange('inactive')}
+                      disabled={app.status === 'archived' || saving}
+                      className="text-orange-500"
+                    />
+                    <span>暂停</span>
+                  </label>
+                </div>
+                <span className={`px-2 py-0.5 text-xs rounded-full ${
+                  app.status === 'active'
+                    ? 'bg-emerald-50 text-emerald-600 border border-emerald-200'
+                    : app.status === 'archived'
+                    ? 'bg-gray-100 text-gray-500 border border-gray-200'
+                    : 'bg-amber-50 text-amber-600 border border-amber-200'
+                }`}>
+                  {app.status === 'active' ? '活跃' : app.status === 'archived' ? '已归档' : '暂停'}
+                </span>
+              </div>
+              {app.status !== 'archived' && (
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => setShowArchivedConfirm(true)}
+                    disabled={saving}
+                    className="px-4 py-2 text-sm text-gray-500 border border-gray-200 rounded-lg hover:bg-gray-50 hover:border-gray-300 transition-colors disabled:opacity-50"
+                  >
+                    归档应用
+                  </button>
+                  <p className="mt-1 text-xs text-gray-400">
+                    归档后不可恢复，应用将不再显示在列表中
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {showArchivedConfirm && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+                <div className="cyber-card p-6 max-w-sm mx-4">
+                  <h3 className="text-lg font-bold text-gray-800 mb-2">确认归档</h3>
+                  <p className="text-gray-500 text-sm mb-4">
+                    归档后应用将无法恢复为活跃或暂停状态，确定要归档「{app.name}」吗？
+                  </p>
+                  <div className="flex gap-3 justify-end">
+                    <button
+                      type="button"
+                      onClick={() => setShowArchivedConfirm(false)}
+                      className="px-4 py-2 border border-gray-200 text-gray-500 rounded-lg hover:bg-gray-50"
+                    >
+                      取消
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => handleSubmit(e, 'archived')}
+                      disabled={saving}
+                      className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 disabled:opacity-50"
+                    >
+                      {saving ? '归档中...' : '确认归档'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div className="flex gap-4 justify-end">
               <Link

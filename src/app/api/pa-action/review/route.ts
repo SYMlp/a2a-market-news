@@ -12,17 +12,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '请先登录' }, { status: 401 })
     }
 
-    const { appPAId, clientId, confirm, editedContent, editedRating } = await request.json()
+    const { appPAId, appId, clientId, confirm, editedContent, editedRating } = await request.json()
+    const lookupId = appId ?? appPAId
 
-    if (!appPAId && !clientId) {
-      return NextResponse.json({ error: '缺少 appPAId 或 clientId' }, { status: 400 })
+    if (!lookupId && !clientId) {
+      return NextResponse.json({ error: '缺少 appId/appPAId 或 clientId' }, { status: 400 })
     }
 
-    const appPA = appPAId
-      ? await prisma.appPA.findUnique({ where: { id: appPAId }, include: { circle: true, developer: true } })
-      : await prisma.appPA.findUnique({ where: { clientId }, include: { circle: true, developer: true } })
+    const appRecord = lookupId
+      ? await prisma.app.findUnique({ where: { id: lookupId }, include: { circle: true, developer: true } })
+      : await prisma.app.findUnique({ where: { clientId }, include: { circle: true, developer: true } })
 
-    if (!appPA) {
+    if (!appRecord) {
       return NextResponse.json({ error: '应用不存在' }, { status: 404 })
     }
 
@@ -33,9 +34,9 @@ export async function POST(request: NextRequest) {
     }
 
     const app = {
-      name: appPA.name,
-      description: appPA.description,
-      circleName: appPA.circle.name,
+      name: appRecord.name,
+      description: appRecord.description,
+      circleName: appRecord.circle.name,
     }
 
     if (!confirm) {
@@ -47,7 +48,7 @@ export async function POST(request: NextRequest) {
         data: {
           content: result.content,
           structured: result.structured,
-          appName: appPA.name,
+          appName: appRecord.name,
         },
       })
     }
@@ -55,13 +56,13 @@ export async function POST(request: NextRequest) {
     const content = editedContent || ''
     const structured = editedRating || {}
     const overallRating = Math.max(1, Math.min(5, structured.overallRating || 4))
-    const resolvedClientId = appPA.clientId
+    const resolvedClientId = appRecord.clientId
 
     const feedback = await prisma.appFeedback.create({
       data: {
-        targetClientId: resolvedClientId || appPA.id,
-        appPAId: appPA.id,
-        developerId: appPA.developerId,
+        targetClientId: resolvedClientId || appRecord.id,
+        appId: appRecord.id,
+        developerId: appRecord.developerId,
         agentId: user.secondmeUserId,
         agentName: user.name || 'Anonymous',
         agentType: 'human',
@@ -77,11 +78,11 @@ export async function POST(request: NextRequest) {
         user.secondmeUserId,
         user.name || 'Anonymous',
         'human',
-        clientId || appPA.id
+        clientId || appRecord.id
       ).catch(() => ({ newUnlocks: [] })),
-      addPoints(user.id, 'review', `评价了 ${appPA.name}`),
+      addPoints(user.id, 'review', `评价了 ${appRecord.name}`),
       incrementDailyTask(user.id, 'review'),
-      logPAAction(user.id, 'review', appPA.id, `review:${appPA.name}`, content, structured, 20),
+      logPAAction(user.id, 'review', appRecord.id, `review:${appRecord.name}`, content, structured, 20),
     ])
 
     return NextResponse.json({

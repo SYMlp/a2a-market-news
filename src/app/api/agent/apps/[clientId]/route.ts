@@ -16,7 +16,7 @@ export async function GET(
   try {
     const { clientId } = await params
 
-    const app = await prisma.appPA.findUnique({
+    const app = await prisma.app.findUnique({
       where: { clientId },
       include: {
         circle: { select: { name: true, slug: true, type: true } },

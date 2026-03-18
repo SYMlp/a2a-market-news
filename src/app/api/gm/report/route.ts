@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '缺少 appId 或 content' }, { status: 400 })
     }
 
-    const app = await prisma.appPA.findUnique({
+    const app = await prisma.app.findUnique({
       where: { id: appId },
       include: { developer: true },
     })
@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
     const feedback = await prisma.appFeedback.create({
       data: {
         targetClientId: app.clientId || appId,
-        appPAId: app.id,
+        appId: app.id,
         developerId: app.developerId,
         agentId: user.secondmeUserId || user.id,
         agentName: user.name || 'PA',

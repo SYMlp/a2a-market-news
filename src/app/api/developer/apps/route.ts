@@ -4,9 +4,10 @@ import { getCurrentUser } from '@/lib/auth'
 
 /**
  * GET /api/developer/apps
- * List apps owned by the current developer
+ * List apps owned by the current developer.
+ * Query: includeArchived=true to include archived apps (default: exclude).
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const user = await getCurrentUser()
     if (!user) {
@@ -16,8 +17,16 @@ export async function GET() {
       return NextResponse.json({ error: 'Not a developer' }, { status: 403 })
     }
 
-    const apps = await prisma.appPA.findMany({
-      where: { developerId: user.id },
+    const { searchParams } = new URL(request.url)
+    const includeArchived = searchParams.get('includeArchived') === 'true'
+
+    const where: { developerId: string; status?: { not: string } } = { developerId: user.id }
+    if (!includeArchived) {
+      where.status = { not: 'archived' }
+    }
+
+    const apps = await prisma.app.findMany({
+      where,
       include: {
         circle: true,
         _count: { select: { feedbacks: true } },
@@ -39,11 +48,11 @@ export async function GET() {
 
     const appIds = apps.map(a => a.id)
     const ratings = await prisma.appFeedback.groupBy({
-      by: ['appPAId'],
-      where: { appPAId: { in: appIds } },
+      by: ['appId'],
+      where: { appId: { in: appIds } },
       _avg: { overallRating: true },
     })
-    const ratingMap = new Map(ratings.map(r => [r.appPAId, r._avg.overallRating ?? 0]))
+    const ratingMap = new Map(ratings.map(r => [r.appId, r._avg.overallRating ?? 0]))
 
     const enriched = apps.map(app => ({
       ...app,
@@ -74,7 +83,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { name, description, website, logo, circleType, clientId, persona, metadata } = body
+    const { name, description, website, logo, circleType, clientId, persona, metadata, shortPrompt, detailedPrompt, systemSummary } = body
 
     if (!name || !description || !circleType) {
       return NextResponse.json(
@@ -89,45 +98,36 @@ export async function POST(request: NextRequest) {
     }
 
     const resolvedClientId = clientId || `app-${crypto.randomUUID().slice(0, 8)}`
-    const existingClient = await prisma.appPA.findUnique({ where: { clientId: resolvedClientId } })
+    const existingClient = await prisma.app.findUnique({ where: { clientId: resolvedClientId } })
     if (existingClient) {
       return NextResponse.json({ error: 'Client ID already registered' }, { status: 409 })
     }
 
-    const appPA = await prisma.appPA.create({
+    const app = await prisma.app.create({
       data: {
         name,
         description,
         website,
         logo,
         circleId: circle.id,
+        category: circleType,
         developerId: user.id,
         clientId: resolvedClientId,
         persona,
         metadata,
+        shortPrompt,
+        detailedPrompt,
+        systemSummary,
         status: 'active',
       },
       include: { circle: true },
     })
 
-    await prisma.a2AApp.create({
-      data: {
-        name,
-        description,
-        category: circleType,
-        website,
-        logo,
-        appPAId: appPA.id,
-        developerId: user.id,
-        status: 'active',
-      },
+    await prisma.appMetrics.create({
+      data: { appId: app.id, date: new Date() },
     })
 
-    await prisma.appPAMetrics.create({
-      data: { appPAId: appPA.id, date: new Date() },
-    })
-
-    return NextResponse.json({ success: true, data: appPA })
+    return NextResponse.json({ success: true, data: app })
   } catch (error) {
     console.error('Developer app registration failed:', error)
     return NextResponse.json({ error: 'Registration failed' }, { status: 500 })

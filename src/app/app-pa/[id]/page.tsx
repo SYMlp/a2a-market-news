@@ -6,7 +6,7 @@ import { useParams } from 'next/navigation'
 import Header from '@/components/Header'
 import { useAuth } from '@/contexts/AuthContext'
 
-interface AppPA {
+interface App {
   id: string
   name: string
   description: string
@@ -14,7 +14,8 @@ interface AppPA {
   logo?: string
   clientId?: string
   metadata?: { clientId?: string }
-  app?: { id: string; voteCount: number; score: number } | null
+  voteCount?: number
+  score?: number
   circle: {
     name: string
     slug: string
@@ -87,12 +88,12 @@ function StarPicker({ value, onChange }: { value: number; onChange: (v: number) 
   )
 }
 
-export default function AppPADetailPage() {
+export default function AppDetailPage() {
   const params = useParams()
   const id = params.id as string
   const { user } = useAuth()
 
-  const [appPA, setAppPA] = useState<AppPA | null>(null)
+  const [app, setApp] = useState<App | null>(null)
   const [feedbacks, setFeedbacks] = useState<PublicFeedback[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -105,14 +106,14 @@ export default function AppPADetailPage() {
   const [paVoting, setPaVoting] = useState(false)
   const [paResult, setPaResult] = useState<string | null>(null)
 
-  const clientId = appPA?.clientId || appPA?.metadata?.clientId
+  const clientId = app?.clientId || app?.metadata?.clientId
 
   useEffect(() => {
     fetch(`/api/app-pa/${id}`)
       .then(r => r.json())
       .then(data => {
         if (data.success) {
-          setAppPA(data.data)
+          setApp(data.data)
           const cid = data.data.clientId || data.data.metadata?.clientId
           if (cid) {
             fetch(`/api/feedback?clientId=${cid}&limit=20`)
@@ -168,11 +169,11 @@ export default function AppPADetailPage() {
     )
   }
 
-  if (!appPA) {
+  if (!app) {
     return <div className="min-h-screen flex items-center justify-center text-gray-800 bg-[#FFFBF5]">未找到 Agent</div>
   }
 
-  const latestMetrics = appPA.metrics[0]
+  const latestMetrics = app.metrics[0]
 
   return (
     <div className="min-h-screen">
@@ -185,29 +186,29 @@ export default function AppPADetailPage() {
         <div className="absolute inset-0 bg-gradient-to-b from-orange-50/40 via-transparent to-transparent" />
 
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <Link href={`/circles/${appPA.circle.slug}`} className="inline-flex items-center gap-2 text-gray-400 hover:text-orange-500 transition-colors mb-8 text-sm">
-            <span>←</span> 返回{appPA.circle.name}
+          <Link href={`/circles/${app.circle.slug}`} className="inline-flex items-center gap-2 text-gray-400 hover:text-orange-500 transition-colors mb-8 text-sm">
+            <span>←</span> 返回{app.circle.name}
           </Link>
 
           <div className="flex items-start gap-8">
             <div className="w-28 h-28 bg-gradient-to-br from-orange-300 to-amber-400 rounded-2xl flex items-center justify-center text-5xl flex-shrink-0 shadow-lg">
-              {appPA.logo ? <img src={appPA.logo} alt={appPA.name} className="w-full h-full object-cover rounded-2xl" /> : '🤖'}
+              {app.logo ? <img src={app.logo} alt={app.name} className="w-full h-full object-cover rounded-2xl" /> : '🤖'}
             </div>
 
             <div className="flex-1">
               <div className="flex items-center gap-4 mb-4">
-                <h1 className="text-4xl font-extrabold text-gray-800 font-heading">{appPA.name}</h1>
-                <span className={`circle-badge ${appPA.circle.slug}`}>
-                  {appPA.circle.icon} {appPA.circle.name}
+                <h1 className="text-4xl font-extrabold text-gray-800 font-heading">{app.name}</h1>
+                <span className={`circle-badge ${app.circle.slug}`}>
+                  {app.circle.icon} {app.circle.name}
                 </span>
               </div>
-              <p className="text-lg text-gray-500 mb-6">{appPA.description}</p>
+              <p className="text-lg text-gray-500 mb-6">{app.description}</p>
 
               {/* CTA Buttons */}
               <div className="flex items-center gap-4 flex-wrap">
-                {appPA.website && (
+                {app.website && (
                   <a
-                    href={appPA.website}
+                    href={app.website}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="cyber-btn text-sm inline-flex items-center gap-2"
@@ -221,7 +222,7 @@ export default function AppPADetailPage() {
                       setPaReviewing(true)
                       setPaResult(null)
                       try {
-                        const reviewPayload = clientId ? { clientId } : { appPAId: id }
+                        const reviewPayload = clientId ? { clientId } : { appId: id }
                         const res = await fetch('/api/pa-action/review', {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },
@@ -239,7 +240,7 @@ export default function AppPADetailPage() {
                             const confirmData = await confirmRes.json()
                             if (confirmData.success) {
                               setPaResult(`评价已提交! +20积分`)
-                              const cid = appPA?.clientId || appPA?.metadata?.clientId
+                              const cid = app?.clientId || app?.metadata?.clientId
                               if (cid) {
                                 const fbRes = await fetch(`/api/feedback?clientId=${cid}&limit=20`).then(r => r.json())
                                 if (fbRes.success) setFeedbacks(fbRes.data)
@@ -266,12 +267,11 @@ export default function AppPADetailPage() {
                       setPaVoting(true)
                       setPaResult(null)
                       try {
-                        const a2aApp = appPA?.app
-                        if (a2aApp?.id) {
+                        if (app?.id) {
                           const res = await fetch('/api/pa-action/vote', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ appId: a2aApp.id }),
+                            body: JSON.stringify({ appId: app.id }),
                           })
                           const data = await res.json()
                           if (data.success) {
@@ -318,10 +318,10 @@ export default function AppPADetailPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {[
-              { label: '总用户', value: latestMetrics?.totalUsers || 0, icon: '👥', color: appPA.circle.color },
-              { label: '活跃用户', value: latestMetrics?.activeUsers || 0, icon: '⚡', color: appPA.circle.color },
-              { label: '评分', value: (latestMetrics?.rating || 0).toFixed(1), icon: '⭐', color: appPA.circle.color },
-              { label: '总访问', value: latestMetrics?.totalVisits || 0, icon: '📊', color: appPA.circle.color },
+              { label: '总用户', value: latestMetrics?.totalUsers || 0, icon: '👥', color: app.circle.color },
+              { label: '活跃用户', value: latestMetrics?.activeUsers || 0, icon: '⚡', color: app.circle.color },
+              { label: '评分', value: (latestMetrics?.rating || 0).toFixed(1), icon: '⭐', color: app.circle.color },
+              { label: '总访问', value: latestMetrics?.totalVisits || 0, icon: '📊', color: app.circle.color },
             ].map((metric, i) => (
               <div key={i} className="cyber-card p-6 text-center">
                 <div className="text-3xl mb-3">{metric.icon}</div>
@@ -341,16 +341,16 @@ export default function AppPADetailPage() {
           <h2 className="text-2xl font-extrabold text-gray-800 mb-6 font-heading">动态</h2>
 
           <div className="space-y-6">
-            {appPA.posts.map((post) => (
+            {app.posts.map((post) => (
               <div key={post.id} className="cyber-card p-6">
                 <div className="flex items-start gap-4">
                   <div className="w-12 h-12 bg-gradient-to-br from-orange-300 to-amber-400 rounded-xl flex items-center justify-center text-xl flex-shrink-0 shadow-sm">
-                    {appPA.logo ? <img src={appPA.logo} alt={appPA.name} className="w-full h-full object-cover rounded-xl" /> : '🤖'}
+                    {app.logo ? <img src={app.logo} alt={app.name} className="w-full h-full object-cover rounded-xl" /> : '🤖'}
                   </div>
 
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-3">
-                      <span className="font-bold text-gray-800 font-heading">{appPA.name}</span>
+                      <span className="font-bold text-gray-800 font-heading">{app.name}</span>
                       <span className="text-xs text-gray-400">
                         {new Date(post.createdAt).toLocaleString()}
                       </span>
@@ -382,7 +382,7 @@ export default function AppPADetailPage() {
               </div>
             ))}
 
-            {appPA.posts.length === 0 && (
+            {app.posts.length === 0 && (
               <div className="text-center py-20">
                 <div className="text-gray-400 text-lg">暂无动态</div>
               </div>

@@ -1,0 +1,42 @@
+{
+  "platform": "A2A 智选日报",
+  "scenes": {
+    "lobby": {
+      "label": "大厅",
+      "npc": "灵枢兔",
+      "role": "全局导航枢纽",
+      "capabilities": ["导航到其他场景", "介绍平台功能", "推荐适合的场景"],
+      "exits": ["news", "developer"]
+    },
+    "news": {
+      "label": "日报栏",
+      "npc": "编辑部助手",
+      "role": "应用推荐与体验",
+      "capabilities": ["浏览热门应用", "体验应用", "提交体验报告"],
+      "exits": ["lobby"]
+    },
+    "developer": {
+      "label": "开发者空间",
+      "npc": "技术顾问",
+      "role": "应用注册与管理",
+      "capabilities": ["成为开发者", "注册新应用", "查看用户反馈", "管理应用设置", "暂停/归档应用", "编辑开发者资料"],
+      "exits": ["lobby"]
+    }
+  },
+  "topology_rules": [
+    "大厅是唯一的中转站，所有场景通过大厅连接",
+    "日报栏和开发者空间之间不能直达，必须经过大厅"
+  ],
+  "capability_map": {
+    "想看热门应用": "news",
+    "想体验应用": "news",
+    "想提交体验报告": "news",
+    "想成为开发者": "developer",
+    "想注册应用": "developer",
+    "想查看反馈": "developer",
+    "想管理应用": "developer",
+    "想暂停应用": "developer",
+    "想归档应用": "developer",
+    "想了解平台": "lobby"
+  }
+}

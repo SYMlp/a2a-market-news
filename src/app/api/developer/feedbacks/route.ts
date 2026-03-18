@@ -3,8 +3,8 @@ import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/auth'
 
 /**
- * GET /api/developer/feedbacks?clientId=xxx&page=1&limit=20
- * All feedback for the current developer's apps
+ * GET /api/developer/feedbacks?appId=xxx&page=1&limit=20
+ * Supports appId (preferred) or clientId (backward compat) for filtering.
  */
 export async function GET(request: NextRequest) {
   try {
@@ -17,17 +17,22 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url)
+    const appId = searchParams.get('appId')
     const clientId = searchParams.get('clientId')
     const page = Math.max(1, parseInt(searchParams.get('page') ?? '1'))
     const limit = Math.min(50, Math.max(1, parseInt(searchParams.get('limit') ?? '20')))
 
     const where: Record<string, unknown> = { developerId: user.id }
-    if (clientId) where.targetClientId = clientId
+    if (appId) {
+      where.appId = appId
+    } else if (clientId) {
+      where.targetClientId = clientId
+    }
 
     const [feedbacks, total] = await Promise.all([
       prisma.appFeedback.findMany({
         where,
-        include: { appPA: { select: { name: true, clientId: true, logo: true } } },
+        include: { app: { select: { name: true, clientId: true, logo: true } } },
         orderBy: { createdAt: 'desc' },
         skip: (page - 1) * limit,
         take: limit,

@@ -1,19 +1,52 @@
 'use client'
 
-import Link from 'next/link'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import Header from '@/components/Header'
+import { useAuth } from '@/contexts/AuthContext'
+
+const NOTIFY_OPTIONS = [
+  { value: 'in_app', label: '仅站内' },
+  { value: 'callback', label: '仅回调' },
+  { value: 'both', label: '两者都要' },
+  { value: 'none', label: '不通知' },
+] as const
 
 export default function DeveloperRegisterPage() {
   const router = useRouter()
+  const { user, loading: authLoading, mutate } = useAuth()
   const [form, setForm] = useState({
     developerName: '',
     callbackUrl: '',
-    notifyPreference: 'in_app',
+    notifyPreference: 'in_app' as string,
   })
   const [loading, setLoading] = useState(false)
+  const [profileLoading, setProfileLoading] = useState(true)
   const [error, setError] = useState('')
+
+  const isDeveloper = user?.isDeveloper ?? false
+
+  // Pre-fill profile for existing developers
+  useEffect(() => {
+    if (!authLoading && isDeveloper) {
+      fetch('/api/developer/profile')
+        .then(res => res.json())
+        .then(data => {
+          if (data.success && data.data) {
+            setForm({
+              developerName: data.data.developerName || '',
+              callbackUrl: data.data.callbackUrl || '',
+              notifyPreference: data.data.notifyPreference || 'in_app',
+            })
+          }
+        })
+        .catch(() => {})
+        .finally(() => setProfileLoading(false))
+    } else if (!authLoading) {
+      setProfileLoading(false)
+    }
+  }, [authLoading, isDeveloper])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -21,23 +54,61 @@ export default function DeveloperRegisterPage() {
     setError('')
 
     try {
-      const res = await fetch('/api/developer/register', {
-        method: 'POST',
+      const apiUrl = isDeveloper ? '/api/developer/profile' : '/api/developer/register'
+      const apiMethod = isDeveloper ? 'PUT' : 'POST'
+      const body = {
+        developerName: form.developerName,
+        callbackUrl: form.callbackUrl,
+        notifyPreference: form.notifyPreference,
+      }
+
+      const res = await fetch(apiUrl, {
+        method: apiMethod,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify(body),
       })
       const data = await res.json()
 
       if (data.success) {
+        await mutate()
         router.push('/developer')
       } else {
-        setError(data.error || 'Registration failed')
+        setError(data.error || (isDeveloper ? '更新失败' : 'Registration failed'))
       }
     } catch {
       setError('Network error')
     } finally {
       setLoading(false)
     }
+  }
+
+  if (authLoading || (isDeveloper && profileLoading)) {
+    return (
+      <div className="min-h-screen">
+        <div className="fixed inset-0 cyber-grid pointer-events-none" />
+        <Header activeNav="developer" />
+        <main className="relative py-20 flex items-center justify-center">
+          <p className="text-gray-500">加载中...</p>
+        </main>
+      </div>
+    )
+  }
+
+  if (!user) {
+    return (
+      <div className="min-h-screen">
+        <div className="fixed inset-0 cyber-grid pointer-events-none" />
+        <Header activeNav="developer" />
+        <main className="relative py-20">
+          <div className="max-w-2xl mx-auto px-4 text-center">
+            <p className="text-gray-600 mb-4">请先登录后再进行开发者注册。</p>
+            <Link href="/" className="text-orange-600 hover:underline">
+              返回首页
+            </Link>
+          </div>
+        </main>
+      </div>
+    )
   }
 
   return (
@@ -52,8 +123,14 @@ export default function DeveloperRegisterPage() {
             <div className="inline-block px-6 py-2 bg-orange-50 border border-orange-200 rounded-full mb-6">
               <span className="text-orange-600 text-sm tracking-wide">🛠 开发者入口</span>
             </div>
-            <h2 className="text-4xl font-extrabold text-gray-800 mb-4 font-heading">成为开发者</h2>
-            <p className="text-gray-500">注册成为开发者，管理你的 A2A 应用，接收结构化反馈</p>
+            <h2 className="text-4xl font-extrabold text-gray-800 mb-4 font-heading">
+              {isDeveloper ? '编辑开发者资料' : '成为开发者'}
+            </h2>
+            <p className="text-gray-500">
+              {isDeveloper
+                ? '更新你的开发者资料和通知偏好'
+                : '注册成为开发者，管理你的 A2A 应用，接收结构化反馈'}
+            </p>
           </div>
 
           <form onSubmit={handleSubmit} className="cyber-card p-8 space-y-6">
@@ -102,12 +179,7 @@ export default function DeveloperRegisterPage() {
                 通知偏好
               </label>
               <div className="grid grid-cols-2 gap-3">
-                {[
-                  { value: 'in_app', label: '仅站内' },
-                  { value: 'callback', label: '仅回调' },
-                  { value: 'both', label: '两者都要' },
-                  { value: 'none', label: '不通知' },
-                ].map(opt => (
+                {NOTIFY_OPTIONS.map(opt => (
                   <button
                     key={opt.value}
                     type="button"
@@ -129,7 +201,13 @@ export default function DeveloperRegisterPage() {
               disabled={loading}
               className="w-full cyber-btn py-4 text-center disabled:opacity-50"
             >
-              {loading ? '注册中...' : '注册成为开发者'}
+              {loading
+                ? isDeveloper
+                  ? '更新中...'
+                  : '注册中...'
+                : isDeveloper
+                  ? '更新资料'
+                  : '注册成为开发者'}
             </button>
           </form>
         </div>

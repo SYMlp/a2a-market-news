@@ -51,11 +51,13 @@ export default function DeveloperDashboard() {
   const [stats, setStats] = useState<DeveloperStats | null>(null)
   const [apps, setApps] = useState<AppItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [showArchived, setShowArchived] = useState(false)
 
   useEffect(() => {
+    const url = showArchived ? '/api/developer/apps?includeArchived=true' : '/api/developer/apps'
     Promise.all([
       fetch('/api/developer/stats').then(r => r.json()),
-      fetch('/api/developer/apps').then(r => r.json()),
+      fetch(url).then(r => r.json()),
     ])
       .then(([statsData, appsData]) => {
         if (statsData.success) setStats(statsData.data)
@@ -63,7 +65,9 @@ export default function DeveloperDashboard() {
         setLoading(false)
       })
       .catch(() => setLoading(false))
-  }, [])
+
+    fetch('/api/developer/notifications/mark-read', { method: 'POST' }).catch(() => {})
+  }, [showArchived])
 
   return (
     <div className="min-h-screen">
@@ -110,11 +114,22 @@ export default function DeveloperDashboard() {
               </div>
 
               {/* Apps Section */}
-              <div className="mb-8 flex justify-between items-center">
+              <div className="mb-8 flex flex-wrap justify-between items-center gap-4">
                 <h2 className="text-2xl font-bold text-gray-800 font-heading">我的应用</h2>
-                <Link href="/register" className="cyber-btn text-sm">
-                  + 注册新应用
-                </Link>
+                <div className="flex items-center gap-3">
+                  <label className="flex items-center gap-2 cursor-pointer text-sm text-gray-500">
+                    <input
+                      type="checkbox"
+                      checked={showArchived}
+                      onChange={e => setShowArchived(e.target.checked)}
+                      className="rounded border-gray-300 text-orange-500 focus:ring-orange-400"
+                    />
+                    显示已归档
+                  </label>
+                  <Link href="/register" className="cyber-btn text-sm">
+                    + 注册新应用
+                  </Link>
+                </div>
               </div>
 
               {apps.length === 0 ? (
@@ -144,9 +159,11 @@ export default function DeveloperDashboard() {
                               <span className={`px-2 py-0.5 text-xs rounded-full ${
                                 app.status === 'active'
                                   ? 'bg-emerald-50 text-emerald-600 border border-emerald-200'
+                                  : app.status === 'archived'
+                                  ? 'bg-gray-100 text-gray-500 border border-gray-200'
                                   : 'bg-amber-50 text-amber-600 border border-amber-200'
                               }`}>
-                                {app.status === 'active' ? '活跃' : app.status.toUpperCase()}
+                                {app.status === 'active' ? '活跃' : app.status === 'archived' ? '已归档' : app.status === 'inactive' ? '暂停' : app.status}
                               </span>
                             </div>
                             <p className="text-gray-400 text-sm truncate">{app.description}</p>
@@ -185,31 +202,27 @@ export default function DeveloperDashboard() {
 
                         {/* Action buttons */}
                         <div className="flex items-center gap-3">
-                          {app.clientId && (
-                            <Link
-                              href={`/developer/apps/${app.clientId}/feedbacks`}
-                              className="px-4 py-2 border border-orange-200 text-orange-500 text-xs tracking-wide rounded-lg
-                                         hover:bg-orange-50 transition-colors"
-                            >
-                              查看反馈
-                            </Link>
-                          )}
                           <Link
-                            href={`/developer/apps/${app.clientId}/settings`}
+                            href={`/developer/apps/${app.id}/feedbacks`}
+                            className="px-4 py-2 border border-orange-200 text-orange-500 text-xs tracking-wide rounded-lg
+                                       hover:bg-orange-50 transition-colors"
+                          >
+                            查看反馈
+                          </Link>
+                          <Link
+                            href={`/developer/apps/${app.id}/settings`}
                             className="px-4 py-2 border border-gray-200 text-gray-500 text-xs tracking-wide rounded-lg
                                        hover:bg-gray-50 transition-colors"
                           >
                             设置
                           </Link>
-                          {app.clientId && (
-                            <Link
-                              href={`/app-pa/${app.id}`}
-                              className="px-4 py-2 text-gray-400 text-xs tracking-wide rounded-lg
-                                         hover:text-orange-500 transition-colors ml-auto"
-                            >
-                              查看详情 →
-                            </Link>
-                          )}
+                          <Link
+                            href={`/app-pa/${app.id}`}
+                            className="px-4 py-2 text-gray-400 text-xs tracking-wide rounded-lg
+                                       hover:text-orange-500 transition-colors ml-auto"
+                          >
+                            查看详情 →
+                          </Link>
                         </div>
                       </div>
                     </div>

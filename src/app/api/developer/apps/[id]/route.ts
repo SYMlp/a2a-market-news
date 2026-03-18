@@ -18,7 +18,7 @@ export async function GET(
 
     const { id } = await params
 
-    const app = await prisma.appPA.findUnique({
+    const app = await prisma.app.findUnique({
       where: { id },
       include: {
         circle: true,
@@ -57,7 +57,7 @@ export async function PUT(
 
     const { id } = await params
 
-    const app = await prisma.appPA.findUnique({ where: { id } })
+    const app = await prisma.app.findUnique({ where: { id } })
     if (!app) {
       return NextResponse.json({ error: 'App not found' }, { status: 404 })
     }
@@ -73,16 +73,34 @@ export async function PUT(
       website,
       logo,
       metadata,
+      shortPrompt,
+      detailedPrompt,
+      systemSummary,
+      status,
     } = body
 
+    // Status validation: only active, inactive, archived. Archived is terminal.
+    const VALID_STATUSES = ['active', 'inactive', 'archived'] as const
+    if (status !== undefined) {
+      if (!VALID_STATUSES.includes(status)) {
+        return NextResponse.json({ error: `Invalid status. Must be one of: ${VALID_STATUSES.join(', ')}` }, { status: 400 })
+      }
+      if (status === 'archived' && app.status === 'archived') {
+        return NextResponse.json({ error: 'App is already archived' }, { status: 400 })
+      }
+      if (app.status === 'archived') {
+        return NextResponse.json({ error: 'Cannot change status of archived app' }, { status: 400 })
+      }
+    }
+
     if (clientId && clientId !== app.clientId) {
-      const existing = await prisma.appPA.findUnique({ where: { clientId } })
+      const existing = await prisma.app.findUnique({ where: { clientId } })
       if (existing && existing.id !== id) {
         return NextResponse.json({ error: 'Client ID already in use' }, { status: 409 })
       }
     }
 
-    const updated = await prisma.appPA.update({
+    const updated = await prisma.app.update({
       where: { id },
       data: {
         ...(name !== undefined && { name }),
@@ -91,6 +109,10 @@ export async function PUT(
         ...(website !== undefined && { website }),
         ...(logo !== undefined && { logo }),
         ...(metadata !== undefined && { metadata }),
+        ...(shortPrompt !== undefined && { shortPrompt }),
+        ...(detailedPrompt !== undefined && { detailedPrompt }),
+        ...(systemSummary !== undefined && { systemSummary }),
+        ...(status !== undefined && { status }),
       },
       include: { circle: true },
     })

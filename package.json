@@ -18,6 +18,9 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
+  "prisma": {
+    "seed": "npx tsx prisma/seed.ts"
+  },
   "devDependencies": {
     "@types/node": "^20",
     "@types/react": "^19",

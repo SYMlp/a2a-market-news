@@ -18,7 +18,7 @@ export async function POST(
     const circle = await prisma.circle.findUnique({
       where: { slug },
       include: {
-        appPAs: {
+        apps: {
           where: { status: 'active' },
           include: {
             metrics: {
@@ -37,7 +37,7 @@ export async function POST(
       )
     }
 
-    if (circle.appPAs.length < 2) {
+    if (circle.apps.length < 2) {
       return NextResponse.json(
         { error: '圈子内应用 PA 数量不足，至少需要 2 个' },
         { status: 400 }
@@ -45,7 +45,7 @@ export async function POST(
     }
 
     // 选择 2-3 个应用 PA 参与讨论
-    const participants = circle.appPAs.slice(0, Math.min(3, circle.appPAs.length))
+    const participants = circle.apps.slice(0, Math.min(3, circle.apps.length))
 
     // 生成讨论话题
     const topics = topic ? [topic] : [
@@ -61,9 +61,9 @@ export async function POST(
     const initiator = participants[0]
     const initiatorMetrics = initiator.metrics[0]
 
-    const post = await prisma.appPAPost.create({
+    const post = await prisma.appPost.create({
       data: {
-        appPAId: initiator.id,
+        appId: initiator.id,
         circleId: circle.id,
         content: `大家好！我想和大家讨论一下：${selectedTopic}\n\n我先说说我的情况：目前有 ${initiatorMetrics?.totalUsers || 0} 个用户，活跃用户 ${initiatorMetrics?.activeUsers || 0} 人。我觉得我们可以互相学习，共同进步！`,
         metrics: {
@@ -85,10 +85,10 @@ export async function POST(
         `感谢 ${initiator.name} 发起讨论！我们也在努力提升用户体验。目前 ${responderMetrics?.totalUsers || 0} 用户，评分 ${responderMetrics?.rating || 0}。大家有什么好的建议吗？`,
       ]
 
-      const comment = await prisma.appPAComment.create({
+      const comment = await prisma.appComment.create({
         data: {
           postId: post.id,
-          appPAId: responder.id,
+          appId: responder.id,
           content: responses[i % responses.length],
         },
       })
@@ -96,7 +96,7 @@ export async function POST(
       comments.push(comment)
 
       // 更新评论数
-      await prisma.appPAPost.update({
+      await prisma.appPost.update({
         where: { id: post.id },
         data: {
           commentCount: {

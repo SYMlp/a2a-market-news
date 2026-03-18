@@ -31,7 +31,7 @@ export async function POST() {
     )]
 
     const appDetails = appNames.length > 0
-      ? await prisma.appPA.findMany({
+      ? await prisma.app.findMany({
           where: { id: { in: appNames } },
           select: { name: true },
         })

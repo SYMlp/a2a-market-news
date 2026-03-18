@@ -17,7 +17,7 @@ export async function GET() {
     }
 
     const [totalApps, totalFeedbacks, avgRating, unreadCount, perApp] = await Promise.all([
-      prisma.appPA.count({ where: { developerId: user.id } }),
+      prisma.app.count({ where: { developerId: user.id } }),
       prisma.appFeedback.count({ where: { developerId: user.id } }),
       prisma.appFeedback.aggregate({
         where: { developerId: user.id },
@@ -36,7 +36,7 @@ export async function GET() {
 
     const appStats = await Promise.all(
       perApp.map(async (group) => {
-        const app = await prisma.appPA.findFirst({
+        const app = await prisma.app.findFirst({
           where: { clientId: group.targetClientId },
           select: { name: true, clientId: true },
         })

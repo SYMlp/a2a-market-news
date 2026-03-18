@@ -38,7 +38,7 @@ export async function GET(
           overallRating: true,
           summary: true,
           createdAt: true,
-          appPA: { select: { name: true } },
+          app: { select: { name: true } },
         },
       }),
       prisma.hallOfFameEntry.findMany({
