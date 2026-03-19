@@ -282,5 +282,24 @@ export function serializeForPA(session: GameSession): string {
     parts.push(`→ 还没去过：${notVisited.join('、')}`)
   }
 
+  const experiencingApp = session.flags?.experiencingApp as { name: string } | undefined
+  const hasExperienced = !!session.flags?.hasExperienced
+  const subFlow = session.flags?.subFlow as { type: string } | undefined
+
+  if (experiencingApp || subFlow) {
+    parts.push('')
+    parts.push('== 当前状态 ==')
+    if (experiencingApp) {
+      parts.push(`- 你正在体验「${experiencingApp.name}」— 体验已开始，下一步应该是提交体验报告`)
+    }
+    if (subFlow) {
+      parts.push(`- 你正在进行「${subFlow.type}」流程，请继续完成当前步骤`)
+    }
+  } else if (hasExperienced) {
+    parts.push('')
+    parts.push('== 当前状态 ==')
+    parts.push('- 你已完成应用体验，可以提交体验报告')
+  }
+
   return parts.join('\n')
 }

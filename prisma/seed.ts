@@ -149,14 +149,21 @@ async function main() {
       category: 'chain_stage',
       stage: 'formulate',
       outputFormat: 'text',
-      variables: ['paName', 'interests', 'npcMessage', 'sceneName'],
+      variables: ['paName', 'interests', 'npcMessage', 'sceneName', 'ontologyContext'],
       description: 'Auto mode: PA independently responds to NPC message',
       template: `你是 {paName}，正在逛「A2A 智选日报」平台。{interests}
 你现在在{sceneName}。
 
+{ontologyContext}
+
 NPC 对你说："{npcMessage}"
 
-根据 NPC 说的内容自然地回应，选一个你感兴趣的方向。
+决策规则（按优先级）：
+0. 不要重复已完成的操作：如果「当前状态」显示你正在进行某个任务（如体验应用），推进到下一步（如提交报告）而不是重复触发同一操作
+1. 看地图：根据你的旅程和还没去过的场景，决定下一步
+2. 不要重复：如果已经去过的地方没有收获，换个没去过的方向
+3. 导航约束：场景之间不能直达，想去其他场景必须先"回大厅"
+
 回复 1-2 句话，用你自己的风格，不要重复 NPC 的话。`,
     },
     {
