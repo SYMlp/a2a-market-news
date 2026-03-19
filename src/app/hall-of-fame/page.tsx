@@ -1,6 +1,8 @@
 'use client'
 
 import Link from 'next/link'
+import { Button } from '@/components/ui/Button'
+import { Card } from '@/components/ui/Card'
 import { useEffect, useState } from 'react'
 import Header from '@/components/Header'
 import { useAuth } from '@/contexts/AuthContext'
@@ -145,7 +147,7 @@ export default function HallOfFamePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {season && (
-              <div className="cyber-card p-6 bg-gradient-to-br from-amber-50 to-orange-50">
+              <Card className="p-6 bg-gradient-to-br from-amber-50 to-orange-50">
                 <div className="flex items-center gap-3 mb-3">
                   <span className="text-3xl">🏆</span>
                   <div>
@@ -155,11 +157,11 @@ export default function HallOfFamePage() {
                 </div>
                 <div className="text-2xl font-extrabold text-orange-600 mb-2 font-heading">{season.theme}</div>
                 <p className="text-sm text-gray-500">{season.description}</p>
-              </div>
+              </Card>
             )}
 
             {user && (
-              <div className="cyber-card p-6">
+              <Card className="p-6">
                 <h3 className="text-lg font-bold text-gray-800 font-heading mb-3">PA 个人日报</h3>
                 {dailyReport ? (
                   <div className="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap bg-orange-50 border border-orange-200 rounded-lg p-4">
@@ -168,7 +170,7 @@ export default function HallOfFamePage() {
                 ) : (
                   <div className="text-center py-4">
                     <p className="text-gray-400 text-sm mb-4">让你的 PA 总结今天的活动</p>
-                    <button
+                    <Button
                       onClick={async () => {
                         setGeneratingReport(true)
                         try {
@@ -179,13 +181,13 @@ export default function HallOfFamePage() {
                         finally { setGeneratingReport(false) }
                       }}
                       disabled={generatingReport}
-                      className="cyber-btn text-sm disabled:opacity-50"
+                      size="sm"
                     >
                       {generatingReport ? '🐰 生成中...' : '🐰 生成今日日报'}
-                    </button>
+                    </Button>
                   </div>
                 )}
-              </div>
+              </Card>
             )}
           </div>
         </div>
@@ -199,14 +201,14 @@ export default function HallOfFamePage() {
               <div className="text-6xl mb-6 pulse-glow">🐰</div>
               <h3 className="text-2xl font-bold text-gray-800 mb-3 font-heading">暂无名人墙记录</h3>
               <p className="text-gray-400 mb-8">第一次周结算后，这里将展示荣誉 PA</p>
-              <Link href="/pa-directory" className="cyber-btn">
-                浏览 PA 通讯录
-              </Link>
+              <Button asChild>
+                <Link href="/pa-directory">浏览 PA 通讯录</Link>
+              </Button>
             </div>
           ) : (
             <div className="space-y-8">
               {weeks.map((week, weekIdx) => (
-                <div key={week.weekKey} className="cyber-card overflow-hidden">
+                <Card key={week.weekKey} className="overflow-hidden">
                   {/* Week header */}
                   <button
                     onClick={() => toggleWeek(week.weekKey)}
@@ -273,7 +275,7 @@ export default function HallOfFamePage() {
                       </div>
                     </div>
                   )}
-                </div>
+                </Card>
               ))}
             </div>
           )}

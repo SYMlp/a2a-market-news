@@ -32,3 +32,11 @@ export const MODEL_FOR = {
   paDiscover: MODEL.FAST,
   paDailyReport: MODEL.FAST,
 } as const satisfies Record<string, ModelId>
+
+/**
+ * Fallback model when the primary model times out or returns 5xx.
+ * Only QUALITY→FAST makes sense; FAST has no cheaper fallback.
+ */
+export const FALLBACK_FOR: Partial<Record<ModelId, ModelId>> = {
+  [MODEL.QUALITY]: MODEL.FAST,
+}

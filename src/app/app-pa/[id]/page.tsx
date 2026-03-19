@@ -5,6 +5,8 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Header from '@/components/Header'
 import { useAuth } from '@/contexts/AuthContext'
+import { Button } from '@/components/ui/Button'
+import { Card } from '@/components/ui/Card'
 
 interface App {
   id: string
@@ -207,14 +209,16 @@ export default function AppDetailPage() {
               {/* CTA Buttons */}
               <div className="flex items-center gap-4 flex-wrap">
                 {app.website && (
-                  <a
-                    href={app.website}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="cyber-btn text-sm inline-flex items-center gap-2"
-                  >
-                    🚀 体验应用
-                  </a>
+                  <Button asChild size="sm">
+                    <a
+                      href={app.website}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2"
+                    >
+                      🚀 体验应用
+                    </a>
+                  </Button>
                 )}
                 {user && (
                   <button
@@ -323,13 +327,13 @@ export default function AppDetailPage() {
               { label: '评分', value: (latestMetrics?.rating || 0).toFixed(1), icon: '⭐', color: app.circle.color },
               { label: '总访问', value: latestMetrics?.totalVisits || 0, icon: '📊', color: app.circle.color },
             ].map((metric, i) => (
-              <div key={i} className="cyber-card p-6 text-center">
+              <Card key={i} className="p-6 text-center">
                 <div className="text-3xl mb-3">{metric.icon}</div>
                 <div className="text-3xl font-bold mb-2" style={{ color: metric.color }}>
                   {metric.value}
                 </div>
                 <div className="text-xs text-gray-400 tracking-wide">{metric.label}</div>
-              </div>
+              </Card>
             ))}
           </div>
         </div>
@@ -342,7 +346,7 @@ export default function AppDetailPage() {
 
           <div className="space-y-6">
             {app.posts.map((post) => (
-              <div key={post.id} className="cyber-card p-6">
+              <Card key={post.id} className="p-6">
                 <div className="flex items-start gap-4">
                   <div className="w-12 h-12 bg-gradient-to-br from-orange-300 to-amber-400 rounded-xl flex items-center justify-center text-xl flex-shrink-0 shadow-sm">
                     {app.logo ? <img src={app.logo} alt={app.name} className="w-full h-full object-cover rounded-xl" /> : '🤖'}
@@ -379,7 +383,7 @@ export default function AppDetailPage() {
                     </div>
                   </div>
                 </div>
-              </div>
+              </Card>
             ))}
 
             {app.posts.length === 0 && (
@@ -397,18 +401,17 @@ export default function AppDetailPage() {
           <div className="flex items-center justify-between mb-8">
             <h2 className="text-2xl font-extrabold text-gray-800 font-heading">社区反馈</h2>
             {clientId && (
-              <Link
-                href={`/feedback/${clientId}`}
-                className="cyber-btn text-sm"
-              >
-                提交详细反馈
-              </Link>
+              <Button asChild size="sm">
+                <Link href={`/feedback/${clientId}`}>
+                  提交详细反馈
+                </Link>
+              </Button>
             )}
           </div>
 
           {/* Inline Comment Box */}
           {clientId && (
-            <div className="cyber-card p-6 mb-8">
+            <Card className="p-6 mb-8">
               {user ? (
                 <form onSubmit={handleCommentSubmit}>
                   <div className="flex items-center gap-3 mb-4">
@@ -433,13 +436,14 @@ export default function AppDetailPage() {
                                  focus:outline-none focus:border-orange-300 focus:ring-1 focus:ring-orange-200
                                  bg-white text-gray-800 placeholder:text-gray-300"
                     />
-                    <button
+                    <Button
                       type="submit"
+                      size="sm"
                       disabled={submitting || !commentText.trim()}
-                      className="cyber-btn text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="disabled:cursor-not-allowed"
                     >
                       {submitting ? '提交中...' : '评价'}
-                    </button>
+                    </Button>
                   </div>
                   {submitMsg && (
                     <p className={`text-xs mt-2 ${submitMsg.includes('失败') || submitMsg.includes('错误') ? 'text-red-500' : 'text-emerald-500'}`}>
@@ -454,13 +458,13 @@ export default function AppDetailPage() {
                   </a>
                 </div>
               )}
-            </div>
+            </Card>
           )}
 
           {feedbacks.length > 0 ? (
             <div className="space-y-4">
               {feedbacks.map(fb => (
-                <div key={fb.id} className="cyber-card p-6">
+                <Card key={fb.id} className="p-6">
                   <div className="flex items-start justify-between gap-4">
                     <div>
                       <div className="flex items-center gap-3 mb-2">
@@ -476,22 +480,21 @@ export default function AppDetailPage() {
                       {'★'.repeat(fb.overallRating)}{'☆'.repeat(5 - fb.overallRating)}
                     </div>
                   </div>
-                </div>
+                </Card>
               ))}
             </div>
           ) : (
-            <div className="cyber-card p-12 text-center">
+            <Card className="p-12 text-center">
               <div className="text-4xl mb-4">🐰</div>
               <p className="text-gray-400 mb-4">还没有反馈，来做第一个吧！</p>
               {clientId && (
-                <Link
-                  href={`/feedback/${clientId}`}
-                  className="cyber-btn text-sm"
-                >
-                  第一个评价
-                </Link>
+                <Button asChild size="sm">
+                  <Link href={`/feedback/${clientId}`}>
+                    第一个评价
+                  </Link>
+                </Button>
               )}
-            </div>
+            </Card>
           )}
         </div>
       </section>

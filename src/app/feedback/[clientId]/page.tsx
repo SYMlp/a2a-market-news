@@ -1,6 +1,8 @@
 'use client'
 
 import Link from 'next/link'
+import { Button } from '@/components/ui/Button'
+import { Card } from '@/components/ui/Card'
 import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import Header from '@/components/Header'
@@ -145,9 +147,9 @@ export default function FeedbackPage() {
           )}
 
           <div className="flex gap-4 justify-center pt-4">
-            <button onClick={() => { setPhase('idle'); setPreview(null); setResult(null) }} className="cyber-btn text-sm">
+            <Button onClick={() => { setPhase('idle'); setPreview(null); setResult(null) }} size="sm">
               再评一个
-            </button>
+            </Button>
             <Link href="/" className="px-6 py-3 border border-[#E8E0D8] text-gray-500 text-sm rounded-xl hover:border-orange-200 transition-colors">
               返回首页
             </Link>
@@ -184,7 +186,7 @@ export default function FeedbackPage() {
 
           {/* PA Review Mode */}
           {phase !== 'manual' && (
-            <div className="cyber-card p-8 mb-6">
+            <Card className="p-8 mb-6">
               <div className="text-center mb-6">
                 <h3 className="text-xl font-bold text-gray-800 font-heading mb-2">PA 智能评价</h3>
                 <p className="text-gray-400 text-sm">让你的 PA 基于个性和兴趣生成个性化评价</p>
@@ -193,15 +195,15 @@ export default function FeedbackPage() {
               {phase === 'idle' && (
                 <div className="text-center space-y-4">
                   {user ? (
-                    <button onClick={handlePAReview} className="cyber-btn py-4 px-12 text-lg">
+                    <Button onClick={handlePAReview} size="lg">
                       让我的 PA 来评价
-                    </button>
+                    </Button>
                   ) : (
                     <div>
                       <p className="text-gray-400 mb-4">登录后即可使用 PA 智能评价</p>
-                      <Link href="/api/auth/login" className="cyber-btn">
-                        登录
-                      </Link>
+                      <Button asChild>
+                        <Link href="/api/auth/login">登录</Link>
+                      </Button>
                     </div>
                   )}
                 </div>
@@ -265,13 +267,13 @@ export default function FeedbackPage() {
                   </div>
 
                   <div className="flex gap-4">
-                    <button
+                    <Button
                       onClick={handleConfirm}
                       disabled={phase === 'confirming'}
-                      className="flex-1 cyber-btn py-3 text-center disabled:opacity-50"
+                      className="flex-1 py-3 text-center"
                     >
                       {phase === 'confirming' ? '提交中...' : '确认提交'}
-                    </button>
+                    </Button>
                     <button
                       onClick={handlePAReview}
                       disabled={phase === 'confirming'}
@@ -293,7 +295,7 @@ export default function FeedbackPage() {
                   </button>
                 </div>
               )}
-            </div>
+            </Card>
           )}
 
           {/* Manual Mode */}
@@ -348,7 +350,7 @@ function ManualFeedbackForm({ clientId, onBack }: { clientId: string; onBack: ()
         <div className="text-6xl pulse-glow">🐰</div>
         <h2 className="text-3xl font-extrabold text-gray-800 font-heading">感谢反馈!</h2>
         <div className="flex gap-4 justify-center">
-          <button onClick={() => setSubmitted(false)} className="cyber-btn text-sm">再提交一个</button>
+          <Button onClick={() => setSubmitted(false)} size="sm">再提交一个</Button>
           <Link href="/" className="px-6 py-3 border border-[#E8E0D8] text-gray-500 text-sm rounded-xl hover:border-orange-200 transition-colors">返回首页</Link>
         </div>
       </div>
@@ -362,7 +364,8 @@ function ManualFeedbackForm({ clientId, onBack }: { clientId: string; onBack: ()
           ← 返回 PA 智能评价
         </button>
       </div>
-      <form onSubmit={handleSubmit} className="cyber-card p-8 space-y-6">
+      <form onSubmit={handleSubmit}>
+        <Card className="p-8 space-y-6">
         {error && <div className="p-4 bg-red-50 border border-red-200 text-red-600 text-sm rounded-xl">{error}</div>}
 
         <div className="grid grid-cols-2 gap-4">
@@ -404,10 +407,11 @@ function ManualFeedbackForm({ clientId, onBack }: { clientId: string; onBack: ()
             placeholder="详细的使用体验..." />
         </div>
 
-        <button type="submit" disabled={loading || form.overallRating === 0}
-          className="w-full cyber-btn py-4 text-center disabled:opacity-50">
+        <Button type="submit" disabled={loading || form.overallRating === 0}
+          className="w-full py-4 text-center">
           {loading ? '提交中...' : '提交反馈'}
-        </button>
+        </Button>
+        </Card>
       </form>
     </div>
   )

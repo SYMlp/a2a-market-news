@@ -4,108 +4,182 @@
       "label": "分配体验任务",
       "scene": "news",
       "category": "business",
+      "behaviorPattern": "select_one",
       "requires": "session.data.apps 非空",
       "produces": "设置 experiencingApp 和 hasExperienced",
       "failHint": "平台目前没有应用入驻",
-      "npcHint": "访客将去体验应用，完成后回来可以提交报告"
+      "npcHint": "访客将去体验应用，完成后回来可以提交报告",
+      "execution": {
+        "type": "handler",
+        "handlerKey": "fc.assignMission"
+      }
     },
     "GM.saveReport": {
       "label": "保存体验报告",
       "scene": "news",
       "category": "business",
+      "behaviorPattern": "free_response",
       "requires": "experiencingApp.clientId 存在",
       "produces": "清除 experiencingApp，totalReports +1",
       "failHint": "没有正在体验的应用",
       "npcHint": "报告已保存并通知开发者",
-      "sideEffects": ["写入 AppFeedback", "通知开发者"]
+      "sideEffects": ["写入 AppFeedback", "通知开发者"],
+      "execution": {
+        "type": "handler",
+        "handlerKey": "fc.saveReport"
+      }
     },
     "GM.startRegistration": {
-      "label": "启动应用注册",
+      "label": "启动应用收录",
       "scene": "developer",
       "category": "subflow",
-      "requires": null,
+      "behaviorPattern": "subflow",
+      "requires": "isDeveloper",
       "produces": "进入 register 子流程",
-      "npcHint": "注册流程已开始，需要收集应用名称、描述、圈子类型"
+      "npcHint": "收录流程已开始，需要收集应用名称、描述、激活语",
+      "validation": {
+        "type": "api_verify",
+        "target": "SecondMe Circle API",
+        "verifies": "激活语对应的应用确实存在于 SecondMe 平台"
+      },
+      "execution": {
+        "type": "subflow",
+        "specName": "register",
+        "detail": "注册流程已开始"
+      }
     },
     "GM.startAppSettings": {
       "label": "编辑应用设置",
       "scene": "developer",
       "category": "subflow",
+      "behaviorPattern": "subflow",
       "requires": null,
       "produces": "进入 app_settings 子流程",
-      "npcHint": "设置流程已开始"
+      "npcHint": "设置流程已开始",
+      "execution": {
+        "type": "subflow",
+        "specName": "app-settings",
+        "detail": "应用设置流程已开始"
+      }
     },
     "GM.startAppLifecycle": {
       "label": "应用生命周期管理",
       "scene": "developer",
       "category": "subflow",
+      "behaviorPattern": "subflow",
       "requires": null,
       "produces": "进入 app_lifecycle 子流程",
-      "npcHint": "选择要操作的应用和目标状态"
+      "npcHint": "选择要操作的应用和目标状态",
+      "execution": {
+        "type": "subflow",
+        "specName": "app-lifecycle",
+        "detail": "应用生命周期流程已开始"
+      }
     },
     "GM.startProfile": {
       "label": "编辑开发者资料",
       "scene": "developer",
       "category": "subflow",
+      "behaviorPattern": "subflow",
       "requires": null,
       "produces": "进入 profile 子流程",
-      "npcHint": "资料编辑流程已开始"
+      "npcHint": "资料编辑流程已开始",
+      "execution": {
+        "type": "subflow",
+        "specName": "profile",
+        "detail": "资料编辑流程已开始"
+      }
     },
     "GM.showApps": {
       "label": "展示应用列表",
       "scene": "developer",
       "category": "display",
+      "behaviorPattern": "select_one",
       "requires": null,
       "produces": null,
-      "npcHint": "应用列表数据已加载"
+      "npcHint": "应用列表数据已加载",
+      "execution": {
+        "type": "builtin",
+        "handler": "passthrough"
+      }
     },
     "GM.showFeedback": {
       "label": "展示用户反馈",
       "scene": "developer",
       "category": "display",
+      "behaviorPattern": "select_one",
       "requires": null,
       "produces": null,
-      "npcHint": "反馈数据已加载"
+      "npcHint": "反馈数据已加载",
+      "execution": {
+        "type": "builtin",
+        "handler": "passthrough"
+      }
     },
     "GM.enterSpace": {
       "label": "进入场景",
       "scene": null,
       "category": "navigation",
+      "behaviorPattern": "navigate",
       "requires": null,
       "produces": null,
-      "npcHint": null
+      "npcHint": null,
+      "execution": {
+        "type": "builtin",
+        "handler": "navigation"
+      }
     },
     "GM.rest": {
       "label": "休息",
       "scene": null,
       "category": "navigation",
+      "behaviorPattern": "free_response",
       "requires": null,
       "produces": null,
-      "npcHint": null
+      "npcHint": null,
+      "execution": {
+        "type": "builtin",
+        "handler": "navigation"
+      }
     },
     "GM.help": {
       "label": "帮助",
       "scene": null,
       "category": "navigation",
+      "behaviorPattern": "free_response",
       "requires": null,
       "produces": null,
-      "npcHint": null
+      "npcHint": null,
+      "execution": {
+        "type": "builtin",
+        "handler": "navigation"
+      }
     },
     "GM.fallback": {
       "label": "未匹配",
       "scene": null,
       "category": "navigation",
+      "behaviorPattern": "free_response",
       "requires": null,
       "produces": null,
-      "npcHint": null
+      "npcHint": null,
+      "execution": {
+        "type": "builtin",
+        "handler": "navigation"
+      }
     },
     "GM.leavePlatform": {
       "label": "离开平台",
       "scene": null,
       "category": "navigation",
+      "behaviorPattern": "navigate",
       "requires": null,
       "produces": "结束会话",
-      "npcHint": null
+      "npcHint": null,
+      "execution": {
+        "type": "builtin",
+        "handler": "navigation"
+      }
     }
   },
   "dataLoaders": {
@@ -135,7 +209,7 @@
     },
     "isDeveloper": {
       "meaning": "访客已是开发者",
-      "unlocks": "注册新应用"
+      "unlocks": "推荐应用给日报"
     }
   }
 }

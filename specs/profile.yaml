@@ -1,0 +1,106 @@
+# ComponentSpec: profile
+# Renders: SpecFormCard (spec-driven)
+# FC: GM.updateProfile (confirm) | GM.startProfile (activate)
+
+id: profile
+functionCall: GM.updateProfile
+
+# Lifecycle: collect → confirm → done
+lifecycle:
+  steps: [collect, confirm, done]
+  initial: collect
+  onKeyword:
+    patterns: ["取消", "算了", "不改了", "不要了", "不做了", "退出", "cancel"]
+    action: cancel
+  delays:
+    confirmTimeout: 300000
+  onSceneChange: cancel
+
+# Collect phase: extract from message via regex
+collect:
+  extractFromMessage:
+    patterns:
+      developerName: "/(?:开发者)?(?:名字?|名称)(?:改成?|改为?|是|为)[\\s:：]*[「\"'《]?([^」\"'》\\n]{1,50})[」\"'》]?/"
+      callbackUrl: "/(?:回调|webhook|通知)(?:地址|url|链接)?(?:改成?|改为?|是|为)[\\s:：]*([^\\s，,。\\n]{10,200})/"
+      notifyPreference: "/(?:通知)(?:偏好|方式)?(?:改成?|改为?|是|为)[\\s:：]*(仅站内|站内|in_app|仅回调|回调|callback|两者|both|不通知|none)/i"
+  preferenceMapping:
+    仅站内: in_app
+    站内: in_app
+    in_app: in_app
+    仅回调: callback
+    回调: callback
+    callback: callback
+    两者: both
+    both: both
+    不通知: none
+    none: none
+  # No changes extracted: show follow-up
+  emptyMessage:
+    pa: "想修改哪些信息？可以说「名字改成XXX」或「回调地址改成XXX」或「通知改成仅站内」。"
+    agent: "Need profile changes: developerName, callbackUrl, notifyPreference."
+  # Has changes: step confirm
+  transitionToConfirm:
+    when: "changes.nonEmpty"
+
+# Confirm phase
+actions:
+  confirm:
+    params:
+      changes:
+        type: object
+        required: true
+        description: "Profile fields to update (developerName, callbackUrl, notifyPreference)"
+        properties:
+          developerName: { type: string }
+          callbackUrl: { type: string }
+          notifyPreference:
+            type: string
+            enum: [none, callback, in_app, both]
+    effect: db.user.update
+    ownershipCheck: "implicit (current user)"
+    onSuccess:
+      clearSubFlow: true
+      returnExtra:
+        updatedProfile:
+          developerName: updated.developerName
+          callbackUrl: updated.callbackUrl
+          notifyPreference: updated.notifyPreference
+
+# Agent visibility: expose as MCP tool for discovery
+# Design decision: profile update is a single-step confirm (changes object),
+# suitable for direct agent invocation via MCP.
+visibility:
+  agent:
+    export: true
+
+# Display
+state:
+  display:
+    header: "GM.updateProfile()"
+    confirmLabel: "确认修改"
+    hint: "可修改上方字段 · 确认后 GM 将更新开发者资料"
+  fields:
+    - key: developerName
+      label: "开发者名称"
+      type: text
+      placeholder: "开发者/工作室名称"
+      x-ui:
+        editable: true
+    - key: callbackUrl
+      label: "回调 URL"
+      type: url
+      placeholder: "https://..."
+      x-ui:
+        editable: true
+    - key: notifyPreference
+      label: "通知偏好"
+      type: select
+      options:
+        - { value: "in_app", label: "仅站内" }
+        - { value: "callback", label: "仅回调" }
+        - { value: "both", label: "两者都要" }
+        - { value: "none", label: "不通知" }
+      default: in_app
+      x-ui:
+        editable: true
+        pillLayout: true

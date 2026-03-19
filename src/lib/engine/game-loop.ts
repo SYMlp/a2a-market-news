@@ -20,6 +20,7 @@ import { getSceneLabel } from './ontology'
 import type { VisitorInfo, NPCReplyMeta } from '@/lib/npc/types'
 import { persistSession } from './session'
 import { checkAndRecord, resetGuard } from './conversation-guard'
+import { activateBehavior, deactivateBehavior, getBehaviorsForScene } from '@/lib/behavior-engine'
 
 export function resolveOpening(scene: Scene, isFirstVisit: boolean): DualText {
   if (isFirstVisit || !scene.opening.return) {
@@ -170,6 +171,7 @@ export async function enterScene(
 ): Promise<GMResponse> {
   const prevScene = session.currentScene
   if (prevScene !== sceneId) {
+    deactivateBehavior(session)
     clearSceneScopedFlags(session)
     resetGuard(session)
   }
@@ -196,6 +198,17 @@ export async function enterScene(
   }
 
   persistSession(session)
+
+  // Activate onSceneEnter behaviors (e.g. browse_apps in news scene)
+  for (const spec of getBehaviorsForScene(sceneId)) {
+    if (!spec.availability.trigger.onSceneEnter) continue
+    const preconsMet = !spec.availability.preconditions
+      || spec.availability.preconditions.every(p => checkPrecondition(p, session))
+    if (preconsMet) {
+      activateBehavior(session, spec.id)
+      break
+    }
+  }
 
   const scene = getScene(sceneId)
   const opening = fillTemplate(resolveOpening(scene, isFirstVisit), session.data)
@@ -298,6 +311,8 @@ export interface ProcessMessageResult extends GMResponse {
     outcome: TurnOutcome
     visitorInfo?: VisitorInfo
     originalMessage?: string
+    classifierConfidence?: number
+    classifierSource?: 'ai' | 'keyword' | 'cache'
   }
   _npcMeta?: NPCReplyMeta
 }
@@ -339,7 +354,11 @@ export async function processMessageWithAI(
       action: a.id,
       description: a.label.agent,
     })),
-    _turnMeta: { prevScene, isFreeChat, outcome, visitorInfo, originalMessage },
+    _turnMeta: {
+      prevScene, isFreeChat, outcome, visitorInfo, originalMessage,
+      classifierConfidence: classified.confidence,
+      classifierSource: classified.source,
+    },
   }
 
   if (matched) {
@@ -386,6 +405,9 @@ export async function generateNPCReplyForTurn(
   const { buildSessionContextForNPC } = await import('./session-context')
   const sessionContext = buildSessionContextForNPC(session, scene.actions, fcResult)
 
+  const hist = session.flags?._conversationHistory as { npcMessages?: string[] } | undefined
+  const recentNpcMessages = hist?.npcMessages?.slice(-3) ?? []
+
   const { generateNPCReply } = await import('@/lib/npc')
   const aiMessage = await generateNPCReply({
     sceneId: scene.id,
@@ -396,6 +418,7 @@ export async function generateNPCReplyForTurn(
     outcome: _turnMeta.outcome,
     sessionContext,
     fcResult,
+    recentNpcMessages,
   })
 
   response._npcMeta = aiMessage.meta

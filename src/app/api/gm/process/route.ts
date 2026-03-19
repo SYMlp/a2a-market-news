@@ -2,15 +2,20 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentUser } from '@/lib/auth'
 import { getOrCreateSession, enterSceneWithAI, processMessageWithAI, generateNPCReplyForTurn, persistSession } from '@/lib/gm/engine'
 import { endSession } from '@/lib/engine/session'
-import { recordEvent, getCurrentGoal, setCurrentGoal, setReturnContext, recordAchievement, isNavigationFC } from '@/lib/engine/session-context'
-import { recordTransitionAndCheck } from '@/lib/engine/conversation-guard'
+import { recordEvent, getCurrentGoal, setReturnContext, recordAchievement, computeReturnContext, incrementSceneTurns, resetSceneTurns } from '@/lib/engine/session-context'
+import { recordTransitionAndCheck, checkActionRepeat } from '@/lib/engine/conversation-guard'
 import { getScene } from '@/lib/scenes'
-import { prisma } from '@/lib/prisma'
-import { notifyDeveloper } from '@/lib/notification'
-import { routeSubFlow, routeSubFlowConfirm, activateSubFlow } from '@/lib/subflow/router'
+import {
+  routeSubFlow,
+  routeSubFlowConfirm,
+  cancelSubFlow,
+} from '@/lib/subflow/router'
+import { executeFunctionCall } from '@/lib/gm/function-call-executor'
 import { ensureSessionLog, logTurn, closeSessionLog } from '@/lib/engine/event-logger'
-import type { GameSession, GMResponse, FCResult, ReturnContext, SceneAchievement } from '@/lib/engine/types'
+import type { GameSession, FCResult } from '@/lib/engine/types'
 import { getSceneLabel, getOntology, toEnvelope } from '@/lib/engine/ontology'
+import { buildSessionSummary, buildPreconditionState, loadSceneData } from '@/lib/gm/route-utils'
+import { processBehavior, buildBehaviorPresentation, serializePresentation } from '@/lib/behavior-engine'
 
 /**
  * POST /api/gm/process
@@ -30,7 +35,7 @@ export async function POST(request: NextRequest) {
     const { message, sessionId, action, originalMessage } = body as {
       message?: string
       sessionId?: string
-      action?: 'enter' | 'message' | 'subflow_confirm'
+      action?: 'enter' | 'message' | 'subflow_confirm' | 'subflow_cancel'
       originalMessage?: string
     }
 
@@ -64,10 +69,46 @@ export async function POST(request: NextRequest) {
       return routeSubFlowConfirm(session, body.args ?? {}, user, request)
     }
 
+    // ─── SubFlow cancel: clear server-side subflow state ───
+    if (action === 'subflow_cancel') {
+      const hadSubFlow = cancelSubFlow(session)
+      logTurn(sessionLogId, {
+        sessionId: session.id,
+        userId: user.id,
+        turnNumber: session.globalTurn,
+        sceneId: session.currentScene,
+        mode,
+        action: 'subflow_cancel',
+        isSubFlow: true,
+        outcomeType: 'stay',
+        durationMs: Date.now() - turnStart,
+      }).catch(() => {})
+
+      return NextResponse.json({
+        success: true,
+        message: toEnvelope(
+          {
+            pa: hadSubFlow ? '好的，已取消。还想做什么？' : '没有进行中的操作。',
+            agent: hadSubFlow ? 'SubFlow cancelled.' : 'No active subflow.',
+          },
+          'system',
+          'public',
+        ),
+        currentScene: session.currentScene,
+        sessionId: session.id,
+      })
+    }
+
     // ─── Enter scene ───
     if (action === 'enter' || !sessionId) {
       const sceneId = body.sceneId || 'lobby'
       const scene = getScene(sceneId)
+
+      // Clear any active subflow when entering a new scene
+      if (session.flags?.subFlow) {
+        session.flags = { ...session.flags, subFlow: undefined }
+        persistSession(session)
+      }
 
       // Navigator exhaustion: count lobby re-entries
       if (sceneId === 'lobby') {
@@ -125,6 +166,7 @@ export async function POST(request: NextRequest) {
       const npcText = response.message?.pa || ''
       const sceneName = getSceneLabel(sceneId)
       recordEvent(session, `进入「${sceneName}」，NPC 说：${npcText.slice(0, 60)}`)
+      resetSceneTurns(session)
 
       if (sceneId !== 'lobby' && !wasVisited) {
         recordAchievement(session, {
@@ -153,7 +195,13 @@ export async function POST(request: NextRequest) {
       const enterEnvelope = response.message
         ? toEnvelope(response.message, 'npc', 'public')
         : response.message
-      return NextResponse.json({ success: true, ...response, message: enterEnvelope })
+      return NextResponse.json({
+        success: true,
+        ...response,
+        message: enterEnvelope,
+        preconditionState: buildPreconditionState(sceneData, session),
+        behaviorPresentation: serializePresentation(buildBehaviorPresentation(session)),
+      })
     }
 
     if (!message) {
@@ -161,7 +209,10 @@ export async function POST(request: NextRequest) {
     }
 
     // ─── SubFlow: intercept messages while any sub-flow is active ───
-    const subFlowResult = routeSubFlow(session, message, user)
+    // In advisor mode, originalMessage carries the human's raw input (e.g. a UUID),
+    // which SubFlow needs instead of the PA's formulated response.
+    const subFlowInput = originalMessage || message
+    const subFlowResult = await routeSubFlow(session, subFlowInput, user)
     if (subFlowResult) {
       logTurn(sessionLogId, {
         sessionId: session.id,
@@ -178,7 +229,7 @@ export async function POST(request: NextRequest) {
 
       // Auto-confirm in auto mode: skip UI confirmation button
       const subFlow = session.flags?.subFlow as { step?: string; extracted?: Record<string, unknown> } | undefined
-      if (session.mode === 'auto' && subFlow?.step === 'confirm' && subFlow?.extracted) {
+      if (mode === 'auto' && subFlow?.step === 'confirm' && subFlow?.extracted) {
         const confirmResult = await routeSubFlowConfirm(
           session,
           subFlow.extracted,
@@ -201,6 +252,41 @@ export async function POST(request: NextRequest) {
       }
 
       return subFlowResult
+    }
+
+    // ─── Behavior Engine: intercept if active behavior handles message ───
+    const behaviorResult = await processBehavior(
+      session,
+      message,
+      { id: user.id, name: user.name ?? null },
+    )
+    if (behaviorResult) {
+      logTurn(sessionLogId, {
+        sessionId: session.id,
+        userId: user.id,
+        turnNumber: session.globalTurn,
+        sceneId: session.currentScene,
+        mode,
+        action: 'message',
+        inputContent: message,
+        outcomeType: 'stay',
+        durationMs: Date.now() - turnStart,
+      }).catch(() => {})
+
+      const behaviorEnvelope = behaviorResult.message
+        ? toEnvelope(behaviorResult.message, 'system', 'public')
+        : undefined
+
+      return NextResponse.json({
+        success: true,
+        message: behaviorEnvelope,
+        currentScene: session.currentScene,
+        sessionId: session.id,
+        behaviorPresentation: serializePresentation(
+          behaviorResult.presentation ?? buildBehaviorPresentation(session),
+        ),
+        data: behaviorResult.data,
+      })
     }
 
     // ─── Normal game loop ───
@@ -231,54 +317,35 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // Pre-compute return context BEFORE NPC reply so GM has journey memory
+    // Same-scene action repeat guard (catches loops where NPC text varies)
+    let actionRepeatOverride: { pa: string; agent: string } | null = null
+    if (response.functionCall?.name && !response.sceneTransition) {
+      actionRepeatOverride = checkActionRepeat(
+        session,
+        response._turnMeta.prevScene,
+        response.functionCall.name,
+      )
+      if (actionRepeatOverride && mode === 'auto') {
+        sessionEnded = true
+        endSession(session, 'loop_guard')
+        closeSessionLog(sessionLogId, 'loop_guard').catch(() => {})
+        response.message = actionRepeatOverride
+      } else if (actionRepeatOverride) {
+        response.message = actionRepeatOverride
+      }
+    }
+
     const attemptedTransition = response.sceneTransition
       ? { from: response.sceneTransition.from, to: response.sceneTransition.to }
       : null
 
-    let returnReason: string | undefined
-    if (attemptedTransition?.to === 'lobby') {
-      const fromScene = attemptedTransition.from
-      const npcName = getOntology().scenes[fromScene]?.npc ?? '未知'
+    let returnReason = computeReturnContext(session, attemptedTransition, fcResult)
 
-      let rcReason: ReturnContext['reason']
-      let recommendation: string | undefined
-      let summary: string
-
-      if (session.data?.hasApps === false) {
-        rcReason = 'no_data'
-        recommendation = 'developer'
-        summary = `目前没有应用入驻，${npcName}建议去开发者空间注册`
-        returnReason = 'no_data'
-      } else if (fcResult?.status === 'executed' && !isNavigationFC(fcResult.name)) {
-        rcReason = 'task_complete'
-        summary = `在场景中完成了操作后返回`
-        returnReason = 'goal_completed'
-      } else {
-        rcReason = 'pa_initiative'
-        summary = `访客主动返回大厅`
-        returnReason = 'pa_initiative'
-      }
-
-      setReturnContext(session, { fromScene, npcName, reason: rcReason, recommendation, summary })
-
-      if (!getCurrentGoal(session) && recommendation) {
-        const goalLabels: Record<string, string> = {
-          developer: `去${getSceneLabel('developer')}注册应用`,
-          news: `去${getSceneLabel('news')}看看热门应用`,
-        }
-        setCurrentGoal(session, {
-          purpose: goalLabels[recommendation] || `去${getSceneLabel(recommendation)}`,
-          derivedFrom: summary.slice(0, 80),
-          sceneId: fromScene,
-        })
-      }
-
-      persistSession(session)
-    }
-
+    let npcGenerateMs = 0
     if (!sessionEnded) {
+      const npcStart = Date.now()
       await generateNPCReplyForTurn(session, response, fcResult)
+      npcGenerateMs = Date.now() - npcStart
     }
 
     // Refine return context if NPC assessed as scope redirect
@@ -303,6 +370,12 @@ export async function POST(request: NextRequest) {
       ? `从「${getSceneLabel(response.sceneTransition.from)}」去「${getSceneLabel(response.sceneTransition.to)}」${goalTag}`
       : `在「${getSceneLabel(session.currentScene)}」：${npcText.slice(0, 50)}`
     recordEvent(session, eventDesc)
+
+    if (response.sceneTransition) {
+      resetSceneTurns(session)
+    } else {
+      incrementSceneTurns(session)
+    }
     persistSession(session)
 
     // Reset navigator attempts when PA successfully leaves lobby
@@ -321,7 +394,7 @@ export async function POST(request: NextRequest) {
         response.sceneTransition.to,
       )
 
-      if (transitionLoopOverride && session.mode === 'auto') {
+      if (transitionLoopOverride && mode === 'auto') {
         sessionEnded = true
         endSession(session, 'loop_guard')
         closeSessionLog(sessionLogId, 'loop_guard').catch(() => {})
@@ -342,7 +415,19 @@ export async function POST(request: NextRequest) {
     const { _turnMeta, _npcMeta, ...publicResponse } = response
 
     const convHistory = session.flags?._conversationHistory as { guardTriggered?: boolean } | undefined
-    const loopDetected = convHistory?.guardTriggered === true || !!transitionLoopOverride
+    const loopDetected = convHistory?.guardTriggered === true || !!transitionLoopOverride || !!actionRepeatOverride
+
+    let guardType: string | undefined
+    if (actionRepeatOverride) guardType = 'action_repeat'
+    else if (transitionLoopOverride) guardType = 'transition_loop'
+    else if (convHistory?.guardTriggered) guardType = 'npc_repetition'
+
+    const paIntent = session.flags?._lastPaIntent as string | undefined
+    const paConfidence = session.flags?._lastPaConfidence as number | undefined
+    if (session.flags) {
+      delete session.flags._lastPaIntent
+      delete session.flags._lastPaConfidence
+    }
 
     logTurn(sessionLogId, {
       sessionId: session.id,
@@ -355,22 +440,28 @@ export async function POST(request: NextRequest) {
       originalMessage,
       actionMatched: response.functionCall?.name,
       matchMethod: _turnMeta.isFreeChat ? 'free_chat' : 'ai_classifier',
+      classifierConfidence: _turnMeta.classifierConfidence,
+      classifierSource: _turnMeta.classifierSource,
       outcomeType: _turnMeta.outcome.type,
       functionCallName: response.functionCall?.name,
       functionCallStatus: response.functionCall?.status ?? fcResult?.status,
       npcReply: response.message?.pa,
       transitionFrom: attemptedTransition?.from,
       transitionTo: attemptedTransition?.to,
+      paIntent,
+      paConfidence,
       paGoal: goal?.purpose,
       returnReason,
       loopDetected,
+      guardType,
       durationMs: Date.now() - turnStart,
+      npcGenerateMs: npcGenerateMs || undefined,
     }).catch(() => {})
 
     const envelope = publicResponse.message
       ? toEnvelope(
           publicResponse.message,
-          transitionLoopOverride ? 'system' : (_npcMeta?.scopeAssessment === 'redirect' ? 'system' : 'npc'),
+          (transitionLoopOverride || actionRepeatOverride) ? 'system' : (_npcMeta?.scopeAssessment === 'redirect' ? 'system' : 'npc'),
           'public',
           {
             fcName: fcResult?.name,
@@ -387,6 +478,8 @@ export async function POST(request: NextRequest) {
       message: envelope,
       sessionEnded,
       ...summaryPayload,
+      behaviorPresentation: serializePresentation(buildBehaviorPresentation(session)),
+      timing: { npcGenerateMs, totalMs: Date.now() - turnStart },
     })
   } catch (error) {
     console.error('GM process error:', error)
@@ -394,215 +487,3 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// ─── Session Summary Builder ────────────────────────
-
-function buildSessionSummary(session: GameSession) {
-  const scenesVisited = (session.flags?.visitedScenes ?? []) as string[]
-  const achievements = (session.flags?.achievements ?? []) as SceneAchievement[]
-  return {
-    scenesVisited,
-    achievements,
-    totalTurns: session.globalTurn,
-  }
-}
-
-// ─── Function Call Executor ─────────────────────────
-
-interface UserContext {
-  id: string
-  secondmeUserId: string
-  name: string | null
-}
-
-async function executeFunctionCall(
-  session: GameSession,
-  response: GMResponse,
-  message: string,
-  user: UserContext,
-): Promise<FCResult> {
-  const fc = response.functionCall
-  if (!fc) return { name: 'unknown', status: 'skipped' }
-
-  try {
-    switch (fc.name) {
-      case 'GM.startRegistration': {
-        activateSubFlow(session, 'register', {})
-        fc.status = 'executed'
-        return { name: fc.name, status: 'executed', detail: '注册流程已开始' }
-      }
-
-      case 'GM.startAppSettings': {
-        activateSubFlow(session, 'app_settings', {})
-        fc.status = 'executed'
-        return { name: fc.name, status: 'executed', detail: '应用设置流程已开始' }
-      }
-
-      case 'GM.startAppLifecycle': {
-        activateSubFlow(session, 'app_lifecycle', {})
-        fc.status = 'executed'
-        return { name: fc.name, status: 'executed', detail: '应用生命周期流程已开始' }
-      }
-
-      case 'GM.startProfile': {
-        activateSubFlow(session, 'profile', {})
-        fc.status = 'executed'
-        return { name: fc.name, status: 'executed', detail: '资料编辑流程已开始' }
-      }
-
-      case 'GM.showApps': {
-        fc.status = 'executed'
-        return { name: fc.name, status: 'executed', detail: '应用列表数据已通过 dataLoader 加载' }
-      }
-
-      case 'GM.showFeedback': {
-        fc.status = 'executed'
-        return { name: fc.name, status: 'executed', detail: '反馈数据已通过 dataLoader 加载' }
-      }
-
-      case 'GM.enterSpace': {
-        fc.status = 'executed'
-        return { name: fc.name, status: 'executed' }
-      }
-
-      case 'GM.assignMission': {
-        const apps = (session.data?.apps as Array<{ name: string; clientId: string; website?: string }>) || []
-        if (apps.length === 0) {
-          fc.status = 'executed'
-          return {
-            name: fc.name,
-            status: 'skipped',
-            detail: '平台目前没有应用入驻，无法分配体验任务。建议访客去开发者空间注册应用。',
-          }
-        }
-        const selected = resolveAppFromMessage(message, apps)
-        if (selected) {
-          session.flags = {
-            ...session.flags,
-            experiencingApp: selected,
-            hasExperienced: true,
-          }
-          if (selected.website) {
-            response.message = {
-              pa: response.message.pa.replace('{appUrl}', selected.website).replace('{appName}', selected.name),
-              agent: response.message.agent.replace('{clientId}', selected.clientId || ''),
-            }
-          }
-          fc.status = 'executed'
-          return { name: fc.name, status: 'executed', detail: `体验应用「${selected.name}」` }
-        }
-        fc.status = 'executed'
-        return { name: fc.name, status: 'skipped', detail: '未找到匹配的应用' }
-      }
-
-      case 'GM.saveReport': {
-        const experiencing = session.flags?.experiencingApp as
-          | { name: string; clientId: string }
-          | undefined
-
-        if (!experiencing?.clientId) {
-          return { name: fc.name, status: 'skipped', detail: '没有正在体验的应用' }
-        }
-
-        const appRecord = await prisma.app.findUnique({
-          where: { clientId: experiencing.clientId },
-          include: { developer: true },
-        })
-
-        if (appRecord) {
-          const feedback = await prisma.appFeedback.create({
-            data: {
-              targetClientId: experiencing.clientId,
-              appId: appRecord.id,
-              developerId: appRecord.developerId,
-              agentId: user.secondmeUserId,
-              agentName: user.name || 'Anonymous',
-              agentType: 'human',
-              payload: { source: 'gm_report', rawMessage: message },
-              overallRating: extractRatingHint(message),
-              summary: message.slice(0, 200),
-              source: 'gm_report',
-            },
-          })
-
-          if (appRecord.developerId) {
-            notifyDeveloper({
-              developerId: appRecord.developerId,
-              feedbackId: feedback.id,
-              appClientId: experiencing.clientId,
-              appName: appRecord.name,
-              summary: message.slice(0, 200),
-              overallRating: feedback.overallRating,
-            }).catch(err => console.error('Notification failed:', err))
-          }
-        }
-
-        const prevTotal = (session.flags?.totalReports as number) || 0
-        session.flags = {
-          ...session.flags,
-          experiencingApp: undefined,
-          hasExperienced: false,
-          totalReports: prevTotal + 1,
-        }
-        fc.status = 'executed'
-        return { name: fc.name, status: 'executed', detail: '体验报告已保存，已通知开发者' }
-      }
-
-      default:
-        return { name: fc.name, status: 'skipped' }
-    }
-  } catch (err) {
-    console.error(`Function call ${fc.name} failed:`, err)
-    return { name: fc.name, status: 'failed', detail: String(err) }
-  }
-}
-
-// ─── Utilities ──────────────────────────────────────
-
-function resolveAppFromMessage(
-  message: string,
-  apps: Array<{ name: string; clientId: string; website?: string }>,
-): { name: string; clientId: string; website?: string } | null {
-  if (apps.length === 0) return null
-
-  const indexMatch = message.match(/第?([一二三四五1-5])[个号]?/)
-  if (indexMatch) {
-    const map: Record<string, number> = { '一': 0, '二': 1, '三': 2, '四': 3, '五': 4, '1': 0, '2': 1, '3': 2, '4': 3, '5': 4 }
-    const idx = map[indexMatch[1]]
-    if (idx !== undefined && idx < apps.length) return apps[idx]
-  }
-
-  for (const app of apps) {
-    if (message.includes(app.name)) return app
-  }
-
-  return apps[0]
-}
-
-function extractRatingHint(message: string): number {
-  if (/太差|很烂|垃圾|不行|难用|差劲|糟糕/u.test(message)) return 1
-  if (/一般|普通|马马虎虎|还行吧/u.test(message)) return 3
-  if (/不错|还行|可以|还好|挺好/u.test(message)) return 4
-  if (/太棒|很好|超赞|优秀|有意思|有创意|厉害|绝了/u.test(message)) return 5
-  return 4
-}
-
-async function loadSceneData(
-  loader: string,
-  request: NextRequest,
-  userId: string,
-): Promise<Record<string, unknown>> {
-  try {
-    const origin = new URL(request.url).origin
-    const url = new URL(loader, origin)
-    url.searchParams.set('userId', userId)
-
-    const res = await fetch(url.toString(), {
-      headers: { cookie: request.headers.get('cookie') || '' },
-    })
-    if (!res.ok) return {}
-    const data = await res.json()
-    return data.data || data
-  } catch {
-    return {}
-  }
-}

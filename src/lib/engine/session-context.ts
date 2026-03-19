@@ -17,7 +17,10 @@ import type {
   ReturnContext,
   SceneAchievement,
 } from './types'
-import { describeFCForNPC, getOperationalOntology, getSceneLabel } from './ontology'
+import { describeFCForNPC, getOntology, getOperationalOntology, getSceneLabel } from './ontology'
+import { buildBehaviorCognition } from '../behavior-engine'
+import { persistSession } from './session'
+import { evaluate, PreconditionSyntaxError } from './precondition-eval'
 
 const SCENE_SCOPED_KEYS: (keyof SceneScopedFlags)[] = [
   'experiencingApp',
@@ -32,12 +35,24 @@ export function clearSceneScopedFlags(session: GameSession): void {
   }
 }
 
+const LEGACY_PRECONDITIONS: Record<string, (s: GameSession) => boolean> = {
+  hasExperienced: s => s.flags?.hasExperienced === true,
+  hasApps:        s => s.data?.hasApps === true,
+  notDeveloper:   s => s.data?.isDeveloper === false,
+  isDeveloper:    s => s.data?.isDeveloper === true,
+}
+
 export function checkPrecondition(check: string, session: GameSession): boolean {
-  if (check === 'hasExperienced') return session.flags?.hasExperienced === true
-  if (check === 'hasApps') return session.data?.hasApps === true
-  if (check === 'notDeveloper') return session.data?.isDeveloper === false
-  if (check === 'isDeveloper') return session.data?.isDeveloper === true
-  return true
+  try {
+    return evaluate(check, session)
+  } catch (e) {
+    if (e instanceof PreconditionSyntaxError) {
+      const legacy = LEGACY_PRECONDITIONS[check]
+      if (legacy) return legacy(session)
+      return true
+    }
+    throw e
+  }
 }
 
 export function buildActionConstraints(
@@ -77,6 +92,9 @@ export function buildSessionContextForClassifier(
   parts.push(`操作可用性：\n${constraintLines.join('\n')}`)
 
   parts.push('重要：不可用的操作不应被匹配。如果用户意图指向不可用操作，返回空 actionId。')
+
+  const classifierCognition = buildBehaviorCognition(session, 'classifier')
+  if (classifierCognition) parts.push(classifierCognition)
 
   return parts.join('\n\n')
 }
@@ -157,6 +175,9 @@ export function buildSessionContextForNPC(
     parts.push(`访客旅程记忆：\n${journeyLines.join('\n')}`)
   }
 
+  const npcCognition = buildBehaviorCognition(session, 'npc')
+  if (npcCognition) parts.push(npcCognition)
+
   return parts.join('\n\n')
 }
 
@@ -186,6 +207,61 @@ export function setReturnContext(session: GameSession, ctx: ReturnContext | null
   session.flags = { ...session.flags, returnContext: ctx ?? undefined }
 }
 
+/**
+ * Compute and persist return context when a scene transition goes back to lobby.
+ * Returns the returnReason string for event logging, or undefined if no transition to lobby.
+ */
+export function computeReturnContext(
+  session: GameSession,
+  attemptedTransition: { from: string; to: string } | null,
+  fcResult?: FCResult,
+): string | undefined {
+  if (!attemptedTransition || attemptedTransition.to !== 'lobby') return undefined
+
+  const fromScene = attemptedTransition.from
+  const npcName = getOntology().scenes[fromScene]?.npc ?? '未知'
+
+  let rcReason: ReturnContext['reason']
+  let recommendation: string | undefined
+  let summary: string
+  let returnReason: string
+
+  if (session.data?.hasApps === false) {
+    rcReason = 'no_data'
+    recommendation = fromScene === 'developer' ? 'news' : 'developer'
+    const hint = fromScene === 'developer'
+      ? `${npcName}建议先去日报栏逛逛`
+      : `${npcName}建议去开发者空间注册`
+    summary = `目前没有应用入驻，${hint}`
+    returnReason = 'no_data'
+  } else if (fcResult?.status === 'executed' && !isNavigationFC(fcResult.name)) {
+    rcReason = 'task_complete'
+    summary = `在场景中完成了操作后返回`
+    returnReason = 'goal_completed'
+  } else {
+    rcReason = 'pa_initiative'
+    summary = `访客主动返回大厅`
+    returnReason = 'pa_initiative'
+  }
+
+  setReturnContext(session, { fromScene, npcName, reason: rcReason, recommendation, summary })
+
+  if (!getCurrentGoal(session) && recommendation) {
+    const goalLabels: Record<string, string> = {
+      developer: `去${getSceneLabel('developer')}推荐应用给日报`,
+      news: `去${getSceneLabel('news')}看看热门应用`,
+    }
+    setCurrentGoal(session, {
+      purpose: goalLabels[recommendation] || `去${getSceneLabel(recommendation)}`,
+      derivedFrom: summary.slice(0, 80),
+      sceneId: fromScene,
+    })
+  }
+
+  persistSession(session)
+  return returnReason
+}
+
 // ─── Achievements ────────────────────────────────
 
 const NAVIGATION_FCS = new Set(
@@ -206,6 +282,17 @@ export function recordAchievement(
   const list = ((session.flags?.achievements as SceneAchievement[]) ?? []).slice()
   list.push({ ...achievement, timestamp: Date.now() })
   session.flags = { ...session.flags, achievements: list }
+}
+
+// ─── Scene Turn Counter ──────────────────────────
+
+export function incrementSceneTurns(session: GameSession): void {
+  const current = (session.flags?.sceneTurns as number) ?? 0
+  session.flags = { ...session.flags, sceneTurns: current + 1 }
+}
+
+export function resetSceneTurns(session: GameSession): void {
+  session.flags = { ...session.flags, sceneTurns: 0 }
 }
 
 /**

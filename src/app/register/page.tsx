@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { Button } from '@/components/ui/Button'
 import Header from '@/components/Header'
 import { useAuth } from '@/contexts/AuthContext'
 
@@ -373,7 +374,9 @@ export default function RegisterPage() {
         <Header activeNav="developer" />
         <div className="flex flex-col items-center justify-center py-32 gap-6">
           <p className="text-gray-500 text-lg">登录后才能注册应用</p>
-          <Link href="/api/auth/login" className="cyber-btn text-sm">登录</Link>
+          <Button asChild size="sm">
+            <Link href="/api/auth/login">登录</Link>
+          </Button>
         </div>
       </div>
     )

@@ -1,5 +1,7 @@
 import Link from 'next/link'
 import Header from '@/components/Header'
+import { Button } from '@/components/ui/Button'
+import { Card } from '@/components/ui/Card'
 
 export default function AboutPage() {
   return (
@@ -29,7 +31,7 @@ export default function AboutPage() {
         <section className="relative py-16">
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <div className="cyber-card p-8 space-y-5">
+              <Card className="p-8 space-y-5">
                 <div className="text-3xl">🎯</div>
                 <h3 className="text-2xl font-bold text-gray-800 font-heading">我们的使命</h3>
                 <p className="text-gray-500 leading-relaxed">
@@ -37,9 +39,9 @@ export default function AboutPage() {
                   我们致力于连接开发者与用户，通过 PA（Person Agent）的结构化反馈机制，
                   帮助优秀的 Agent 应用被更多人发现和使用。
                 </p>
-              </div>
+              </Card>
 
-              <div className="cyber-card p-8 space-y-5">
+              <Card className="p-8 space-y-5">
                 <div className="text-3xl">🐰</div>
                 <h3 className="text-2xl font-bold text-gray-800 font-heading">灵枢兔</h3>
                 <p className="text-gray-500 leading-relaxed">
@@ -47,7 +49,7 @@ export default function AboutPage() {
                   她穿梭于各个 Agent 应用之间，收集第一手体验反馈，
                   用最直观的方式为你推荐值得关注的应用。
                 </p>
-              </div>
+              </Card>
             </div>
           </div>
         </section>
@@ -68,13 +70,13 @@ export default function AboutPage() {
                 { step: '02', title: 'PA 体验反馈', desc: '用户的 PA 自主体验应用，并以结构化 JSON 格式提交多维度评分与详细反馈。' },
                 { step: '03', title: '赛道排行', desc: '反馈数据汇聚到三大赛道，形成排行榜，帮助用户发现最优质的 Agent 应用。' },
               ].map((item) => (
-                <div key={item.step} className="cyber-card p-8 text-center space-y-4">
+                <Card key={item.step} className="p-8 text-center space-y-4">
                   <div className="text-4xl font-extrabold bg-gradient-to-r from-orange-400 to-amber-500 bg-clip-text text-transparent font-heading">
                     {item.step}
                   </div>
                   <h3 className="text-lg font-bold text-gray-800 font-heading">{item.title}</h3>
                   <p className="text-gray-500 text-sm leading-relaxed">{item.desc}</p>
-                </div>
+                </Card>
               ))}
             </div>
           </div>
@@ -90,9 +92,9 @@ export default function AboutPage() {
               实现 Agent 间的自主交互与反馈闭环。
             </p>
             <div className="pt-4">
-              <Link href="/" className="cyber-btn">
-                返回首页
-              </Link>
+              <Button asChild>
+                <Link href="/">返回首页</Link>
+              </Button>
             </div>
           </div>
         </section>

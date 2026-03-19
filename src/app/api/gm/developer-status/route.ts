@@ -13,8 +13,17 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: '请先登录' }, { status: 401 })
     }
 
-    // Non-developers receive minimal data + guidance to register (no auto-promote)
-    if (!user.isDeveloper) {
+    let isDeveloper = !!user.isDeveloper
+
+    if (!isDeveloper) {
+      const ownedAppCount = await prisma.app.count({ where: { developerId: user.id } })
+      if (ownedAppCount > 0) {
+        await prisma.user.update({ where: { id: user.id }, data: { isDeveloper: true } })
+        isDeveloper = true
+      }
+    }
+
+    if (!isDeveloper) {
       return NextResponse.json({
         success: true,
         data: {
@@ -24,7 +33,7 @@ export async function GET(request: NextRequest) {
           feedback_hint: '可以前往开发者注册页面完成注册，或点击「我是开发者」进入注册流程。',
           feedback_summary: 'Not a developer.',
           apps_summary: '请先完成开发者注册。',
-          apps_summary_brief: '请先完成开发者注册，即可管理你的应用。',
+          apps_summary_brief: '请先完成开发者认证，即可把应用推荐给日报。',
           apps_json: '[]',
           feedbacks: [],
         },
@@ -33,19 +42,20 @@ export async function GET(request: NextRequest) {
 
     const apps = await prisma.app.findMany({
       where: { developerId: user.id },
-      select: { id: true, name: true, clientId: true, status: true },
+      select: { id: true, name: true, clientId: true, status: true, description: true, website: true },
     })
 
     if (apps.length === 0) {
       return NextResponse.json({
         success: true,
         data: {
+          isDeveloper: true,
           hasApps: false,
-          feedback_status: '你还没有在平台上注册过应用。',
-          feedback_hint: '可以注册一个新应用，让大家来体验和评价！',
-          feedback_summary: 'No apps registered.',
-          apps_summary: '你还没有注册任何应用。',
-          apps_summary_brief: '你还没有注册任何应用，可以注册一个新应用！',
+          feedback_status: '你还没有在日报收录应用。',
+          feedback_hint: '把你做好的应用推荐给日报，让大家来体验和评价！',
+          feedback_summary: 'No apps submitted.',
+          apps_summary: '你还没有推荐应用给日报。',
+          apps_summary_brief: '你还没有推荐应用给日报，把你做的应用告诉我们吧！',
           apps_json: '[]',
           feedbacks: [],
         },
@@ -89,6 +99,8 @@ export async function GET(request: NextRequest) {
         name: app.name,
         clientId: app.clientId,
         status: app.status,
+        description: app.description,
+        website: app.website,
         feedbackCount: appFeedbacks.length,
         avgRating,
         latestFeedback: latestFeedback
@@ -135,8 +147,8 @@ export async function GET(request: NextRequest) {
           ? `你有 ${totalFeedbacks} 条用户建议！`
           : '目前没有新的用户建议。',
         feedback_hint: totalFeedbacks > 0
-          ? '可以查看应用概况、查看用户建议，或者注册新应用。'
-          : '等有用户体验后就能收到建议了，可以查看应用概况或注册新应用。',
+          ? '可以查看应用概况、查看用户建议，或者推荐新应用给日报。'
+          : '等有用户体验后就能收到建议了，可以查看应用概况或推荐新应用。',
         feedback_summary: `${apps.length} apps, ${totalFeedbacks} feedbacks.`,
         feedback_list: feedbackList,
         feedback_json: feedbackJson,

@@ -45,6 +45,16 @@ export default function NavigationHUD({
       <div className="nav-hud__divider" />
 
       <div className="nav-hud__right">
+        <a
+          href="/leaderboard"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="nav-hud__portal"
+          title="打开报社门户"
+        >
+          🌐 <span>门户</span>
+        </a>
+
         <button
           className="nav-hud__back"
           onClick={onBack}

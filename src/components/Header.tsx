@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { Button } from '@/components/ui/Button'
 import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
@@ -175,9 +176,9 @@ export default function Header({ activeNav = 'home' }: HeaderProps) {
               )}
             </div>
           ) : (
-            <Link href="/api/auth/login" className="cyber-btn text-sm">
-              登录
-            </Link>
+            <Button asChild size="sm">
+              <Link href="/api/auth/login">登录</Link>
+            </Button>
           )}
         </div>
       </div>

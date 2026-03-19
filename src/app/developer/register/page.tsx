@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Header from '@/components/Header'
 import { useAuth } from '@/contexts/AuthContext'
+import { Button } from '@/components/ui/Button'
+import { Card } from '@/components/ui/Card'
 
 const NOTIFY_OPTIONS = [
   { value: 'in_app', label: '仅站内' },
@@ -133,7 +135,8 @@ export default function DeveloperRegisterPage() {
             </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="cyber-card p-8 space-y-6">
+          <form onSubmit={handleSubmit} className="">
+            <Card className="p-8 space-y-6">
             {error && (
               <div className="p-4 bg-red-50 border border-red-200 text-red-600 text-sm rounded-xl">
                 {error}
@@ -196,10 +199,10 @@ export default function DeveloperRegisterPage() {
               </div>
             </div>
 
-            <button
+            <Button
               type="submit"
               disabled={loading}
-              className="w-full cyber-btn py-4 text-center disabled:opacity-50"
+              className="w-full py-4 text-center"
             >
               {loading
                 ? isDeveloper
@@ -208,7 +211,8 @@ export default function DeveloperRegisterPage() {
                 : isDeveloper
                   ? '更新资料'
                   : '注册成为开发者'}
-            </button>
+            </Button>
+            </Card>
           </form>
         </div>
       </main>

@@ -15,8 +15,13 @@ export {
 export {
   buildNPCMessage,
   buildAgentText,
-  NPC_SEEDS,
 } from './prompts'
+
+export {
+  loadAllNPCSpecs,
+  getNPCSpec,
+  clearNPCSpecCache,
+} from './npc-loader'
 
 export {
   isWithinScope,

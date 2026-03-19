@@ -15,6 +15,7 @@ const HISTORY_SIZE = 10
 
 interface ConversationHistory {
   npcMessages: string[]
+  paMessages: string[]
   consecutiveRepeats: number
   lastMessage: string
   guardTriggered: boolean
@@ -24,6 +25,7 @@ function getHistory(session: GameSession): ConversationHistory {
   const hist = session.flags?._conversationHistory as ConversationHistory | undefined
   return hist ?? {
     npcMessages: [],
+    paMessages: [],
     consecutiveRepeats: 0,
     lastMessage: '',
     guardTriggered: false,
@@ -75,8 +77,9 @@ export function checkAndRecord(
   }
   hist.lastMessage = npcMessage
 
-  if (hist.consecutiveRepeats >= REPEAT_THRESHOLD && !hist.guardTriggered) {
+  if (hist.consecutiveRepeats >= REPEAT_THRESHOLD) {
     hist.guardTriggered = true
+    hist.consecutiveRepeats = 0
     saveHistory(session, hist)
     persistSession(session)
 
@@ -86,7 +89,7 @@ export function checkAndRecord(
 
     return {
       pa: breakerPa,
-      agent: `[GUARD] Conversation loop detected after ${hist.consecutiveRepeats} repeats. Circuit breaker activated.`,
+      agent: `[GUARD] Conversation loop detected. Circuit breaker activated.`,
     }
   }
 
@@ -96,15 +99,87 @@ export function checkAndRecord(
 }
 
 /**
+ * Record a PA message into session history so the PA prompt can
+ * reference its own past utterances and avoid repetition.
+ */
+export function recordPaMessage(session: GameSession, paMessage: string): void {
+  const hist = getHistory(session)
+  hist.paMessages.push(paMessage)
+  if (hist.paMessages.length > HISTORY_SIZE) {
+    hist.paMessages = hist.paMessages.slice(-HISTORY_SIZE)
+  }
+  saveHistory(session, hist)
+  persistSession(session)
+}
+
+/**
+ * Return the last N PA messages from session history.
+ */
+export function getPaHistory(session: GameSession, count = 3): string[] {
+  const hist = getHistory(session)
+  return hist.paMessages.slice(-count)
+}
+
+/**
  * Reset the NPC-message guard state (call on scene transition).
  * Does NOT reset transition history — that persists across scenes.
  */
 export function resetGuard(session: GameSession): void {
   const hist = getHistory(session)
+  hist.npcMessages = []
+  hist.paMessages = []
   hist.consecutiveRepeats = 0
   hist.guardTriggered = false
   hist.lastMessage = ''
   saveHistory(session, hist)
+}
+
+// ─── Same-Scene Action Repeat Detection ──────────
+
+const ACTION_REPEAT_THRESHOLD = 3
+
+interface ActionRepeatState {
+  sceneId: string
+  actionId: string
+  count: number
+}
+
+/**
+ * Track same-action repeats within a scene. If the same FC fires
+ * ACTION_REPEAT_THRESHOLD times in the same scene, return a
+ * circuit-breaker DualText. This catches loops where the NPC text
+ * varies (evading NPC-message guard) but the action is identical.
+ */
+export function checkActionRepeat(
+  session: GameSession,
+  sceneId: string,
+  actionMatched: string,
+): DualText | null {
+  const state = (session.flags?._actionRepeat as ActionRepeatState | undefined) ?? {
+    sceneId: '',
+    actionId: '',
+    count: 0,
+  }
+
+  if (state.sceneId === sceneId && state.actionId === actionMatched) {
+    state.count++
+  } else {
+    state.sceneId = sceneId
+    state.actionId = actionMatched
+    state.count = 1
+  }
+
+  session.flags = { ...session.flags, _actionRepeat: state }
+  persistSession(session)
+
+  if (state.count >= ACTION_REPEAT_THRESHOLD) {
+    return {
+      pa: '我们好像重复同样的操作好几次了，换个方向吧！你可以提交体验报告，或者回大厅看看其他场景。',
+      agent: `[GUARD] Same action "${actionMatched}" repeated ${state.count} times in scene "${sceneId}". Circuit breaker activated.`,
+    }
+  }
+
+  return null
 }
 
 // ─── Cross-Scene Transition Loop Detection ───────

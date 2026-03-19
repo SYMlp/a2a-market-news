@@ -31,44 +31,20 @@ export default function TownApproach({ onModeSelect, paName }: TownApproachProps
 
   return (
     <div className={`town ${phase === 'chosen' ? 'town--exit' : ''}`}>
-      {/* Sky */}
+      {/* Pixel art background */}
+      <img
+        src="/sprites/backgrounds/city-street-bg.png"
+        alt=""
+        className="town__bg-img"
+        draggable={false}
+      />
+      <div className="town__bg-overlay" />
+
+      {/* Stars overlay on top of background */}
       <div className="town__sky">
         {Array.from({ length: 30 }).map((_, i) => (
           <span key={i} className="town__star" style={starStyle(i)} />
         ))}
-      </div>
-
-      {/* Cityscape silhouettes */}
-      <div className="town__cityscape">
-        <div className="town__bldg town__bldg--1" />
-        <div className="town__bldg town__bldg--2" />
-        <div className="town__bldg town__bldg--3" />
-        <div className="town__bldg town__bldg--4" />
-        {/* The newsroom building */}
-        <div className="town__newsroom">
-          <div className="town__newsroom-sign">A2A</div>
-          <div className={`town__newsroom-door ${phase === 'door_open' || phase === 'choosing' || phase === 'chosen' ? 'town__newsroom-door--open' : ''}`}>
-            <div className="town__newsroom-door-light" />
-          </div>
-          <div className="town__newsroom-window town__newsroom-window--1" />
-          <div className="town__newsroom-window town__newsroom-window--2" />
-          <div className="town__newsroom-glow" />
-        </div>
-      </div>
-
-      {/* Street */}
-      <div className="town__street">
-        <div className="town__sidewalk" />
-        <div className="town__road" />
-        <div className="town__road-line" />
-        <div className="town__lamp town__lamp--1">
-          <div className="town__lamp-post" />
-          <div className="town__lamp-light" />
-        </div>
-        <div className="town__lamp town__lamp--2">
-          <div className="town__lamp-post" />
-          <div className="town__lamp-light" />
-        </div>
       </div>
 
       {/* PA character walking */}

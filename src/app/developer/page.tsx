@@ -4,6 +4,8 @@ import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import Header from '@/components/Header'
 import { useAuth } from '@/contexts/AuthContext'
+import { Button } from '@/components/ui/Button'
+import { Card } from '@/components/ui/Card'
 
 interface LatestFeedback {
   id: string
@@ -101,7 +103,7 @@ export default function DeveloperDashboard() {
                   { label: '平均评分', value: (stats?.avgRating ?? 0).toFixed(1), icon: '⭐', gradient: 'from-amber-400 to-orange-500' },
                   { label: '未读通知', value: stats?.unreadCount ?? 0, icon: '🔔', gradient: 'from-rose-400 to-pink-500' },
                 ].map((s, i) => (
-                  <div key={i} className="cyber-card p-6 hover:shadow-lg transition-shadow">
+                  <Card key={i} className="p-6 hover:shadow-lg transition-shadow">
                     <div className="flex items-center gap-3 mb-3">
                       <span className="text-2xl">{s.icon}</span>
                       <span className="text-xs text-gray-400 tracking-wide">{s.label}</span>
@@ -109,7 +111,7 @@ export default function DeveloperDashboard() {
                     <div className={`text-3xl font-bold bg-gradient-to-r ${s.gradient} bg-clip-text text-transparent`}>
                       {s.value}
                     </div>
-                  </div>
+                  </Card>
                 ))}
               </div>
 
@@ -126,25 +128,25 @@ export default function DeveloperDashboard() {
                     />
                     显示已归档
                   </label>
-                  <Link href="/register" className="cyber-btn text-sm">
-                    + 注册新应用
-                  </Link>
+                  <Button asChild size="sm">
+                    <Link href="/register">+ 注册新应用</Link>
+                  </Button>
                 </div>
               </div>
 
               {apps.length === 0 ? (
-                <div className="cyber-card p-16 text-center">
+                <Card className="p-16 text-center">
                   <div className="text-5xl mb-4">🚀</div>
                   <p className="text-gray-500 text-lg mb-2">还没有注册应用</p>
                   <p className="text-gray-300 text-sm mb-6">注册你的 A2A 应用，接收来自社区和 PA 的反馈</p>
-                  <Link href="/register" className="cyber-btn">
-                    注册你的第一个应用
-                  </Link>
-                </div>
+                  <Button asChild>
+                    <Link href="/register">注册你的第一个应用</Link>
+                  </Button>
+                </Card>
               ) : (
                 <div className="space-y-6">
                   {apps.map(app => (
-                    <div key={app.id} className="cyber-card overflow-hidden hover:shadow-lg transition-shadow">
+                    <Card key={app.id} className="overflow-hidden hover:shadow-lg transition-shadow">
                       <div className="p-6">
                         {/* App header row */}
                         <div className="flex items-start justify-between gap-4 mb-4">
@@ -225,7 +227,7 @@ export default function DeveloperDashboard() {
                           </Link>
                         </div>
                       </div>
-                    </div>
+                    </Card>
                   ))}
                 </div>
               )}

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Header from '@/components/Header'
+import { Card } from '@/components/ui/Card'
 
 interface AppInfo {
   id: string
@@ -113,13 +114,13 @@ export default function AppFeedbacksPage() {
               </div>
             </div>
           ) : feedbacks.length === 0 ? (
-            <div className="cyber-card p-12 text-center">
+            <Card className="p-12 text-center">
               <p className="text-gray-400">还没有收到反馈</p>
-            </div>
+            </Card>
           ) : (
             <div className="space-y-4">
               {feedbacks.map(fb => (
-                <div key={fb.id} className="cyber-card p-6">
+                <Card key={fb.id} className="p-6">
                   <div className="flex items-start justify-between gap-4 mb-3">
                     <div>
                       <div className="flex items-center gap-3 mb-1">
@@ -175,7 +176,7 @@ export default function AppFeedbacksPage() {
                     replyAt={fb.developerReplyAt}
                     onReplySubmitted={handleReplySubmitted}
                   />
-                </div>
+                </Card>
               ))}
             </div>
           )}

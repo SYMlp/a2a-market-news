@@ -1,6 +1,8 @@
 'use client'
 
 import Link from 'next/link'
+import { Button } from '@/components/ui/Button'
+import { Card } from '@/components/ui/Card'
 import { useEffect, useState } from 'react'
 import Header from '@/components/Header'
 
@@ -259,7 +261,7 @@ export default function LeaderboardPage() {
                   href={`/app-pa/${app.id}`}
                   className="block group"
                 >
-                  <div className="cyber-card p-6 flex items-center gap-6">
+                  <Card className="p-6 flex items-center gap-6">
                     {/* Rank */}
                     <div className={`flex-shrink-0 w-12 h-12 rounded-xl flex items-center justify-center text-lg font-bold ${
                       index < 3
@@ -316,7 +318,7 @@ export default function LeaderboardPage() {
                     </div>
 
                     <div className="text-gray-300 group-hover:text-orange-500 transition-colors text-2xl">→</div>
-                  </div>
+                  </Card>
                 </Link>
               ))}
             </div>
@@ -325,9 +327,9 @@ export default function LeaderboardPage() {
               <div className="text-6xl mb-6 pulse-glow">🐰</div>
               <h3 className="text-2xl font-bold text-gray-800 mb-3 font-heading">暂无 Agent 上榜</h3>
               <p className="text-gray-400 mb-8">这个赛道还在等待第一位 Agent 入驻</p>
-              <Link href="/register" className="cyber-btn">
-                注册 Agent
-              </Link>
+              <Button asChild>
+                <Link href="/register">注册 Agent</Link>
+              </Button>
             </div>
           ) : null}
         </div>

@@ -8,10 +8,12 @@ import {
   processMessageWithAI,
   enterSceneWithAI,
 } from '@/lib/gm/engine'
+import { getComponentSpecMcpTools, resolveSpecForTool } from '@/lib/component-runtime/mcp-export'
+import { createSubFlowHandler } from '@/lib/component-runtime/subflow-adapter'
 
 // ─── Tool Definitions ───────────────────────────
 
-const TOOLS = [
+const BUILTIN_TOOLS = [
   {
     name: 'browse_apps',
     description: 'Browse the top recommended A2A apps on the platform. Returns a list of apps with name, description, rating, and website.',
@@ -68,6 +70,11 @@ const TOOLS = [
     },
   },
 ]
+
+/** All tools (builtin + ComponentSpec with visibility.agent.export). */
+function getAllTools() {
+  return [...BUILTIN_TOOLS, ...getComponentSpecMcpTools()]
+}
 
 // ─── Tool Handlers ──────────────────────────────
 
@@ -282,7 +289,7 @@ export async function POST(request: NextRequest) {
 
   // ── tools/list ──
   if (body.method === 'tools/list') {
-    return jsonRpcResponse(body.id, { tools: TOOLS })
+    return jsonRpcResponse(body.id, { tools: getAllTools() })
   }
 
   // ── tools/call ──
@@ -296,7 +303,7 @@ export async function POST(request: NextRequest) {
       return jsonRpcError(body.id, -32602, 'Missing tool name')
     }
 
-    const tool = TOOLS.find(t => t.name === name)
+    const tool = getAllTools().find(t => t.name === name)
     if (!tool) {
       return jsonRpcError(body.id, -32602, `Unknown tool: ${name}`)
     }
@@ -332,6 +339,39 @@ export async function POST(request: NextRequest) {
       if (name === 'chat_with_gm') {
         const result = await handleChatWithGM(toolArgs, user)
         return jsonRpcResponse(body.id, { content: [{ type: 'text', text: result.text }] })
+      }
+
+      // ComponentSpec tools (gm_*) — direct SubFlow confirm execution
+      if (name.startsWith('gm_')) {
+        const spec = resolveSpecForTool(name)
+        if (!spec) {
+          return jsonRpcError(body.id, -32602, `Unknown spec tool: ${name}`)
+        }
+
+        const session = getOrCreateSession(
+          (toolArgs.session_id as string) || undefined,
+          'manual',
+        )
+        const handler = createSubFlowHandler(spec)
+        const confirmResponse = await handler.handleConfirm(
+          session,
+          toolArgs,
+          { id: user.id, name: user.name },
+          request,
+        )
+        const confirmData = await confirmResponse.json() as {
+          success?: boolean
+          message?: { pa: string; agent: string }
+          error?: string
+        }
+        const text = confirmData.success
+          ? (confirmData.message?.agent ?? 'Done.')
+          : (confirmData.error ?? 'Operation failed.')
+
+        if (!confirmData.success) {
+          return jsonRpcError(body.id, -32603, text)
+        }
+        return jsonRpcResponse(body.id, { content: [{ type: 'text', text }] })
       }
 
       return jsonRpcError(body.id, -32603, 'Tool handler not found')

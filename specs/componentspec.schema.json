@@ -1,0 +1,345 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://a2a-market-news/secondme/specs/componentspec.schema.json",
+  "title": "ComponentSpec",
+  "description": "JSON Schema for ComponentSpec YAML validation. Drives SubFlow handlers and SpecFormCard rendering.",
+  "definitions": {
+    "messageTemplate": {
+      "description": "Bi-channel message (pa for human, agent for API consumer)",
+      "oneOf": [
+        { "type": "string" },
+        {
+          "type": "object",
+          "properties": {
+            "pa": { "type": "string" },
+            "agent": { "type": "string" }
+          }
+        }
+      ]
+    },
+    "transitionRule": {
+      "type": "object",
+      "required": ["when"],
+      "properties": {
+        "when": { "type": "string", "description": "Condition expression" },
+        "goto": { "type": "string", "description": "Target step or 'validationGate'" },
+        "storeExtracted": { "type": "string" },
+        "setFlag": { "type": "string" },
+        "message": { "$ref": "#/definitions/messageTemplate" },
+        "presentCard": { "type": "boolean" }
+      },
+      "additionalProperties": true
+    },
+    "extractConfig": {
+      "type": "object",
+      "required": ["effect"],
+      "properties": {
+        "effect": { "type": "string", "description": "Effect handler key for extraction" },
+        "inputField": { "type": "string" },
+        "outputFields": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "fallback": { "type": "string", "description": "Fallback expression when extraction fails" }
+      }
+    },
+    "precondition": {
+      "type": "object",
+      "required": ["check"],
+      "properties": {
+        "check": { "type": "string", "description": "Boolean expression to evaluate" },
+        "errorStatus": { "type": "integer" },
+        "errorMessage": { "type": "string" }
+      }
+    }
+  },
+  "type": "object",
+  "required": ["id", "functionCall", "lifecycle", "actions"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "SubFlow type identifier",
+      "enum": ["app_settings", "profile", "app_lifecycle", "register"]
+    },
+    "functionCall": {
+      "type": "string",
+      "description": "GM function name for confirm phase",
+      "pattern": "^GM\\.[A-Za-z]+$"
+    },
+    "lifecycle": {
+      "type": "object",
+      "required": ["steps", "initial"],
+      "properties": {
+        "steps": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 2
+        },
+        "initial": { "type": "string" },
+        "validationGate": {
+          "type": "object",
+          "description": "Pointer to a validation gate between phases",
+          "properties": {
+            "before": { "type": "string" },
+            "effect": { "type": "string" },
+            "onInvalid": { "type": "string", "enum": ["retry", "abort"] }
+          }
+        }
+      },
+      "additionalProperties": true
+    },
+    "dataSource": {
+      "type": "object",
+      "description": "Data source for collect phase",
+      "properties": {
+        "primary": { "type": "string" },
+        "fallback": { "type": "string" },
+        "filter": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "collect": {
+      "type": "object",
+      "description": "Collect phase configuration",
+      "properties": {
+        "emptyMessage": { "$ref": "#/definitions/messageTemplate" },
+        "singleAppAutoSelect": { "type": "boolean" },
+        "resolveFromMessage": {
+          "type": "object",
+          "properties": {
+            "patterns": { "type": "object" },
+            "defaultIfSingle": { "type": "boolean" }
+          }
+        },
+        "extractFromMessage": {
+          "type": "object",
+          "properties": {
+            "patterns": {
+              "type": "object",
+              "additionalProperties": { "type": "string" }
+            }
+          },
+          "additionalProperties": true
+        },
+        "extract": { "$ref": "#/definitions/extractConfig" },
+        "clientIdResolution": {
+          "type": "object",
+          "description": "Priority-ordered sources for resolving clientId",
+          "properties": {
+            "sources": {
+              "type": "array",
+              "items": { "type": "string" }
+            }
+          }
+        },
+        "transitions": {
+          "type": "array",
+          "description": "Ordered transition rules evaluated top-to-bottom",
+          "items": { "$ref": "#/definitions/transitionRule" }
+        },
+        "extractStatusIntent": {
+          "type": "object",
+          "properties": {
+            "inactive": { "type": "string" },
+            "archived": { "type": "string" }
+          }
+        },
+        "preferenceMapping": { "type": "object" },
+        "transitionToConfirm": {
+          "type": "object",
+          "properties": {
+            "when": { "type": "string" },
+            "presentCard": { "type": "boolean" }
+          }
+        },
+        "followUpMessage": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        }
+      },
+      "additionalProperties": true
+    },
+    "awaitingClientId": {
+      "type": "object",
+      "description": "Dedicated phase for collecting a specific field (register multi-step)",
+      "properties": {
+        "extract": { "$ref": "#/definitions/extractConfig" },
+        "transitions": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/transitionRule" }
+        }
+      },
+      "additionalProperties": true
+    },
+    "validationGate": {
+      "type": "object",
+      "description": "External validation check between collect and confirm phases",
+      "properties": {
+        "effect": { "type": "string" },
+        "inputs": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "onValid": {
+          "type": "object",
+          "properties": {
+            "mergeExtracted": { "type": "object" },
+            "goto": { "type": "string" },
+            "message": { "$ref": "#/definitions/messageTemplate" },
+            "presentCard": { "type": "boolean" }
+          }
+        },
+        "onInvalid": {
+          "type": "object",
+          "properties": {
+            "message": { "$ref": "#/definitions/messageTemplate" },
+            "stay": { "type": "boolean" }
+          }
+        }
+      }
+    },
+    "actions": {
+      "type": "object",
+      "required": ["confirm"],
+      "properties": {
+        "confirm": {
+          "type": "object",
+          "required": ["params", "effect"],
+          "properties": {
+            "params": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "object",
+                "properties": {
+                  "type": { "type": "string" },
+                  "required": { "type": "boolean" },
+                  "description": { "type": "string" },
+                  "properties": { "type": "object" },
+                  "enum": {
+                    "type": "array",
+                    "items": { "type": "string" }
+                  }
+                }
+              }
+            },
+            "effect": {
+              "type": "string",
+              "description": "Primary effect handler key"
+            },
+            "effectArgs": {
+              "type": "object",
+              "description": "Argument mapping for the primary effect"
+            },
+            "ownershipCheck": { "type": "string" },
+            "validation": {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            "preconditions": {
+              "type": "array",
+              "description": "Ordered checks before executing the effect",
+              "items": { "$ref": "#/definitions/precondition" }
+            },
+            "postEffect": {
+              "type": "array",
+              "description": "Effects executed after the primary effect succeeds",
+              "items": {
+                "type": "object",
+                "required": ["effect"],
+                "properties": {
+                  "effect": { "type": "string" },
+                  "args": { "type": "object" }
+                }
+              }
+            },
+            "onSuccess": {
+              "type": "object",
+              "properties": {
+                "clearSubFlow": { "type": "boolean" },
+                "message": { "$ref": "#/definitions/messageTemplate" },
+                "returnExtra": {
+                  "type": "object",
+                  "description": "Additional data to include in the success response"
+                }
+              }
+            },
+            "onError": {
+              "type": "object",
+              "properties": {
+                "message": { "$ref": "#/definitions/messageTemplate" },
+                "errorStatus": { "type": "integer" }
+              }
+            }
+          },
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": true
+    },
+    "state": {
+      "type": "object",
+      "properties": {
+        "display": {
+          "type": "object",
+          "properties": {
+            "header": { "type": "string" },
+            "confirmLabel": { "type": "string" },
+            "confirmLabelPrefix": { "type": "string" },
+            "hint": { "type": "string" }
+          }
+        },
+        "fields": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["key", "label", "type"],
+            "properties": {
+              "key": { "type": "string" },
+              "label": { "type": "string" },
+              "type": {
+                "type": "string",
+                "enum": ["text", "url", "select", "readOnly"]
+              },
+              "placeholder": { "type": "string" },
+              "default": { "type": "string" },
+              "options": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "value": { "type": "string" },
+                    "label": { "type": "string" }
+                  }
+                }
+              },
+              "statusLabels": {
+                "type": "object",
+                "additionalProperties": { "type": "string" }
+              },
+              "x-ui": {
+                "type": "object",
+                "properties": {
+                  "editable": { "type": "boolean" },
+                  "pillLayout": { "type": "boolean" },
+                  "monospace": { "type": "boolean" }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "visibility": {
+      "type": "object",
+      "properties": {
+        "agent": {
+          "type": "object",
+          "properties": {
+            "export": { "type": "boolean" }
+          }
+        }
+      }
+    }
+  },
+  "additionalProperties": true
+}

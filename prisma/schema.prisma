@@ -538,6 +538,8 @@ model GameTurnLog {
 
   actionMatched      String? @map("action_matched")
   matchMethod        String? @map("match_method")
+  classifierConfidence Float? @map("classifier_confidence")
+  classifierSource   String? @map("classifier_source")
   outcomeType        String? @map("outcome_type")
   functionCallName   String? @map("function_call_name")
   functionCallStatus String? @map("function_call_status")
@@ -547,15 +549,19 @@ model GameTurnLog {
   transitionFrom String? @map("transition_from")
   transitionTo   String? @map("transition_to")
 
+  paIntent     String? @map("pa_intent")
+  paConfidence Float?  @map("pa_confidence")
   paGoal       String? @map("pa_goal")
   returnReason String? @map("return_reason")
 
   loopDetected  Boolean @default(false) @map("loop_detected")
+  guardType     String? @map("guard_type")
   isSubFlow     Boolean @default(false) @map("is_sub_flow")
   errorOccurred Boolean @default(false) @map("error_occurred")
   errorDetail   String? @map("error_detail") @db.Text
 
-  durationMs Int? @map("duration_ms")
+  durationMs    Int? @map("duration_ms")
+  npcGenerateMs Int? @map("npc_generate_ms")
 
   createdAt DateTime @default(now()) @map("created_at")
 

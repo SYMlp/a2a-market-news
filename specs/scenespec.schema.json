@@ -1,0 +1,121 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://a2a-market-news/secondme/specs/scenespec.schema.json",
+  "title": "SceneSpec",
+  "description": "JSON Schema for SceneSpec YAML validation. Maps 1:1 to the Scene TypeScript interface in src/lib/engine/types.ts.",
+  "definitions": {
+    "dualText": {
+      "type": "object",
+      "required": ["pa", "agent"],
+      "properties": {
+        "pa": { "type": "string" },
+        "agent": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "functionCall": {
+      "type": "object",
+      "required": ["name", "args"],
+      "properties": {
+        "name": { "type": "string" },
+        "args": { "type": "object" }
+      },
+      "additionalProperties": false
+    },
+    "paramSpec": {
+      "type": "object",
+      "required": ["name", "required"],
+      "properties": {
+        "name": { "type": "string" },
+        "required": { "type": "boolean" },
+        "description": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "sceneAction": {
+      "type": "object",
+      "required": ["id", "outcome", "label", "actIntent", "functionCall"],
+      "properties": {
+        "id": { "type": "string" },
+        "outcome": { "type": "string", "enum": ["stay", "move"] },
+        "label": { "$ref": "#/definitions/dualText" },
+        "triggers": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "actIntent": { "type": "string" },
+        "response": { "$ref": "#/definitions/dualText" },
+        "functionCall": { "$ref": "#/definitions/functionCall" },
+        "transition": {
+          "type": "object",
+          "required": ["type"],
+          "properties": {
+            "type": { "type": "string", "enum": ["enter_space", "sub_flow", "external"] },
+            "target": { "type": "string" }
+          },
+          "additionalProperties": false
+        },
+        "precondition": {
+          "type": "object",
+          "required": ["check", "failMessage"],
+          "properties": {
+            "check": { "type": "string" },
+            "failMessage": { "$ref": "#/definitions/dualText" }
+          },
+          "additionalProperties": false
+        },
+        "params": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/paramSpec" }
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "type": "object",
+  "required": ["id", "theme", "opening", "actions", "fallback"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_-]*$",
+      "description": "Unique scene identifier, lowercase kebab-case"
+    },
+    "theme": {
+      "type": "object",
+      "required": ["accent", "icon", "label"],
+      "properties": {
+        "accent": { "type": "string" },
+        "icon": { "type": "string" },
+        "label": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "opening": {
+      "type": "object",
+      "required": ["first"],
+      "properties": {
+        "first": { "$ref": "#/definitions/dualText" },
+        "return": { "$ref": "#/definitions/dualText" }
+      },
+      "additionalProperties": false
+    },
+    "dataLoader": {
+      "type": ["string", "null"],
+      "description": "API route for scene data loading, or null if none"
+    },
+    "actions": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/sceneAction" },
+      "minItems": 1
+    },
+    "fallback": {
+      "type": "object",
+      "required": ["response"],
+      "properties": {
+        "response": { "$ref": "#/definitions/dualText" }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

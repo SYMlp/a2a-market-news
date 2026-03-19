@@ -6,6 +6,11 @@
       "npc": "灵枢兔",
       "role": "全局导航枢纽",
       "capabilities": ["导航到其他场景", "介绍平台功能", "推荐适合的场景"],
+      "behaviors": {
+        "导航到其他场景": null,
+        "介绍平台功能": null,
+        "推荐适合的场景": null
+      },
       "exits": ["news", "developer"]
     },
     "news": {
@@ -13,13 +18,26 @@
       "npc": "编辑部助手",
       "role": "应用推荐与体验",
       "capabilities": ["浏览热门应用", "体验应用", "提交体验报告"],
+      "behaviors": {
+        "浏览热门应用": "browse_apps",
+        "体验应用": "browse_apps",
+        "提交体验报告": null
+      },
       "exits": ["lobby"]
     },
     "developer": {
       "label": "开发者空间",
       "npc": "技术顾问",
-      "role": "应用注册与管理",
-      "capabilities": ["成为开发者", "注册新应用", "查看用户反馈", "管理应用设置", "暂停/归档应用", "编辑开发者资料"],
+      "role": "应用收录与管理",
+      "capabilities": ["成为开发者", "推荐应用给日报", "查看用户反馈", "管理应用设置", "暂停/归档应用", "编辑开发者资料"],
+      "behaviors": {
+        "成为开发者": "register_app",
+        "推荐应用给日报": "register_app",
+        "查看用户反馈": "view_feedback",
+        "管理应用设置": "app_settings",
+        "暂停/归档应用": "app_lifecycle",
+        "编辑开发者资料": "edit_profile"
+      },
       "exits": ["lobby"]
     }
   },
@@ -32,7 +50,7 @@
     "想体验应用": "news",
     "想提交体验报告": "news",
     "想成为开发者": "developer",
-    "想注册应用": "developer",
+    "想推荐应用": "developer",
     "想查看反馈": "developer",
     "想管理应用": "developer",
     "想暂停应用": "developer",

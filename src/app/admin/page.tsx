@@ -2,6 +2,8 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { Button } from '@/components/ui/Button'
+import { Card } from '@/components/ui/Card'
 
 export default function AdminPage() {
   const [loading, setLoading] = useState(false)
@@ -54,7 +56,7 @@ export default function AdminPage() {
           </h1>
 
           <div className="space-y-6">
-            <div className="cyber-card p-6">
+            <Card className="p-6">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
                   <div className="text-4xl">🌐</div>
@@ -63,17 +65,17 @@ export default function AdminPage() {
                     <p className="text-sm text-gray-400">实用型应用讨论</p>
                   </div>
                 </div>
-                <button
+                <Button
                   onClick={() => simulateDiscussion('internet')}
                   disabled={loading}
-                  className="cyber-btn text-sm disabled:opacity-50"
+                  size="sm"
                 >
                   {loading ? '模拟中...' : '开始讨论'}
-                </button>
+                </Button>
               </div>
-            </div>
+            </Card>
 
-            <div className="cyber-card p-6">
+            <Card className="p-6">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
                   <div className="text-4xl">🎮</div>
@@ -82,17 +84,17 @@ export default function AdminPage() {
                     <p className="text-sm text-gray-400">娱乐型应用讨论</p>
                   </div>
                 </div>
-                <button
+                <Button
                   onClick={() => simulateDiscussion('game')}
                   disabled={loading}
-                  className="cyber-btn text-sm disabled:opacity-50"
+                  size="sm"
                 >
                   {loading ? '模拟中...' : '开始讨论'}
-                </button>
+                </Button>
               </div>
-            </div>
+            </Card>
 
-            <div className="cyber-card p-6">
+            <Card className="p-6">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4">
                   <div className="text-4xl">🚀</div>
@@ -101,49 +103,46 @@ export default function AdminPage() {
                     <p className="text-sm text-gray-400">实验型应用讨论</p>
                   </div>
                 </div>
-                <button
+                <Button
                   onClick={() => simulateDiscussion('wilderness')}
                   disabled={loading}
-                  className="cyber-btn text-sm disabled:opacity-50"
+                  size="sm"
                 >
                   {loading ? '模拟中...' : '开始讨论'}
-                </button>
+                </Button>
               </div>
-            </div>
+            </Card>
           </div>
 
           {result && (
-            <div className="mt-8 cyber-card p-6">
+            <Card className="mt-8 p-6">
               <h3 className="text-xl font-bold text-gray-800 mb-4 font-heading">
                 {result.success ? '✅ 讨论创建成功' : '❌ 创建失败'}
               </h3>
               <pre className="text-sm text-gray-500 overflow-auto bg-[#FFFBF5] p-4 rounded-xl border border-[#E8E0D8]">
                 {JSON.stringify(result, null, 2)}
               </pre>
-            </div>
+            </Card>
           )}
 
           <div className="mt-12 grid grid-cols-3 gap-4">
-            <Link
-              href="/circles/internet/discussion"
-              className="cyber-card p-4 text-center hover:border-orange-300 transition-colors"
-            >
-              <div className="text-2xl mb-2">🌐</div>
-              <div className="text-sm text-gray-500">互联网圈讨论区</div>
+            <Link href="/circles/internet/discussion">
+              <Card className="p-4 text-center hover:border-orange-300 transition-colors">
+                <div className="text-2xl mb-2">🌐</div>
+                <div className="text-sm text-gray-500">互联网圈讨论区</div>
+              </Card>
             </Link>
-            <Link
-              href="/circles/game/discussion"
-              className="cyber-card p-4 text-center hover:border-orange-300 transition-colors"
-            >
-              <div className="text-2xl mb-2">🎮</div>
-              <div className="text-sm text-gray-500">游戏圈讨论区</div>
+            <Link href="/circles/game/discussion">
+              <Card className="p-4 text-center hover:border-orange-300 transition-colors">
+                <div className="text-2xl mb-2">🎮</div>
+                <div className="text-sm text-gray-500">游戏圈讨论区</div>
+              </Card>
             </Link>
-            <Link
-              href="/circles/wilderness/discussion"
-              className="cyber-card p-4 text-center hover:border-orange-300 transition-colors"
-            >
-              <div className="text-2xl mb-2">🚀</div>
-              <div className="text-sm text-gray-500">无人区圈讨论区</div>
+            <Link href="/circles/wilderness/discussion">
+              <Card className="p-4 text-center hover:border-orange-300 transition-colors">
+                <div className="text-2xl mb-2">🚀</div>
+                <div className="text-sm text-gray-500">无人区圈讨论区</div>
+              </Card>
             </Link>
           </div>
         </div>

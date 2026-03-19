@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import Header from '@/components/Header'
+import { Card } from '@/components/ui/Card'
 
 interface Circle {
   id: string
@@ -109,7 +110,7 @@ export default function CirclesPage() {
                   href={`/circles/${circle.slug}`}
                   className="group"
                 >
-                  <div className="cyber-card p-8 h-full relative overflow-hidden">
+                  <Card className="p-8 h-full relative overflow-hidden">
                     <div
                       className="absolute top-0 right-0 w-32 h-32 rounded-full blur-3xl opacity-10 group-hover:opacity-20 transition-opacity"
                       style={{ backgroundColor: circle.color }}
@@ -161,7 +162,7 @@ export default function CirclesPage() {
                     </div>
 
                     <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-orange-300 to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-b-2xl" />
-                  </div>
+                  </Card>
                 </Link>
               ))}
             </div>

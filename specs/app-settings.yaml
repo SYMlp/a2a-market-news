@@ -1,0 +1,102 @@
+# ComponentSpec: app-settings
+# Renders: SpecFormCard (spec-driven)
+# FC: GM.updateAppSettings (confirm) | GM.startAppSettings (activate)
+
+id: app_settings
+functionCall: GM.updateAppSettings
+
+# Lifecycle: collect → confirm → done
+lifecycle:
+  steps: [collect, confirm, done]
+  initial: collect
+  onKeyword:
+    patterns: ["取消", "算了", "不改了", "不要了", "不做了", "退出", "cancel"]
+    action: cancel
+  delays:
+    confirmTimeout: 300000
+  onSceneChange: cancel
+
+# Data source for app list (collect phase)
+dataSource:
+  primary: session.data.apps_json
+  fallback: subFlow.context.userApps
+
+# Collect phase logic (mapped from handler)
+collect:
+  # Precondition: need at least 1 app
+  emptyMessage:
+    pa: "你还没有推荐应用给日报，无法编辑。先推荐一个吧！"
+    agent: "No apps to edit."
+  # Single app: auto-select, skip disambiguation
+  singleAppAutoSelect: true
+  # Multi-app: resolve from message
+  resolveFromMessage:
+    patterns:
+      index: "/第?([一二三四五1-5])[个号]?/"
+      name: "message.includes(app.name)"
+  # Multi-app, no match → show list and ask
+  followUpMessage:
+    pa: "你有这些应用：${appList}。想编辑哪个？说应用名称或序号即可。"
+    agent: "Need app selection. Apps: ${appList}"
+  # When both appId and changes ready → step confirm
+  transitionToConfirm:
+    when: "appId"
+    presentCard: true
+
+# Confirm phase: params and validation
+actions:
+  confirm:
+    params:
+      appId:
+        type: string
+        required: true
+        description: "The unique ID of the app to update"
+      changes:
+        type: object
+        required: true
+        description: "Fields to update (name, description, website)"
+        properties:
+          name: { type: string }
+          description: { type: string }
+          website: { type: string }
+    effect: db.app.update
+    ownershipCheck: app.developerId === user.id
+    onSuccess:
+      message:
+        pa: "已更新「${name}」的设置！"
+        agent: "App ${appId} updated."
+    onError:
+      message:
+        pa: "更新失败，请重试"
+        agent: "app_settings confirm error."
+
+# Agent visibility: expose as MCP tool for discovery
+visibility:
+  agent:
+    export: true
+
+# Display: card header + form fields (for SpecFormCard)
+state:
+  display:
+    header: "GM.updateAppSettings()"
+    confirmLabel: "确认修改"
+    hint: "可修改上方字段 · 确认后 GM 将更新应用设置"
+  fields:
+    - key: name
+      label: "应用名称"
+      type: text
+      placeholder: "应用名称"
+      x-ui:
+        editable: true
+    - key: description
+      label: "简介"
+      type: text
+      placeholder: "应用简介"
+      x-ui:
+        editable: true
+    - key: website
+      label: "网站"
+      type: url
+      placeholder: "https://..."
+      x-ui:
+        editable: true

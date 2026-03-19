@@ -1,6 +1,6 @@
 import { prisma } from './prisma'
 import { parseJSONLoose } from './json-utils'
-import { MODEL_FOR } from './model-config'
+import { MODEL_FOR, FALLBACK_FOR, type ModelId } from './model-config'
 
 export interface PAActionResult {
   content: string
@@ -9,7 +9,19 @@ export interface PAActionResult {
 
 const STREAM_TIMEOUT_MS = 12_000
 
-export async function callSecondMeStream(
+function isRetryableError(error: unknown): boolean {
+  if (error instanceof DOMException && error.name === 'AbortError') return true
+  if (error instanceof Error) {
+    const statusMatch = error.message.match(/API error (\d+)/)
+    if (statusMatch) {
+      const status = Number(statusMatch[1])
+      return status >= 500
+    }
+  }
+  return false
+}
+
+async function callSecondMeStreamOnce(
   endpoint: string,
   accessToken: string,
   body: Record<string, unknown>
@@ -49,6 +61,30 @@ export async function callSecondMeStream(
     throw new Error(`SecondMe API returned error: ${JSON.stringify(data)}`)
   } finally {
     clearTimeout(timer)
+  }
+}
+
+export async function callSecondMeStream(
+  endpoint: string,
+  accessToken: string,
+  body: Record<string, unknown>
+): Promise<string> {
+  const model = body.model as ModelId | undefined
+  const fallbackModel = model ? FALLBACK_FOR[model] : undefined
+
+  try {
+    return await callSecondMeStreamOnce(endpoint, accessToken, body)
+  } catch (error) {
+    if (fallbackModel && isRetryableError(error)) {
+      console.warn(
+        `[pa-engine] ${model} failed (${error instanceof Error ? error.message : 'timeout'}), falling back to ${fallbackModel}`
+      )
+      return await callSecondMeStreamOnce(endpoint, accessToken, {
+        ...body,
+        model: fallbackModel,
+      })
+    }
+    throw error
   }
 }
 

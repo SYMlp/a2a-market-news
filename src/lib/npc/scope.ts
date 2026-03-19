@@ -1,6 +1,6 @@
 import type { NPCConfig, NPCSeedData } from './types'
 import type { DualText } from '@/lib/engine/types'
-import { NPC_SEEDS } from './prompts'
+import { loadAllNPCSpecs } from './npc-loader'
 
 /**
  * Checks whether a topic falls within an NPC's defined scope.
@@ -57,7 +57,7 @@ export function checkScopeAndRedirect(
   visitorMessage: string,
   sceneId: string,
 ): ScopeCheckResult {
-  const seed = NPC_SEEDS.find(s => s.key === npcKey)
+  const seed = loadAllNPCSpecs().find(s => s.key === npcKey)
   if (!seed || !seed.scope.length) return { inScope: true }
 
   if (isWithinScope(seed, visitorMessage)) {

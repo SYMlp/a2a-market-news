@@ -1,0 +1,49 @@
+# BehaviorSpec: browse_apps
+# First behavior spec — proves the engine end-to-end.
+#
+# Flow: Enter news scene → engine detects onSceneEnter → cognition
+# injected into PA/NPC prompts → DeckView renders app cards → PA
+# says "体验第一个" → classifier matches experience → GM.assignMission
+
+id: browse_apps
+description: "浏览推荐应用并选择一个体验"
+
+availability:
+  scenes: [news]
+  implements: "浏览热门应用"
+  trigger:
+    onSceneEnter: true
+    onFunctionCall: GM.showApps
+  preconditions: [hasApps]
+
+cognition:
+  forPA: |
+    你面前有这些应用：
+    {items}
+    选择感兴趣的，说出名称或序号。
+  forNPC: |
+    展示中的应用：
+    {items}
+    访客提到应用时，理解为选择体验。
+
+presentation:
+  style: card_deck
+  data:
+    dataLoader: /api/gm/recommend
+    field: apps
+    itemKey: clientId
+  card:
+    title: '{name}'
+    subtitle: '{description}'
+  animation:
+    enter: cascade
+    idle: float
+
+resolution:
+  type: select_one
+  mapsTo:
+    action: experience
+    fc: GM.assignMission
+  params:
+    appName: '{name}'
+    clientId: '{clientId}'

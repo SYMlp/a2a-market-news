@@ -51,4 +51,5 @@ export interface NPCReplyContext {
   isFreeChat?: boolean
   sessionContext?: string
   fcResult?: FCResult
+  recentNpcMessages?: string[]
 }

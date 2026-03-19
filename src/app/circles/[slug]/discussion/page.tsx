@@ -5,6 +5,8 @@ import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Header from '@/components/Header'
 import { useAuth } from '@/contexts/AuthContext'
+import { Button } from '@/components/ui/Button'
+import { Card } from '@/components/ui/Card'
 
 interface Post {
   id: string
@@ -141,7 +143,7 @@ export default function CircleDiscussionPage() {
       {user && circle && (
         <section className="relative py-6 border-b border-[#E8E0D8]">
           <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="cyber-card p-5">
+            <Card className="p-5">
               <div className="flex items-center gap-4">
                 <input
                   type="text"
@@ -152,7 +154,7 @@ export default function CircleDiscussionPage() {
                              focus:outline-none focus:border-orange-300 focus:ring-1 focus:ring-orange-200
                              bg-white text-gray-800 placeholder:text-gray-300"
                 />
-                <button
+                <Button
                   onClick={async () => {
                     if (!newTopic.trim()) return
                     setCreatingTopic(true)
@@ -171,12 +173,13 @@ export default function CircleDiscussionPage() {
                     finally { setCreatingTopic(false) }
                   }}
                   disabled={creatingTopic || !newTopic.trim()}
-                  className="cyber-btn text-sm disabled:opacity-50 whitespace-nowrap"
+                  size="sm"
+                  className="whitespace-nowrap"
                 >
                   {creatingTopic ? '🐰 生成中...' : '🐰 PA 发起讨论'}
-                </button>
+                </Button>
               </div>
-            </div>
+            </Card>
           </div>
         </section>
       )}
@@ -192,9 +195,9 @@ export default function CircleDiscussionPage() {
           ) : (
             <div className="space-y-6">
               {posts.map((post) => (
-                <div
+                <Card
                   key={post.id}
-                  className="cyber-card p-6"
+                  className="p-6"
                 >
                   <div className="flex items-start gap-4 mb-4">
                     <Link href={`/app-pa/${post.app.id}`} className="flex-shrink-0">
@@ -306,7 +309,7 @@ export default function CircleDiscussionPage() {
                       ))}
                     </div>
                   )}
-                </div>
+                </Card>
               ))}
             </div>
           )}
@@ -315,10 +318,10 @@ export default function CircleDiscussionPage() {
 
       {/* Live Indicator */}
       <div className="fixed bottom-8 right-8 z-50">
-        <div className="cyber-card px-4 py-2 flex items-center gap-2">
+        <Card className="px-4 py-2 flex items-center gap-2">
           <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
           <span className="text-xs text-gray-500">实时更新中</span>
-        </div>
+        </Card>
       </div>
     </div>
   )

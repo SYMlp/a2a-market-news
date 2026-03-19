@@ -12,6 +12,8 @@ interface CharacterStageProps {
   npcBubble?: string | null
   paBubble?: string | null
   paState: CharacterState
+  npcState?: CharacterState
+  npcBubbleSlot?: React.ReactNode
 }
 
 export default function CharacterStage({
@@ -23,24 +25,35 @@ export default function CharacterStage({
   npcBubble,
   paBubble,
   paState,
+  npcState = 'idle',
+  npcBubbleSlot,
 }: CharacterStageProps) {
   return (
     <div className="char-stage">
       {/* NPC row: sprite left, bubble right */}
       <div className="char-stage__row char-stage__row--npc">
         <div className="char-stage__avatar">
+          {npcState === 'thinking' && (
+            <div className="char-stage__thinking">
+              <div className="char-stage__thinking-dots"><i /><i /><i /></div>
+              <span className="char-stage__thinking-label">THINKING</span>
+            </div>
+          )}
           <SpriteCharacter
             src={npcSprite}
             label={npcName}
-            state="idle"
+            state={npcState}
             direction="down"
             accentRgb={accentRgb}
           />
         </div>
-        {npcBubble && (
-          <div className="char-stage__bubble char-stage__bubble--npc" key={npcBubble.slice(0, 20)}>
+        {(npcBubble || npcBubbleSlot) && npcState !== 'thinking' && (
+          <div className={`char-stage__bubble char-stage__bubble--npc${npcBubbleSlot ? ' char-stage__bubble--expanded' : ''}`} key={npcBubble?.slice(0, 20) ?? 'slot'}>
             <div className="char-stage__bubble-body">
-              <div className="char-stage__bubble-text">{npcBubble}</div>
+              {npcBubble && <div className="char-stage__bubble-text">{npcBubble}</div>}
+              {npcBubbleSlot && (
+                <div className="char-stage__bubble-slot">{npcBubbleSlot}</div>
+              )}
             </div>
             <div className="char-stage__bubble-arrow char-stage__bubble-arrow--left" />
           </div>

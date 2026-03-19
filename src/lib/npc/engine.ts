@@ -1,13 +1,15 @@
 import { prisma } from '../prisma'
 import { refreshAccessToken } from '../auth'
 import { callSecondMeStream } from '../pa-engine'
-import { buildNPCMessage, buildAgentText, NPC_SEEDS } from './prompts'
+import { buildNPCMessage, buildAgentText } from './prompts'
+import { loadAllNPCSpecs } from './npc-loader'
 // v7: scope gate disabled — ontology handles scope via prompt
 // import { buildScopeConstraint, checkScopeAndRedirect } from './scope'
 import { fillTemplate } from '@/lib/engine/template'
 import { resolveOpening } from '@/lib/engine/game-loop'
 import { serializeForNPC, serializeProtocolForNPC } from '@/lib/engine/ontology'
 import { MODEL_FOR } from '@/lib/model-config'
+import { stripLLMTags } from '@/lib/ux/tag-stripper'
 import type { DualText, TurnOutcome } from '@/lib/engine/types'
 import type { NPCReplyContext, NPCReplyResult } from './types'
 import { getScene } from '@/lib/scenes'
@@ -38,9 +40,11 @@ async function getOwnerToken(ownerId: string): Promise<string | null> {
 }
 
 function resolveNPCKey(sceneId: string): string {
-  if (sceneId === 'lobby') return 'gm'
-  const sceneNPCs: Record<string, string> = { news: 'editor', developer: 'tech-advisor' }
-  return sceneNPCs[sceneId] || 'gm'
+  const specs = loadAllNPCSpecs()
+  const match = specs.find(s => s.sceneId === sceneId)
+  if (match) return match.key
+  const gm = specs.find(s => s.role === 'gm')
+  return gm?.key ?? 'gm'
 }
 
 function describeOutcome(outcome: TurnOutcome): string {
@@ -97,6 +101,7 @@ export async function generateNPCReply(
       isFreeChat: context.isFreeChat,
       sessionContext: context.sessionContext,
       entryType: context.entryType,
+      recentNpcMessages: context.recentNpcMessages,
     })
 
     const ontologyContext = serializeForNPC(context.sceneId)
@@ -121,8 +126,10 @@ export async function generateNPCReply(
       ? (context.outcome as { target: string }).target
       : undefined
 
+    const cleanReply = aiReply ? stripLLMTags(aiReply) : null
+
     return {
-      pa: aiReply || fallbackMessage.pa,
+      pa: cleanReply || fallbackMessage.pa,
       agent: buildAgentText(
         context.outcome?.type || 'stay',
         context.sceneId,

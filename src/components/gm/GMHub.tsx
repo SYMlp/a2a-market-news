@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
 import SpaceHeader from './SpaceHeader'
 import FunctionCallCard from './FunctionCallCard'
+import { Card } from '@/components/ui/Card'
 
 /* ─── Types (mirroring server types for client use) ─── */
 
@@ -223,7 +224,7 @@ export default function GMHub() {
   /* ─── Mode Selection ─── */
   if (phase === 'mode_select') {
     return (
-      <div className="cyber-card overflow-hidden">
+      <Card className="overflow-hidden">
         <div className="px-6 py-8 text-center space-y-6">
           <div className="space-y-2">
             <p className="text-2xl font-heading font-bold text-gray-800">A2A 智选日报</p>
@@ -255,13 +256,13 @@ export default function GMHub() {
             </button>
           </div>
         </div>
-      </div>
+      </Card>
     )
   }
 
   /* ─── Conversation UI ─── */
   return (
-    <div className="cyber-card overflow-hidden flex flex-col" style={{ minHeight: 480 }}>
+    <Card className="overflow-hidden flex flex-col" style={{ minHeight: 480 }}>
       <SpaceHeader
         icon={theme.icon}
         label={theme.label}
@@ -380,6 +381,6 @@ export default function GMHub() {
           </button>
         </div>
       </div>
-    </div>
+    </Card>
   )
 }

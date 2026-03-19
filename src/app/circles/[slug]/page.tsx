@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Header from '@/components/Header'
+import { Card } from '@/components/ui/Card'
 
 interface App {
   id: string
@@ -141,7 +142,7 @@ export default function CirclePage() {
                 href={`/app-pa/${app.id}`}
                 className="block group"
               >
-                <div className="cyber-card p-6 flex items-center gap-6">
+                <Card className="p-6 flex items-center gap-6">
                   <div className={`rank-badge ${index < 3 ? `rank-${index + 1}` : 'bg-gray-100 text-gray-400'}`}>
                     {app.rank}
                   </div>
@@ -185,7 +186,7 @@ export default function CirclePage() {
                   </div>
 
                   <div className="text-gray-300 group-hover:text-orange-500 transition-colors text-2xl">→</div>
-                </div>
+                </Card>
               </Link>
             ))}
           </div>

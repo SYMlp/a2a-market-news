@@ -4,6 +4,8 @@ import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Header from '@/components/Header'
+import { Button } from '@/components/ui/Button'
+import { Card } from '@/components/ui/Card'
 
 interface Achievement {
   key: string
@@ -157,7 +159,9 @@ export default function PADetailPage() {
         <div className="text-center py-24">
           <div className="text-6xl mb-6">😿</div>
           <h3 className="text-2xl font-bold text-gray-800 mb-3 font-heading">PA 未找到</h3>
-          <Link href="/pa-directory" className="cyber-btn mt-4 inline-block">返回通讯录</Link>
+          <Button asChild className="mt-4 inline-block">
+            <Link href="/pa-directory">返回通讯录</Link>
+          </Button>
         </div>
       </div>
     )
@@ -177,7 +181,7 @@ export default function PADetailPage() {
         </nav>
 
         {/* Profile Card */}
-        <div className="cyber-card p-8 mb-8">
+        <Card className="p-8 mb-8">
           <div className="flex flex-col sm:flex-row items-start gap-6">
             <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-orange-400 to-amber-500 flex items-center justify-center flex-shrink-0 shadow-lg">
               <span className="text-white text-3xl font-bold">
@@ -207,18 +211,19 @@ export default function PADetailPage() {
               </div>
             </div>
 
-            <button
+            <Button
+              size="sm"
               onClick={() => setShowQuestionForm(!showQuestionForm)}
-              className="cyber-btn text-sm flex-shrink-0"
+              className="flex-shrink-0"
             >
               向 TA 提问
-            </button>
+            </Button>
           </div>
-        </div>
+        </Card>
 
         {/* Question Form */}
         {showQuestionForm && (
-          <div className="cyber-card p-6 mb-8 border-l-4 border-orange-400">
+          <Card className="p-6 mb-8 border-l-4 border-orange-400">
             <h3 className="text-lg font-bold text-gray-800 mb-4 font-heading">
               向 {pa.agentName} 提问
             </h3>
@@ -253,14 +258,14 @@ export default function PADetailPage() {
                 </button>
               </div>
             </div>
-          </div>
+          </Card>
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Left: Achievements + Hall of Fame */}
           <div className="lg:col-span-1 space-y-8">
             {/* Achievement Wall */}
-            <div className="cyber-card p-6">
+            <Card className="p-6">
               <h2 className="text-lg font-bold text-gray-800 mb-4 font-heading">成就墙</h2>
               {pa.achievements.length === 0 ? (
                 <p className="text-sm text-gray-400">尚未解锁任何成就</p>
@@ -278,11 +283,11 @@ export default function PADetailPage() {
                   ))}
                 </div>
               )}
-            </div>
+            </Card>
 
             {/* Hall of Fame Appearances */}
             {pa.hallOfFameAppearances.length > 0 && (
-              <div className="cyber-card p-6">
+              <Card className="p-6">
                 <h2 className="text-lg font-bold text-gray-800 mb-4 font-heading">名人墙荣誉</h2>
                 <div className="space-y-2">
                   {pa.hallOfFameAppearances.map(h => (
@@ -297,14 +302,14 @@ export default function PADetailPage() {
                     </div>
                   ))}
                 </div>
-              </div>
+              </Card>
             )}
           </div>
 
           {/* Right: Recent Feedbacks + Questions */}
           <div className="lg:col-span-2 space-y-8">
             {/* Recent Feedbacks */}
-            <div className="cyber-card p-6">
+            <Card className="p-6">
               <h2 className="text-lg font-bold text-gray-800 mb-4 font-heading">最近反馈</h2>
               {pa.recentFeedbacks.length === 0 ? (
                 <p className="text-sm text-gray-400">尚未提交过反馈</p>
@@ -326,10 +331,10 @@ export default function PADetailPage() {
                   ))}
                 </div>
               )}
-            </div>
+            </Card>
 
             {/* Questions */}
-            <div className="cyber-card p-6">
+            <Card className="p-6">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-bold text-gray-800 font-heading">收到的问题</h2>
                 <span className="text-sm text-gray-400">{pa.questions.length} 个问题</span>
@@ -362,7 +367,7 @@ export default function PADetailPage() {
                   ))}
                 </div>
               )}
-            </div>
+            </Card>
           </div>
         </div>
       </div>

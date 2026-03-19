@@ -27,6 +27,13 @@
       "sender": "human",
       "channel": "private",
       "description": "主人对 PA 的建议，NPC 不可见"
+    },
+    "behavior_context": {
+      "sender": "system",
+      "channel": "private",
+      "description": "行为引擎注入的认知上下文，包含当前活跃行为的数据和指引",
+      "recipients": ["pa", "npc", "classifier"],
+      "metaFields": ["behaviorId", "resolutionType", "items"]
     }
   },
   "npcDecisionProtocols": {

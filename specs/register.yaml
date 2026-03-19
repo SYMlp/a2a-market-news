@@ -1,0 +1,231 @@
+# ComponentSpec: register
+# Renders: SpecFormCard (spec-driven)
+# FC: GM.registerApp (confirm) | GM.startRegister (activate)
+#
+# Design note: This is the most complex SubFlow — multi-step collection
+# with an external API validation gate. It tests the "expressiveness
+# boundary" of ComponentSpec. The `validate.secondme-app` effect uses
+# the string-referenced handler pattern (ADR-5).
+
+id: register
+functionCall: GM.registerApp
+
+# ────────────────────────────────────────
+# Lifecycle: 4 effective states
+#   collect → awaitingClientId → confirm → done
+#            ↘ (shortcut if clientId available) ─→ confirm
+#
+# Between collect/awaitingClientId and confirm sits the validationGate —
+# not a user-visible step but a transition guard that calls an external API.
+# ────────────────────────────────────────
+lifecycle:
+  steps: [collect, awaitingClientId, confirm, done]
+  initial: collect
+  onKeyword:
+    patterns: ["取消", "算了", "不改了", "不要了", "不做了", "退出", "cancel"]
+    action: cancel
+  delays:
+    confirmTimeout: 300000
+  onSceneChange: cancel
+  validationGate:
+    before: confirm
+    effect: validate.secondme-app
+    onInvalid: retry
+
+# ────────────────────────────────────────
+# Collect phase: extract app info from conversation
+# ────────────────────────────────────────
+collect:
+  extract:
+    effect: extract.app-info
+    inputField: messages
+    outputFields:
+      - name
+      - description
+      - circleType
+      - circleName
+      - clientId
+
+  clientIdResolution:
+    # Priority order for resolving clientId:
+    # 1. Extracted from messages (via extract.app-info or extractClientId)
+    # 2. Provided in context from existing apps (context.existingApps[].clientId)
+    sources:
+      - extracted.clientId
+      - context.existingApps[].clientId
+
+  transitions:
+    - when: "complete && clientId"
+      storeExtracted: context.pendingExtracted
+      goto: validationGate
+
+    - when: "complete && !clientId"
+      storeExtracted: context.pendingExtracted
+      setFlag: context.awaitingClientId = true
+      goto: awaitingClientId
+      message:
+        pa: "应用信息收到了！还需要一个信息：告诉我你的 SecondMe 应用 ClientId 是什么？在开发者后台可以找到。"
+        agent: "App info collected. Need SecondMe clientId to validate."
+
+    - when: "name && clientId"
+      storeExtracted: context.pendingExtracted
+      goto: validationGate
+
+    - when: "!complete"
+      message:
+        pa: "${followUp}"
+        agent: "Registration incomplete."
+
+# ────────────────────────────────────────
+# AwaitingClientId phase: dedicated step for clientId collection
+# ────────────────────────────────────────
+awaitingClientId:
+  extract:
+    effect: extract.client-id
+    inputField: message
+    outputFields:
+      - clientId
+    fallback: message.trim()
+
+  transitions:
+    - when: "clientId"
+      goto: validationGate
+
+    - when: "!clientId"
+      message:
+        pa: "请告诉我你的 SecondMe 应用 ClientId，在开发者后台可以找到，是一串 UUID 格式的字符串。"
+        agent: "Still need SecondMe app clientId."
+
+# ────────────────────────────────────────
+# Validation gate: external API check before confirm
+# Sits between collect/awaitingClientId and confirm.
+# Uses fail-open policy (network errors → allow).
+# ────────────────────────────────────────
+validationGate:
+  effect: validate.secondme-app
+  inputs:
+    clientId: resolved clientId
+    accessToken: db.user.accessToken
+  onValid:
+    mergeExtracted:
+      clientId: validated clientId
+    goto: confirm
+    message:
+      pa: "验证通过！让我整理一下你推荐的应用信息——"
+      agent: "Validated & extracted: ${JSON.stringify(extracted)}. Awaiting confirmation."
+    presentCard: true
+  onInvalid:
+    message:
+      pa: "${validation.reason || 'ClientId「${clientId}」格式不对，确认一下？'}"
+      agent: "Validation failed for clientId=\"${clientId}\": ${validation.reason}"
+    stay: true
+
+# ────────────────────────────────────────
+# Confirm phase: create app + metrics in DB
+# ────────────────────────────────────────
+actions:
+  confirm:
+    params:
+      name:
+        type: string
+        required: true
+        description: "Application name"
+      description:
+        type: string
+        required: true
+        description: "Application description"
+      circleType:
+        type: string
+        required: true
+        description: "Circle category (internet, game, wilderness)"
+      clientId:
+        type: string
+        required: true
+        description: "SecondMe application Client ID (UUID format)"
+      circleName:
+        type: string
+        required: false
+        description: "Optional circle name for URL generation"
+
+    preconditions:
+      - check: user.isDeveloper
+        errorStatus: 403
+        errorMessage: "请先前往开发者注册页面完成注册"
+      - check: circle.exists(circleType)
+        errorStatus: 404
+        errorMessage: "圈子不存在: ${circleType}"
+      - check: "!app.exists(clientId)"
+        errorStatus: 409
+        errorMessage: "这个 ClientId 已经被注册了（应用「${existingApp.name}」）"
+
+    effect: db.app.create
+    effectArgs:
+      data:
+        name: params.name
+        description: params.description
+        circleId: circle.id
+        category: params.circleType
+        developerId: user.id
+        clientId: params.clientId
+        website: "circleName ? https://go.second.me/${circleName} : undefined"
+        status: active
+    postEffect:
+      - effect: db.appMetrics.create
+        args:
+          appId: created.id
+          date: now
+
+    onSuccess:
+      clearSubFlow: true
+      message:
+        pa: "收录成功！「${name}」已正式加入 A2A 智选日报推荐名单。\n\n日报栏的编辑部助手会把它推荐给来逛的访客！还想做什么？"
+        agent: "App \"${name}\" submitted. clientId: ${clientId}. circleType: ${circleType}."
+      returnExtra:
+        registeredApp:
+          id: created.id
+          name: created.name
+          clientId: created.clientId
+          circleType: params.circleType
+
+    onError:
+      message:
+        pa: "注册失败，请重试"
+      errorStatus: 500
+
+# ────────────────────────────────────────
+# Display: card fields for SpecFormCard
+# ────────────────────────────────────────
+state:
+  display:
+    header: "GM.registerApp()"
+    confirmLabel: "确认收录"
+    hint: "确认信息无误 · GM 将把应用收录到 A2A 智选日报"
+  fields:
+    - key: name
+      label: "应用名称"
+      type: text
+      placeholder: "应用名称"
+      x-ui:
+        editable: false
+    - key: description
+      label: "简介"
+      type: text
+      placeholder: "应用简介"
+      x-ui:
+        editable: false
+    - key: circleType
+      label: "圈子"
+      type: readOnly
+      statusLabels:
+        internet: "互联网应用"
+        game: "游戏"
+        wilderness: "探索实验"
+      x-ui:
+        editable: false
+    - key: clientId
+      label: "Client ID"
+      type: text
+      placeholder: "SecondMe Client ID"
+      x-ui:
+        editable: false
+        monospace: true

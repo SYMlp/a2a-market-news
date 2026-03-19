@@ -4,7 +4,7 @@ const sessions = new Map<string, GameSession>()
 const SESSION_TTL = 30 * 60 * 1000
 
 export function createSession(
-  mode: 'manual' | 'auto',
+  mode: 'manual' | 'auto' | 'advisor',
   agentId?: string,
   agentName?: string,
 ): GameSession {
@@ -36,13 +36,20 @@ export function getSession(id: string): GameSession | null {
 
 export function getOrCreateSession(
   sessionId: string | undefined,
-  mode: 'manual' | 'auto',
+  mode: 'manual' | 'auto' | 'advisor',
   agentId?: string,
   agentName?: string,
 ): GameSession {
   if (sessionId) {
     const existing = getSession(sessionId)
-    if (existing) return existing
+    if (existing) {
+      if (existing.mode !== mode) {
+        existing.mode = mode
+        existing.lastActiveAt = Date.now()
+        sessions.set(existing.id, existing)
+      }
+      return existing
+    }
   }
   return createSession(mode, agentId, agentName)
 }

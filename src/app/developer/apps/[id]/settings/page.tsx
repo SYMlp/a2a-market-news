@@ -5,6 +5,8 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Header from '@/components/Header'
 import { useAuth } from '@/contexts/AuthContext'
+import { Button } from '@/components/ui/Button'
+import { Card } from '@/components/ui/Card'
 
 interface AppData {
   id: string
@@ -178,7 +180,9 @@ export default function AppSettingsPage() {
         <Header activeNav="developer" />
         <div className="flex flex-col items-center justify-center py-32 gap-6">
           <p className="text-gray-500 text-lg">请先登录</p>
-          <Link href="/api/auth/login" className="cyber-btn text-sm">登录</Link>
+          <Button asChild size="sm">
+            <Link href="/api/auth/login">登录</Link>
+          </Button>
         </div>
       </div>
     )
@@ -190,7 +194,9 @@ export default function AppSettingsPage() {
         <Header activeNav="developer" />
         <div className="flex flex-col items-center justify-center py-32 gap-6">
           <p className="text-gray-500 text-lg">{error || '应用不存在'}</p>
-          <Link href="/developer" className="cyber-btn text-sm">返回面板</Link>
+          <Button asChild size="sm">
+            <Link href="/developer">返回面板</Link>
+          </Button>
         </div>
       </div>
     )
@@ -231,7 +237,7 @@ export default function AppSettingsPage() {
               </div>
             )}
 
-            <div className="cyber-card p-8 space-y-6">
+            <Card className="p-8 space-y-6">
               <h3 className="text-xl font-bold text-gray-800 font-heading">基本信息</h3>
 
               <div>
@@ -283,9 +289,9 @@ export default function AppSettingsPage() {
                   <option value="full">完全支持</option>
                 </select>
               </div>
-            </div>
+            </Card>
 
-            <div className="cyber-card p-8 space-y-6">
+            <Card className="p-8 space-y-6">
               <h3 className="text-xl font-bold text-gray-800 font-heading">链接信息</h3>
 
               <div>
@@ -331,9 +337,9 @@ export default function AppSettingsPage() {
                   placeholder="https://youtube.com/watch?v=..."
                 />
               </div>
-            </div>
+            </Card>
 
-            <div className="cyber-card p-8 space-y-6">
+            <Card className="p-8 space-y-6">
               <h3 className="text-xl font-bold text-gray-800 font-heading">详细描述</h3>
 
               <div>
@@ -348,9 +354,9 @@ export default function AppSettingsPage() {
                   placeholder="详细描述你的项目..."
                 />
               </div>
-            </div>
+            </Card>
 
-            <div className="cyber-card p-8 space-y-6">
+            <Card className="p-8 space-y-6">
               <h3 className="text-xl font-bold text-gray-800 font-heading">应用状态</h3>
               <div className="flex items-center gap-4 mb-4">
                 <label className="block text-sm font-semibold text-gray-600">当前状态</label>
@@ -403,11 +409,11 @@ export default function AppSettingsPage() {
                   </p>
                 </div>
               )}
-            </div>
+            </Card>
 
             {showArchivedConfirm && (
               <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-                <div className="cyber-card p-6 max-w-sm mx-4">
+                <Card className="p-6 max-w-sm mx-4">
                   <h3 className="text-lg font-bold text-gray-800 mb-2">确认归档</h3>
                   <p className="text-gray-500 text-sm mb-4">
                     归档后应用将无法恢复为活跃或暂停状态，确定要归档「{app.name}」吗？
@@ -429,7 +435,7 @@ export default function AppSettingsPage() {
                       {saving ? '归档中...' : '确认归档'}
                     </button>
                   </div>
-                </div>
+                </Card>
               </div>
             )}
 
@@ -440,13 +446,12 @@ export default function AppSettingsPage() {
               >
                 取消
               </Link>
-              <button
+              <Button
                 type="submit"
                 disabled={saving}
-                className="cyber-btn disabled:opacity-50"
               >
                 {saving ? '保存中...' : '保存设置'}
-              </button>
+              </Button>
             </div>
           </form>
         </div>

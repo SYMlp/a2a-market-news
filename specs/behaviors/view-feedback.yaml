@@ -1,0 +1,42 @@
+# BehaviorSpec: view_feedback
+# Second behavior spec — developer views user feedback on their apps.
+#
+# Flow: In developer scene → user asks to see feedback → GM.showFeedback
+# (passthrough) → post-dispatch triggers this spec → cognition injected
+# into NPC prompt → DeckView renders feedback cards
+
+id: view_feedback
+description: "查看用户对应用的体验反馈"
+
+availability:
+  scenes: [developer]
+  implements: "查看用户反馈"
+  trigger:
+    onSceneEnter: false
+    onFunctionCall: GM.showFeedback
+  preconditions: []
+
+cognition:
+  forPA: |
+    用户对你的应用给出了以下反馈：
+    {items}
+    看看他们怎么说的，想想有什么可以改进的。
+  forNPC: |
+    开发者正在查看用户反馈：
+    {items}
+    帮助开发者理解反馈要点，给出改进建议。
+
+presentation:
+  style: card_deck
+  data:
+    dataLoader: /api/gm/developer-status
+    field: feedbacks
+    itemKey: id
+  card:
+    title: '{agentName}'
+    subtitle: '{summary}'
+  animation:
+    enter: cascade
+
+resolution:
+  type: select_one

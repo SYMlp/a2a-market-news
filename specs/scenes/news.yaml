@@ -1,0 +1,86 @@
+id: news
+theme:
+  accent: blue
+  icon: "📰"
+  label: 日报栏
+
+dataLoader: /api/gm/recommend
+
+opening:
+  first:
+    pa: |
+      欢迎来到日报栏！{apps_greeting}
+      {apps_hint}
+    agent: |
+      News Space. Top apps: {apps_json}. hasApps: {hasApps}.
+      Actions: experience(appName), report(content), back(lobby).
+  return:
+    pa: |
+      又来日报栏了！{apps_greeting}
+      {apps_hint}
+    agent: |
+      Returning to News Space. Top apps: {apps_json}. hasApps: {hasApps}.
+      Actions: experience(appName), report(content), back(lobby).
+
+actions:
+  - id: experience
+    outcome: stay
+    label:
+      pa: 体验推荐的应用
+      agent: "experience(appName) — go try an app, report back later"
+    actIntent: experience
+    response:
+      pa: |
+        好的，去体验一下「{appName}」吧！
+        {appUrl}
+        体验完记得回来告诉我感受哦！
+      agent: "Mission assigned: experience app {clientId}. Return with action=report when done."
+    functionCall:
+      name: GM.assignMission
+      args:
+        type: experience
+    precondition:
+      check: "session.data.hasApps == true"
+      failMessage:
+        pa: 目前平台还没有应用入驻呢！要不回大厅去开发者空间，把你做的应用推荐给我们？
+        agent: "Cannot experience: no apps available yet. Suggest going to developer space to submit app."
+
+  - id: report
+    outcome: stay
+    label:
+      pa: 提交体验报告
+      agent: "report(content) — submit experience report"
+    actIntent: report
+    response:
+      pa: 收到你的体验报告！你的建议已经发送给开发者了。还想看看其他应用吗？
+      agent: "Report saved. Feedback forwarded to developer. Actions: browse, back(lobby)."
+    functionCall:
+      name: GM.saveReport
+      args: {}
+    precondition:
+      check: "session.flags.hasExperienced == true"
+      failMessage:
+        pa: 你还没体验过应用呢！先选一个应用去体验，回来再告诉我感受吧。
+        agent: "Cannot report: no app experienced yet. Use experience(appName) first."
+
+  - id: back_lobby
+    outcome: move
+    label:
+      pa: 回到大厅
+      agent: "back — return to lobby"
+    actIntent: exit
+    response:
+      pa: 好的，先回大厅，从那里可以去开发者空间。随时再来逛日报栏！
+      agent: "Returning to lobby. User may want developer space."
+    functionCall:
+      name: GM.enterSpace
+      args:
+        space: lobby
+    transition:
+      type: enter_space
+      target: lobby
+
+fallback:
+  response:
+    pa: 目前平台刚开张，还没有应用入驻。如果你有做好的应用，可以回大厅去开发者空间推荐给我们，抢个头彩！直接说"回大厅"就行。
+    agent: "No apps available. Suggest: back(lobby) to submit first app in developer space."

@@ -1,6 +1,10 @@
 'use client'
 
-const SCENE_BG_IMAGES: Record<string, string> = {}
+const SCENE_BG_IMAGES: Record<string, string> = {
+  lobby: '/sprites/backgrounds/lobby-bg.png',
+  news: '/sprites/backgrounds/news-bg.png',
+  developer: '/sprites/backgrounds/developer-bg.png',
+}
 
 interface SceneBackgroundProps {
   scene: string

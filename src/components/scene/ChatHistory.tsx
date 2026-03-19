@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { useProgressiveText } from '@/lib/ux/progressive-text'
 
 export interface ChatMessage {
   id: string
@@ -13,9 +14,26 @@ export interface ChatMessage {
 interface ChatHistoryProps {
   messages: ChatMessage[]
   accentRgb: string
+  isTyping?: boolean
+  typingNpcName?: string
 }
 
-export default function ChatHistory({ messages, accentRgb }: ChatHistoryProps) {
+function ProgressiveMessage({ text }: { text: string }) {
+  const { displayedText, isRevealing, revealAll } = useProgressiveText(text)
+  return (
+    <div className="chat-hist__msg-text" onClick={isRevealing ? revealAll : undefined}>
+      {displayedText}
+      {isRevealing && <span className="chat-hist__msg-cursor" />}
+    </div>
+  )
+}
+
+export default function ChatHistory({
+  messages,
+  accentRgb,
+  isTyping,
+  typingNpcName,
+}: ChatHistoryProps) {
   const [open, setOpen] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
   const prevCountRef = useRef(messages.length)
@@ -27,7 +45,15 @@ export default function ChatHistory({ messages, accentRgb }: ChatHistoryProps) {
     prevCountRef.current = messages.length
   }, [messages.length])
 
+  useEffect(() => {
+    if (isTyping && scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+    }
+  }, [isTyping])
+
   const unread = !open && messages.length > 0
+  const lastMsg = messages[messages.length - 1]
+  const isLastNpcFresh = lastMsg?.role === 'npc'
 
   return (
     <>
@@ -50,26 +76,46 @@ export default function ChatHistory({ messages, accentRgb }: ChatHistoryProps) {
         </div>
 
         <div className="chat-hist__scroll" ref={scrollRef}>
-          {messages.length === 0 && (
+          {messages.length === 0 && !isTyping && (
             <div className="chat-hist__empty">暂无对话记录</div>
           )}
-          {messages.map((msg) => (
-            <div
-              key={msg.id}
-              className={`chat-hist__msg chat-hist__msg--${msg.role}`}
-            >
+          {messages.map((msg, i) => {
+            const isLatestNpc = isLastNpcFresh && i === messages.length - 1
+            return (
+              <div
+                key={msg.id}
+                className={`chat-hist__msg chat-hist__msg--${msg.role}`}
+              >
+                <div className="chat-hist__msg-head">
+                  <span className="chat-hist__msg-name">{msg.name}</span>
+                  <span className="chat-hist__msg-time">
+                    {new Date(msg.timestamp).toLocaleTimeString('zh-CN', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </span>
+                </div>
+                {isLatestNpc ? (
+                  <ProgressiveMessage text={msg.text} />
+                ) : (
+                  <div className="chat-hist__msg-text">{msg.text}</div>
+                )}
+              </div>
+            )
+          })}
+
+          {isTyping && (
+            <div className="chat-hist__msg chat-hist__msg--npc chat-hist__msg--typing">
               <div className="chat-hist__msg-head">
-                <span className="chat-hist__msg-name">{msg.name}</span>
-                <span className="chat-hist__msg-time">
-                  {new Date(msg.timestamp).toLocaleTimeString('zh-CN', {
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })}
+                <span className="chat-hist__msg-name">{typingNpcName || 'NPC'}</span>
+              </div>
+              <div className="chat-hist__msg-text">
+                <span className="chat-hist__typing-dots">
+                  <span /><span /><span />
                 </span>
               </div>
-              <div className="chat-hist__msg-text">{msg.text}</div>
             </div>
-          ))}
+          )}
         </div>
       </div>
     </>

@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { Card } from '@/components/ui/Card'
 import { useEffect, useState, useCallback } from 'react'
 import Header from '@/components/Header'
 
@@ -212,7 +213,7 @@ export default function PADirectoryPage() {
             <>
               {/* Desktop table */}
               <div className="hidden md:block">
-                <div className="cyber-card overflow-hidden">
+                <Card className="overflow-hidden">
                   <table className="w-full">
                     <thead>
                       <tr className="border-b border-[#E8E0D8] bg-orange-50/30">
@@ -283,7 +284,7 @@ export default function PADirectoryPage() {
                       ))}
                     </tbody>
                   </table>
-                </div>
+                </Card>
               </div>
 
               {/* Mobile cards */}
@@ -292,8 +293,9 @@ export default function PADirectoryPage() {
                   <Link
                     key={v.id}
                     href={`/pa-directory/${encodeURIComponent(v.agentId)}`}
-                    className="block cyber-card p-4"
+                    className="block"
                   >
+                    <Card className="p-4">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-300 to-amber-400 flex items-center justify-center flex-shrink-0">
                         <span className="text-white font-bold">
@@ -317,6 +319,7 @@ export default function PADirectoryPage() {
                       </div>
                       <span className="text-orange-400 text-xl">→</span>
                     </div>
+                    </Card>
                   </Link>
                 ))}
               </div>

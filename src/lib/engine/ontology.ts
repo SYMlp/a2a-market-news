@@ -20,6 +20,7 @@ import type {
   MessageChannel,
   MessageMeta,
   MessageEnvelope,
+  SceneAchievement,
 } from './types'
 
 interface SceneEntry {
@@ -37,6 +38,14 @@ interface Ontology {
   capability_map: Record<string, string>
 }
 
+export interface FCExecutionConfig {
+  type: 'builtin' | 'subflow' | 'handler' | 'behavior'
+  handler?: 'navigation' | 'passthrough'
+  specName?: string
+  detail?: string
+  handlerKey?: string
+}
+
 export interface FCRegistryEntry {
   label: string
   scene: string | null
@@ -46,6 +55,7 @@ export interface FCRegistryEntry {
   failHint?: string
   npcHint: string | null
   sideEffects?: string[]
+  execution?: FCExecutionConfig
 }
 
 export interface DataLoaderEntry {
@@ -282,6 +292,11 @@ export function serializeForPA(session: GameSession): string {
     parts.push(`→ 还没去过：${notVisited.join('、')}`)
   }
 
+  const sceneTurns = (session.flags?.sceneTurns as number) ?? 0
+  if (sceneTurns >= 4) {
+    parts.push(`⚠ 你在当前场景已经待了 ${sceneTurns} 轮了。如果这里的事都做完了，考虑回大厅去其他场景看看。`)
+  }
+
   const experiencingApp = session.flags?.experiencingApp as { name: string } | undefined
   const hasExperienced = !!session.flags?.hasExperienced
   const subFlow = session.flags?.subFlow as { type: string } | undefined
@@ -299,6 +314,17 @@ export function serializeForPA(session: GameSession): string {
     parts.push('')
     parts.push('== 当前状态 ==')
     parts.push('- 你已完成应用体验，可以提交体验报告')
+  }
+
+  const achievements = (session.flags?.achievements ?? []) as SceneAchievement[]
+  const sceneAchievements = achievements.filter(a => a.sceneId === session.currentScene)
+  if (sceneAchievements.length > 0) {
+    parts.push('')
+    parts.push('== 你在这里做过的事 ==')
+    for (const a of sceneAchievements) {
+      parts.push(`- ${a.label}（${a.actionId}）`)
+    }
+    parts.push('→ 这些操作已完成，不要重复触发。考虑去还没去过的场景。')
   }
 
   return parts.join('\n')

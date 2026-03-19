@@ -1,0 +1,88 @@
+# ComponentSpec: app-lifecycle
+# Renders: SpecFormCard (spec-driven)
+# FC: GM.changeAppStatus (confirm) | GM.startAppLifecycle (activate)
+
+id: app_lifecycle
+functionCall: GM.changeAppStatus
+
+# Lifecycle: collect → confirm → done
+lifecycle:
+  steps: [collect, confirm, done]
+  initial: collect
+  onKeyword:
+    patterns: ["取消", "算了", "不改了", "不要了", "不做了", "退出", "cancel"]
+    action: cancel
+  delays:
+    confirmTimeout: 300000
+  onSceneChange: cancel
+
+# Data source for app list (exclude archived)
+dataSource:
+  primary: session.data.apps_json
+  filter: "status !== 'archived'"
+
+# Collect phase: need both appId and newStatus
+collect:
+  emptyMessage:
+    pa: "你还没有可操作的应用，或所有应用都已归档。"
+    agent: "No apps to change status."
+  resolveFromMessage:
+    patterns:
+      index: "/第?([一二三四五1-5])[个号]?/"
+      name: "message.includes(app.name)"
+    # NOTE: handler bug — resolveAppFromMessage always falls back to apps[0]
+    # even with multiple apps. Spec intentionally uses defaultIfSingle (only
+    # auto-select when exactly 1 app). Handler will be fixed during P4-2 migration.
+    defaultIfSingle: true
+  extractStatusIntent:
+    inactive: "/暂停|停用|下线|关闭/u"
+    archived: "/归档|存档|下架/u"
+  # Both appId and newStatus required
+  transitionToConfirm:
+    when: "appId && newStatus"
+  followUpMessage:
+    needApp: "想操作哪个应用？可以说「第一个」或应用名称。"
+    needStatus: "想暂停还是归档？可以说「暂停」或「归档」。"
+
+# Confirm phase
+actions:
+  confirm:
+    params:
+      appId:
+        type: string
+        required: true
+        description: "The unique ID of the app to change status"
+      newStatus:
+        type: string
+        required: true
+        description: "Target status for the app"
+        enum: [active, inactive, archived]
+    effect: db.app.update
+    ownershipCheck: app.developerId === user.id
+    validation:
+      - "app.status !== 'archived' (cannot modify archived)"
+      - "newStatus !== 'archived' when already archived"
+
+# Agent visibility: expose as MCP tool for discovery
+# Design decision: status change is a simple appId + newStatus confirm,
+# suitable for direct agent invocation. register is excluded (multi-step + validation gate).
+visibility:
+  agent:
+    export: true
+
+# Display: read-only status label (no editable fields)
+state:
+  display:
+    header: "GM.changeAppStatus()"
+    confirmLabelPrefix: "确认"
+    hint: "确认后 GM 将更新应用状态"
+  fields:
+    - key: newStatus
+      label: "操作"
+      type: readOnly
+      statusLabels:
+        active: "恢复活跃"
+        inactive: "暂停"
+        archived: "归档"
+      x-ui:
+        editable: false

@@ -21,4 +21,4 @@ export {
   recordTransitionAndCheck,
   recordEvent,
 } from '@/lib/engine'
-export { SCENES } from './scenes'
+export { getScene } from './scenes'

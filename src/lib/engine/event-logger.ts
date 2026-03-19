@@ -5,7 +5,7 @@ import { prisma } from '@/lib/prisma'
  * Used to tag session logs for before/after comparison.
  * See .cursor/rules/pa-behavior-audit.mdc §Phase 0.
  */
-export const ENGINE_VERSION = '8'
+export const ENGINE_VERSION = '11'
 
 // ─── Types ───────────────────────────────────────
 
@@ -31,6 +31,8 @@ export interface TurnLogParams {
 
   actionMatched?: string
   matchMethod?: string
+  classifierConfidence?: number
+  classifierSource?: string
   outcomeType?: string
   functionCallName?: string
   functionCallStatus?: string
@@ -40,15 +42,19 @@ export interface TurnLogParams {
   transitionFrom?: string
   transitionTo?: string
 
+  paIntent?: string
+  paConfidence?: number
   paGoal?: string
   returnReason?: string
 
   loopDetected?: boolean
+  guardType?: string
   isSubFlow?: boolean
   errorOccurred?: boolean
   errorDetail?: string
 
   durationMs?: number
+  npcGenerateMs?: number
 }
 
 // ─── Session Logging ─────────────────────────────
@@ -114,19 +120,25 @@ export async function logTurn(
           originalMessage: params.originalMessage,
           actionMatched: params.actionMatched,
           matchMethod: params.matchMethod,
+          classifierConfidence: params.classifierConfidence,
+          classifierSource: params.classifierSource,
           outcomeType: params.outcomeType,
           functionCallName: params.functionCallName,
           functionCallStatus: params.functionCallStatus,
           npcReply: params.npcReply,
           transitionFrom: params.transitionFrom,
           transitionTo: params.transitionTo,
+          paIntent: params.paIntent,
+          paConfidence: params.paConfidence,
           paGoal: params.paGoal,
           returnReason: params.returnReason,
           loopDetected: params.loopDetected ?? false,
+          guardType: params.guardType,
           isSubFlow: params.isSubFlow ?? false,
           errorOccurred: params.errorOccurred ?? false,
           errorDetail: params.errorDetail,
           durationMs: params.durationMs,
+          npcGenerateMs: params.npcGenerateMs,
         },
       }),
       prisma.gameSessionLog.update({

@@ -1,5 +1,7 @@
 import Link from 'next/link'
 import Header from '@/components/Header'
+import { Button } from '@/components/ui/Button'
+import { Card } from '@/components/ui/Card'
 
 export default function ContactPage() {
   return (
@@ -26,7 +28,7 @@ export default function ContactPage() {
         <section className="relative py-12">
           <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="cyber-card p-8 text-center space-y-4">
+              <Card className="p-8 text-center space-y-4">
                 <div className="text-4xl">📧</div>
                 <h3 className="text-lg font-bold text-gray-800 font-heading">邮件联系</h3>
                 <p className="text-gray-500 text-sm leading-relaxed">
@@ -38,9 +40,9 @@ export default function ContactPage() {
                 >
                   contact@a2a-market.com
                 </a>
-              </div>
+              </Card>
 
-              <div className="cyber-card p-8 text-center space-y-4">
+              <Card className="p-8 text-center space-y-4">
                 <div className="text-4xl">🛠️</div>
                 <h3 className="text-lg font-bold text-gray-800 font-heading">开发者支持</h3>
                 <p className="text-gray-500 text-sm leading-relaxed">
@@ -52,9 +54,9 @@ export default function ContactPage() {
                 >
                   查看开发文档 →
                 </Link>
-              </div>
+              </Card>
 
-              <div className="cyber-card p-8 text-center space-y-4">
+              <Card className="p-8 text-center space-y-4">
                 <div className="text-4xl">💬</div>
                 <h3 className="text-lg font-bold text-gray-800 font-heading">社区反馈</h3>
                 <p className="text-gray-500 text-sm leading-relaxed">
@@ -66,7 +68,7 @@ export default function ContactPage() {
                 >
                   加入赛道讨论 →
                 </Link>
-              </div>
+              </Card>
             </div>
           </div>
         </section>
@@ -74,7 +76,7 @@ export default function ContactPage() {
         {/* FAQ / Info */}
         <section className="relative py-12">
           <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="cyber-card p-8 space-y-6">
+            <Card className="p-8 space-y-6">
               <h3 className="text-2xl font-bold text-gray-800 font-heading">常见问题</h3>
               <div className="space-y-5">
                 {[
@@ -113,7 +115,7 @@ export default function ContactPage() {
                   </div>
                 ))}
               </div>
-            </div>
+            </Card>
           </div>
         </section>
 
@@ -132,9 +134,9 @@ export default function ContactPage() {
               一起打造更好的 Agent 生态
             </h2>
             <div className="flex gap-5 justify-center flex-wrap">
-              <Link href="/" className="cyber-btn">
-                返回首页
-              </Link>
+              <Button asChild>
+                <Link href="/">返回首页</Link>
+              </Button>
               <Link
                 href="/developer/register"
                 className="px-8 py-3 bg-transparent border-2 border-orange-300 text-orange-600 font-semibold tracking-wide rounded-xl hover:bg-orange-50 transition-all duration-300"

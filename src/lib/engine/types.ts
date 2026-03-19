@@ -148,6 +148,8 @@ export interface SubFlowState {
   messages: string[]
   context: Record<string, unknown>
   extracted?: Record<string, unknown>
+  /** Timestamp when SubFlow was activated (Date.now()), for timeout handling */
+  activatedAt?: number
 }
 
 export interface SceneScopedFlags {
@@ -185,6 +187,7 @@ export interface CrossSceneFlags {
   navigatorAttempts?: number
   returnContext?: ReturnContext
   achievements?: SceneAchievement[]
+  sceneTurns?: number
 }
 
 export type SessionFlags = SceneScopedFlags & CrossSceneFlags & Record<string, unknown>
@@ -194,7 +197,7 @@ export interface GameSession {
   currentScene: string
   round: number
   globalTurn: number
-  mode: 'manual' | 'auto'
+  mode: 'manual' | 'auto' | 'advisor'
   agentId?: string
   agentName?: string
   data?: Record<string, unknown>
