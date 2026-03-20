@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 
 interface HeaderProps {
-  activeNav?: 'home' | 'portal' | 'circles' | 'leaderboard' | 'hall-of-fame' | 'pa-directory' | 'developer' | 'my-reviews' | 'pa-activity'
+  activeNav?: 'home' | 'portal' | 'circles' | 'leaderboard' | 'hall-of-fame' | 'pa-directory' | 'developer' | 'practices' | 'my-reviews' | 'pa-activity'
 }
 
 export default function Header({ activeNav = 'home' }: HeaderProps) {
@@ -73,6 +73,7 @@ export default function Header({ activeNav = 'home' }: HeaderProps) {
     { key: 'leaderboard', label: '排行榜', href: '/leaderboard' },
     { key: 'hall-of-fame', label: '名人墙', href: '/hall-of-fame' },
     { key: 'pa-directory', label: 'PA通讯录', href: '/pa-directory' },
+    { key: 'practices', label: '实践', href: '/practices' },
     { key: 'developer', label: '开发者', href: '/developer' },
     ...(user ? [
       { key: 'my-reviews' as const, label: '我的评价', href: '/my-reviews' },

@@ -116,6 +116,19 @@
         "handler": "passthrough"
       }
     },
+    "GM.showPractices": {
+      "label": "展示开发者实践列表",
+      "scene": "developer",
+      "category": "display",
+      "behaviorPattern": "select_one",
+      "requires": null,
+      "produces": "展示最新的开发者实践列表",
+      "npcHint": "实践列表数据已加载",
+      "execution": {
+        "type": "builtin",
+        "handler": "passthrough"
+      }
+    },
     "GM.enterSpace": {
       "label": "进入场景",
       "scene": null,
@@ -190,8 +203,8 @@
     },
     "/api/gm/developer-status": {
       "scene": "developer",
-      "provides": ["hasApps", "isDeveloper", "apps_json", "apps_summary", "apps_summary_brief", "feedback_json", "feedback_list", "feedback_hint", "feedback_summary"],
-      "meaning": "获取当前用户的开发者身份、应用列表和反馈数据"
+      "provides": ["hasApps", "isDeveloper", "apps_json", "apps_summary", "apps_summary_brief", "feedback_json", "feedback_list", "feedback_hint", "feedback_summary", "practices_count", "practices_summary", "practices_json", "practices_list"],
+      "meaning": "获取当前用户的开发者身份、应用列表、反馈数据和开发者实践"
     }
   },
   "preconditions": {

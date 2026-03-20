@@ -75,6 +75,22 @@ export async function GET(request: NextRequest) {
       },
     })
 
+    // 确保用户出现在 PA 通讯录
+    await prisma.pAVisitor.upsert({
+      where: { agentId: secondmeUserId },
+      update: {
+        agentName: userName || 'Anonymous',
+        lastActiveAt: new Date(),
+      },
+      create: {
+        agentId: secondmeUserId,
+        agentName: userName || 'Anonymous',
+        agentType: 'human',
+        source: 'secondme',
+        avatarUrl: userAvatar,
+      },
+    })
+
     // 设置会话 Cookie
     const cookieStore = await cookies()
     cookieStore.set('user_id', user.id, {

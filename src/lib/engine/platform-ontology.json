@@ -29,14 +29,15 @@
       "label": "开发者空间",
       "npc": "技术顾问",
       "role": "应用收录与管理",
-      "capabilities": ["成为开发者", "推荐应用给日报", "查看用户反馈", "管理应用设置", "暂停/归档应用", "编辑开发者资料"],
+      "capabilities": ["成为开发者", "推荐应用给日报", "查看用户反馈", "管理应用设置", "暂停/归档应用", "编辑开发者资料", "浏览开发者实践"],
       "behaviors": {
         "成为开发者": "register_app",
         "推荐应用给日报": "register_app",
         "查看用户反馈": "view_feedback",
         "管理应用设置": "app_settings",
         "暂停/归档应用": "app_lifecycle",
-        "编辑开发者资料": "edit_profile"
+        "编辑开发者资料": "edit_profile",
+        "浏览开发者实践": null
       },
       "exits": ["lobby"]
     }
@@ -55,6 +56,7 @@
     "想管理应用": "developer",
     "想暂停应用": "developer",
     "想归档应用": "developer",
+    "想看开发者实践": "developer",
     "想了解平台": "lobby"
   }
 }

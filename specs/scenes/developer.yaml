@@ -11,16 +11,18 @@ opening:
     pa: |
       欢迎来到开发者空间！{apps_summary_brief}
       {feedback_hint}
+      {practices_summary}
     agent: |
-      Developer Space. {feedback_summary}. hasApps: {hasApps}. Apps: {apps_json}.
-      Actions: manage_apps, view_feedback, register, back(lobby).
+      Developer Space. {feedback_summary}. hasApps: {hasApps}. Apps: {apps_json}. Practices: {practices_json}.
+      Actions: manage_apps, view_feedback, browse_practices, register, back(lobby).
   return:
     pa: |
       又回来了！{apps_summary_brief}
       {feedback_hint}
+      {practices_summary}
     agent: |
-      Returning to Developer Space. {feedback_summary}. hasApps: {hasApps}. Apps: {apps_json}.
-      Actions: manage_apps, view_feedback, register, back(lobby).
+      Returning to Developer Space. {feedback_summary}. hasApps: {hasApps}. Apps: {apps_json}. Practices: {practices_json}.
+      Actions: manage_apps, view_feedback, browse_practices, register, back(lobby).
 
 actions:
   - id: manage_apps
@@ -53,6 +55,22 @@ actions:
       agent: "Feedback: {feedback_json}. Actions: manage_apps, register, back(lobby)."
     functionCall:
       name: GM.showFeedback
+      args: {}
+
+  - id: browse_practices
+    outcome: stay
+    label:
+      pa: 浏览开发者实践
+      agent: "browse_practices — browse developer best practices"
+    actIntent: browse_practices
+    response:
+      pa: |
+        这是最近的开发者实践分享：
+        {practices_list}
+        感兴趣的话可以去实践页面查看详情！
+      agent: "Practices: {practices_json}. Actions: manage_apps, view_feedback, register, back(lobby)."
+    functionCall:
+      name: GM.showPractices
       args: {}
 
   - id: edit_app
@@ -163,5 +181,5 @@ actions:
 
 fallback:
   response:
-    pa: 你可以查看应用概况、查看用户建议、推荐新应用给日报，或者回大厅。想做什么？
-    agent: "Actions: manage_apps, view_feedback, register, back(lobby)."
+    pa: 你可以查看应用概况、查看用户建议、浏览开发者实践、推荐新应用给日报，或者回大厅。想做什么？
+    agent: "Actions: manage_apps, view_feedback, browse_practices, register, back(lobby)."

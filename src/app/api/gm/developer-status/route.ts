@@ -23,6 +23,47 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    const latestPractices = await prisma.developerPractice.findMany({
+      where: { status: 'published' },
+      orderBy: { createdAt: 'desc' },
+      take: 5,
+      select: {
+        id: true,
+        title: true,
+        summary: true,
+        tags: true,
+        category: true,
+        keySteps: true,
+        applicableTo: true,
+        viewCount: true,
+        likeCount: true,
+        createdAt: true,
+        author: { select: { name: true, developerName: true } },
+      },
+    })
+
+    const practicesSummary = latestPractices.length > 0
+      ? latestPractices.map((p, i) =>
+          `${i + 1}. ${p.title}（${p.category}，${p.viewCount} 浏览）— ${p.summary}`
+        ).join('\n')
+      : '暂无开发者实践分享。'
+
+    const practicesJson = JSON.stringify(
+      latestPractices.map(p => ({
+        id: p.id,
+        title: p.title,
+        summary: p.summary,
+        tags: p.tags,
+        category: p.category,
+        keySteps: p.keySteps,
+        applicableTo: p.applicableTo,
+        author: p.author.developerName || p.author.name || 'Anonymous',
+        viewCount: p.viewCount,
+        likeCount: p.likeCount,
+        createdAt: p.createdAt,
+      }))
+    )
+
     if (!isDeveloper) {
       return NextResponse.json({
         success: true,
@@ -36,6 +77,10 @@ export async function GET(request: NextRequest) {
           apps_summary_brief: '请先完成开发者认证，即可把应用推荐给日报。',
           apps_json: '[]',
           feedbacks: [],
+          practices_count: 0,
+          practices_summary: practicesSummary,
+          practices_list: practicesSummary,
+          practices_json: practicesJson,
         },
       })
     }
@@ -43,6 +88,10 @@ export async function GET(request: NextRequest) {
     const apps = await prisma.app.findMany({
       where: { developerId: user.id },
       select: { id: true, name: true, clientId: true, status: true, description: true, website: true },
+    })
+
+    const ownPracticesCount = await prisma.developerPractice.count({
+      where: { authorId: user.id, status: 'published' },
     })
 
     if (apps.length === 0) {
@@ -58,6 +107,10 @@ export async function GET(request: NextRequest) {
           apps_summary_brief: '你还没有推荐应用给日报，把你做的应用告诉我们吧！',
           apps_json: '[]',
           feedbacks: [],
+          practices_count: ownPracticesCount,
+          practices_summary: practicesSummary,
+          practices_list: practicesSummary,
+          practices_json: practicesJson,
         },
       })
     }
@@ -156,6 +209,10 @@ export async function GET(request: NextRequest) {
         apps_summary_brief: appsSummaryBrief,
         apps_json: JSON.stringify(appsWithStats),
         feedbacks,
+        practices_count: ownPracticesCount,
+        practices_summary: practicesSummary,
+        practices_list: practicesSummary,
+        practices_json: practicesJson,
       },
     })
   } catch (error) {

@@ -29,6 +29,18 @@ interface AppItem {
   createdAt: string
 }
 
+interface PracticeItem {
+  id: string
+  title: string
+  summary: string
+  category: string
+  tags: string[]
+  viewCount: number
+  likeCount: number
+  status: string
+  createdAt: string
+}
+
 interface DeveloperStats {
   totalApps: number
   totalFeedbacks: number
@@ -52,24 +64,36 @@ export default function DeveloperDashboard() {
   const { user, loading: authLoading } = useAuth()
   const [stats, setStats] = useState<DeveloperStats | null>(null)
   const [apps, setApps] = useState<AppItem[]>([])
+  const [practices, setPractices] = useState<PracticeItem[]>([])
   const [loading, setLoading] = useState(true)
   const [showArchived, setShowArchived] = useState(false)
 
   useEffect(() => {
     const url = showArchived ? '/api/developer/apps?includeArchived=true' : '/api/developer/apps'
-    Promise.all([
+    const practicesUrl = user?.id ? `/api/practices?authorId=${user.id}` : null
+
+    const fetches: Promise<unknown>[] = [
       fetch('/api/developer/stats').then(r => r.json()),
       fetch(url).then(r => r.json()),
-    ])
-      .then(([statsData, appsData]) => {
-        if (statsData.success) setStats(statsData.data)
-        if (appsData.success) setApps(appsData.data)
+    ]
+    if (practicesUrl) {
+      fetches.push(fetch(practicesUrl).then(r => r.json()))
+    }
+
+    Promise.all(fetches)
+      .then(([statsData, appsData, practicesData]: unknown[]) => {
+        const s = statsData as { success?: boolean; data?: DeveloperStats }
+        const a = appsData as { success?: boolean; data?: AppItem[] }
+        const p = practicesData as { practices?: PracticeItem[] } | undefined
+        if (s.success) setStats(s.data ?? null)
+        if (a.success) setApps(a.data ?? [])
+        if (p?.practices) setPractices(p.practices)
         setLoading(false)
       })
       .catch(() => setLoading(false))
 
     fetch('/api/developer/notifications/mark-read', { method: 'POST' }).catch(() => {})
-  }, [showArchived])
+  }, [showArchived, user?.id])
 
   return (
     <div className="min-h-screen">
@@ -231,6 +255,87 @@ export default function DeveloperDashboard() {
                   ))}
                 </div>
               )}
+
+              {/* My Practices Section */}
+              <div className="mt-16">
+                <div className="mb-8 flex flex-wrap justify-between items-center gap-4">
+                  <h2 className="text-2xl font-bold text-gray-800 font-heading">我的实践</h2>
+                  <Button asChild size="sm">
+                    <Link href="/practices/new">+ 发布实践</Link>
+                  </Button>
+                </div>
+
+                {practices.length === 0 ? (
+                  <Card className="p-16 text-center">
+                    <div className="text-5xl mb-4">📝</div>
+                    <p className="text-gray-500 text-lg mb-2">还没有发布实践</p>
+                    <p className="text-gray-300 text-sm mb-6">分享你的开发经验、最佳实践或使用技巧</p>
+                    <Button asChild>
+                      <Link href="/practices/new">发布你的第一篇实践</Link>
+                    </Button>
+                  </Card>
+                ) : (
+                  <div className="space-y-4">
+                    {practices.map(p => (
+                      <Card key={p.id} className="overflow-hidden hover:shadow-lg transition-shadow">
+                        <div className="p-6">
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-3 mb-2">
+                                <Link
+                                  href={`/practices/${p.id}`}
+                                  className="text-lg font-bold text-gray-800 hover:text-orange-500 transition-colors truncate"
+                                >
+                                  {p.title}
+                                </Link>
+                                <span className={`px-2 py-0.5 text-xs rounded-full ${
+                                  p.category === 'practice'
+                                    ? 'bg-blue-50 text-blue-600 border border-blue-200'
+                                    : p.category === 'showcase'
+                                    ? 'bg-purple-50 text-purple-600 border border-purple-200'
+                                    : 'bg-emerald-50 text-emerald-600 border border-emerald-200'
+                                }`}>
+                                  {p.category === 'practice' ? '实践' : p.category === 'showcase' ? '展示' : '技巧'}
+                                </span>
+                                {p.status === 'draft' && (
+                                  <span className="px-2 py-0.5 text-xs rounded-full bg-amber-50 text-amber-600 border border-amber-200">
+                                    草稿
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-gray-400 text-sm line-clamp-2">{p.summary}</p>
+                              {Array.isArray(p.tags) && p.tags.length > 0 && (
+                                <div className="flex flex-wrap gap-1.5 mt-2">
+                                  {p.tags.map((tag: string) => (
+                                    <span key={tag} className="px-2 py-0.5 bg-gray-50 border border-gray-200 rounded text-xs text-gray-500">
+                                      {tag}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-6 shrink-0">
+                              <div className="text-center">
+                                <div className="text-xl font-bold text-orange-500">{p.viewCount}</div>
+                                <div className="text-xs text-gray-300">浏览</div>
+                              </div>
+                              <div className="text-center">
+                                <div className="text-xl font-bold text-rose-400">{p.likeCount}</div>
+                                <div className="text-xs text-gray-300">点赞</div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </Card>
+                    ))}
+                    <div className="text-center pt-4">
+                      <Link href="/practices" className="text-sm text-orange-500 hover:text-orange-600 transition-colors">
+                        查看所有实践 →
+                      </Link>
+                    </div>
+                  </div>
+                )}
+              </div>
             </>
           )}
         </div>

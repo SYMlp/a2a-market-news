@@ -39,6 +39,7 @@ model User {
   pointTransactions PointTransaction[]
   taskCompletions   DailyTaskProgress[]
   ownedNPCs         NPC[]
+  practices         DeveloperPractice[]
 
   @@map("users")
 }
@@ -570,6 +571,35 @@ model GameTurnLog {
   @@index([sceneId])
   @@index([createdAt])
   @@map("game_turn_logs")
+}
+
+// ─── Developer Practices: best practices & showcases ───
+
+model DeveloperPractice {
+  id       String @id @default(cuid())
+  authorId String @map("author_id")
+  author   User   @relation(fields: [authorId], references: [id])
+
+  title        String
+  content      String   @db.Text
+  summary      String
+  tags         Json
+  category     String // "practice" | "showcase" | "tip"
+  keySteps     Json?  @map("key_steps")
+  applicableTo Json?  @map("applicable_to")
+
+  viewCount Int @default(0) @map("view_count")
+  likeCount Int @default(0) @map("like_count")
+
+  status String @default("published")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([authorId])
+  @@index([category])
+  @@index([status])
+  @@map("developer_practices")
 }
 
 // ─── Prompt Templates: DB-stored, versioned, extensible ───
