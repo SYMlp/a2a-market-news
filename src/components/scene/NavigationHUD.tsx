@@ -46,13 +46,13 @@ export default function NavigationHUD({
 
       <div className="nav-hud__right">
         <a
-          href="/leaderboard"
+          href="/portal"
           target="_blank"
           rel="noopener noreferrer"
           className="nav-hud__portal"
-          title="打开报社门户"
+          title="打开报社门户 — 切换到人类视角"
         >
-          🌐 <span>门户</span>
+          🌐 <span>人类视角</span>
         </a>
 
         <button
@@ -60,14 +60,14 @@ export default function NavigationHUD({
           onClick={onBack}
           disabled={!canGoBack}
         >
-          ← BACK
+          ← 返回
         </button>
 
         {mode && (
           <button className="nav-hud__mode" onClick={onModeToggle}>
             <span className="nav-hud__mode-dot" />
             <span className="nav-hud__mode-label">
-              {mode === 'auto' ? 'AUTO' : mode === 'advisor' ? 'ADVISOR' : 'MANUAL'}
+              {mode === 'auto' ? '自动模式' : mode === 'advisor' ? '顾问模式' : '手动模式'}
             </span>
           </button>
         )}

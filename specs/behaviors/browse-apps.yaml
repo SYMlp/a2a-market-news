@@ -26,6 +26,8 @@ cognition:
     {items}
     访客提到应用时，理解为选择体验。
 
+# UI: card_deck 渲染在场景「物品栏」SceneAppDock（非 NPC 气泡内）。
+# 展示条数上限见 scene-visuals/configs.json → layout.maxAppDockItems（日报栏当前 6）。
 presentation:
   style: card_deck
   data:

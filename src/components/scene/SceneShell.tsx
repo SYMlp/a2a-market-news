@@ -2,11 +2,23 @@
 
 import type { ReactNode } from 'react'
 import SceneBackground from './SceneBackground'
+import SceneBanner from './SceneBanner'
+
+/** Plaque: static scene chrome, mounted with shell (same lifecycle as background). */
+export interface ScenePlaqueProps {
+  label: string
+  icon: string
+  npcName: string
+}
 
 interface SceneShellProps {
   scene: string
   accentRgb: string
   particleCount?: number
+  /** Conversation-phase only; pinned overlay like background art */
+  plaque?: ScenePlaqueProps | null
+  /** Extra grid row for bottom item dock (card_deck) */
+  dockActive?: boolean
   children: ReactNode
 }
 
@@ -14,12 +26,15 @@ export default function SceneShell({
   scene,
   accentRgb,
   particleCount = 20,
+  plaque = null,
+  dockActive = false,
   children,
 }: SceneShellProps) {
   return (
     <div
       className="scene-shell"
       data-scene={scene}
+      data-plaque={plaque ? 'on' : 'off'}
       style={{ '--sc-accent-rgb': accentRgb } as React.CSSProperties}
     >
       {/* Per-scene background */}
@@ -35,6 +50,18 @@ export default function SceneShell({
         <div className="scene-shell__scan" />
       </div>
 
+      {/* Static plaque — scene-bound chrome, not in content grid */}
+      {plaque && (
+        <div className="scene-shell__plaque-layer">
+          <SceneBanner
+            label={plaque.label}
+            icon={plaque.icon}
+            npcName={plaque.npcName}
+            accentRgb={accentRgb}
+          />
+        </div>
+      )}
+
       {/* Corner frame */}
       <svg className="scene-shell__frame" viewBox="0 0 100 100" preserveAspectRatio="none">
         <path d="M0,5 L0,0 L5,0" className="scene-shell__frame-edge" />
@@ -44,7 +71,9 @@ export default function SceneShell({
       </svg>
 
       {/* Content */}
-      <div className="scene-shell__content">
+      <div
+        className={`scene-shell__content${dockActive ? ' scene-shell__content--with-dock' : ''}`}
+      >
         {children}
       </div>
     </div>

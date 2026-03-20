@@ -15,6 +15,8 @@ interface DeckViewProps {
   card?: CardTemplate
   animation?: AnimationConfig
   accentRgb: string
+  /** dock = horizontal item bar (scene layout) */
+  variant?: 'stack' | 'dock'
 }
 
 function interpolate(template: string, item: Record<string, unknown>): string {
@@ -29,15 +31,17 @@ export default function DeckView({
   card,
   animation,
   accentRgb,
+  variant = 'stack',
 }: DeckViewProps) {
   if (!data || data.length === 0) return null
 
   const items = data as Record<string, unknown>[]
   const useCascade = animation?.enter === 'cascade'
-  const useFloat = animation?.idle === 'float'
+  const useFloat = animation?.idle === 'float' && variant !== 'dock'
+  const isDock = variant === 'dock'
 
   return (
-    <div className="deck-view">
+    <div className={`deck-view${isDock ? ' deck-view--dock' : ''}`}>
       {items.map((item, i) => {
         const title = card?.title ? interpolate(card.title, item) : `Item ${i + 1}`
         const subtitle = card?.subtitle ? interpolate(card.subtitle, item) : null
@@ -45,7 +49,7 @@ export default function DeckView({
         return (
           <div
             key={String(item.clientId ?? item.id ?? i)}
-            className={`deck-card${useFloat ? ' deck-card--float' : ''}`}
+            className={`deck-card${useFloat ? ' deck-card--float' : ''}${isDock ? ' deck-card--dock' : ''}`}
             style={{
               animationDelay: useCascade ? `${i * 120}ms` : '0ms',
               ['--deck-accent-rgb' as string]: accentRgb,
@@ -59,7 +63,7 @@ export default function DeckView({
                 <div className="deck-card__subtitle">{subtitle}</div>
               )}
             </div>
-            <div className="deck-card__arrow">→</div>
+            {!isDock && <div className="deck-card__arrow">→</div>}
           </div>
         )
       })}

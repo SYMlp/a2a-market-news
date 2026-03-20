@@ -10,7 +10,14 @@
     "npcGreeting": "欢迎来到 A2A 智选日报！",
     "bgParticleCount": 20,
     "transitionIn": "door",
-    "transitionOut": "door"
+    "transitionOut": "door",
+    "layout": {
+      "maxAppDockItems": 6,
+      "appDockTitle": "条目栏",
+      "shortNpcBubbleWhenDock": true,
+      "npcBubbleMaxChars": 160,
+      "dockBubbleHint": "（详情见下方物品栏）"
+    }
   },
   "news": {
     "accent": "#ffb020",
@@ -23,7 +30,14 @@
     "npcGreeting": "欢迎来到日报栏！",
     "bgParticleCount": 25,
     "transitionIn": "door",
-    "transitionOut": "door"
+    "transitionOut": "door",
+    "layout": {
+      "maxAppDockItems": 6,
+      "appDockTitle": "今日推荐应用",
+      "shortNpcBubbleWhenDock": true,
+      "npcBubbleMaxChars": 140,
+      "dockBubbleHint": "（应用卡片在下方物品栏，可横向滑动查看）"
+    }
   },
   "developer": {
     "accent": "#a855f7",
@@ -36,6 +50,13 @@
     "npcGreeting": "欢迎来到开发者空间！",
     "bgParticleCount": 18,
     "transitionIn": "door",
-    "transitionOut": "door"
+    "transitionOut": "door",
+    "layout": {
+      "maxAppDockItems": 6,
+      "appDockTitle": "应用 / 反馈条目",
+      "shortNpcBubbleWhenDock": true,
+      "npcBubbleMaxChars": 160,
+      "dockBubbleHint": "（列表见下方物品栏）"
+    }
   }
 }

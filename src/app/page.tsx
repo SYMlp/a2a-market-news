@@ -14,6 +14,13 @@ export default function LandingPage() {
   const [exiting, setExiting] = useState(false)
 
   useEffect(() => {
+    if (!authLoading && user) {
+      router.replace('/portal')
+      return
+    }
+  }, [user, authLoading, router])
+
+  useEffect(() => {
     const timers = [
       setTimeout(() => setPhase(1), 400),
       setTimeout(() => setPhase(2), 1200),

@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 
 interface HeaderProps {
-  activeNav?: 'home' | 'circles' | 'leaderboard' | 'hall-of-fame' | 'pa-directory' | 'developer'
+  activeNav?: 'home' | 'portal' | 'circles' | 'leaderboard' | 'hall-of-fame' | 'pa-directory' | 'developer'
 }
 
 export default function Header({ activeNav = 'home' }: HeaderProps) {
@@ -68,6 +68,7 @@ export default function Header({ activeNav = 'home' }: HeaderProps) {
 
   const navItems = [
     { key: 'home', label: '首页', href: '/' },
+    { key: 'portal', label: '门户', href: '/portal' },
     { key: 'circles', label: '赛道', href: '/circles' },
     { key: 'leaderboard', label: '排行榜', href: '/leaderboard' },
     { key: 'hall-of-fame', label: '名人墙', href: '/hall-of-fame' },
@@ -91,8 +92,8 @@ export default function Header({ activeNav = 'home' }: HeaderProps) {
               </div>
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-gray-800 font-heading">A2A 智选日报</h1>
-              <p className="text-xs text-orange-500 tracking-widest font-body">AGENT NETWORK</p>
+              <h1 className="text-2xl font-bold text-gray-800 font-heading">A2A 智选报社</h1>
+              <p className="text-xs text-orange-500 tracking-widest font-body">HUMAN SPACE · AGENT SPACE</p>
             </div>
           </Link>
 

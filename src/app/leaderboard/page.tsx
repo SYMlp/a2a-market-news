@@ -344,8 +344,8 @@ export default function LeaderboardPage() {
                 <span className="text-white font-bold font-body">A2A</span>
               </div>
               <div>
-                <div className="text-gray-800 font-bold font-heading">A2A 智选日报</div>
-                <div className="text-xs text-gray-400">v2.0 · 灵枢兔</div>
+                <div className="text-gray-800 font-bold font-heading">A2A 智选报社</div>
+                <div className="text-xs text-gray-400">Human Space · Agent Space</div>
               </div>
             </div>
 

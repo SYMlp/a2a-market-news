@@ -1,0 +1,86 @@
+﻿[
+    {
+        "size":  10843,
+        "name":  "lingshu-talk",
+        "credits_used":  8,
+        "credits_remaining":  2992,
+        "asset_id":  "23ca4255-198a-4e16-b38b-0686335c805f",
+        "file":  "D:\\Project\\SecondMe\\a2a-market-news\\public\\sprites\\characters\\lingshu-talk.png"
+    },
+    {
+        "size":  8762,
+        "name":  "lingshu-walk",
+        "credits_used":  8,
+        "credits_remaining":  2984,
+        "asset_id":  "80942501-cd41-41bc-92d9-2dc063d72e95",
+        "file":  "D:\\Project\\SecondMe\\a2a-market-news\\public\\sprites\\characters\\lingshu-walk.png"
+    },
+    {
+        "size":  7576,
+        "name":  "editor-idle",
+        "credits_used":  8,
+        "credits_remaining":  2976,
+        "asset_id":  "2297c0f9-2e21-406a-900a-89a58ea0956e",
+        "file":  "D:\\Project\\SecondMe\\a2a-market-news\\public\\sprites\\characters\\editor-idle.png"
+    },
+    {
+        "size":  10051,
+        "name":  "editor-talk",
+        "credits_used":  8,
+        "credits_remaining":  2968,
+        "asset_id":  "fc2ceb99-12da-4a58-a335-cfce608e83d7",
+        "file":  "D:\\Project\\SecondMe\\a2a-market-news\\public\\sprites\\characters\\editor-talk.png"
+    },
+    {
+        "size":  17452,
+        "name":  "editor-walk",
+        "credits_used":  8,
+        "credits_remaining":  2960,
+        "asset_id":  "4679340e-2e54-4dca-9157-0a49d337b7c2",
+        "file":  "D:\\Project\\SecondMe\\a2a-market-news\\public\\sprites\\characters\\editor-walk.png"
+    },
+    {
+        "size":  9787,
+        "name":  "tech-idle",
+        "credits_used":  8,
+        "credits_remaining":  2952,
+        "asset_id":  "1d605920-aeaf-45c5-8281-dc7c05bba000",
+        "file":  "D:\\Project\\SecondMe\\a2a-market-news\\public\\sprites\\characters\\tech-idle.png"
+    },
+    {
+        "size":  11812,
+        "name":  "tech-talk",
+        "credits_used":  8,
+        "credits_remaining":  2944,
+        "asset_id":  "9e4086d5-a199-4edd-969f-d0ebd0530836",
+        "file":  "D:\\Project\\SecondMe\\a2a-market-news\\public\\sprites\\characters\\tech-talk.png"
+    },
+    {
+        "size":  11145,
+        "name":  "tech-walk",
+        "credits_used":  8,
+        "credits_remaining":  2936,
+        "asset_id":  "77ce05eb-7d13-4e78-892a-55b66ebf354c",
+        "file":  "D:\\Project\\SecondMe\\a2a-market-news\\public\\sprites\\characters\\tech-walk.png"
+    },
+    {
+        "size":  9492,
+        "name":  "pa-idle",
+        "credits_used":  8,
+        "credits_remaining":  2928,
+        "asset_id":  "20bf9dd5-fda6-4b5c-8346-f410bc24bd7f",
+        "file":  "D:\\Project\\SecondMe\\a2a-market-news\\public\\sprites\\characters\\pa-idle.png"
+    },
+    {
+        "size":  11119,
+        "name":  "pa-talk",
+        "credits_used":  8,
+        "credits_remaining":  2752,
+        "asset_id":  "6e07154e-4f87-49df-9f3d-5036ff955cb0",
+        "file":  "D:\\Project\\SecondMe\\a2a-market-news\\public\\sprites\\characters\\pa-talk.png"
+    },
+    {
+        "error":  "The underlying connection was closed: A connection that was expected to be kept alive was closed by the server.",
+        "name":  "pa-walk"
+    }
+]

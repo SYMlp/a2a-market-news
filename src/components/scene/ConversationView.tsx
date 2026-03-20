@@ -1,7 +1,7 @@
 'use client'
 
 import type { RefObject } from 'react'
-import { SCENE_CONFIG } from '@/lib/scene-visuals'
+import { SCENE_CONFIG, getSceneLayout } from '@/lib/scene-visuals'
 import type { SceneVisualConfig, TransitionAnimation } from '@/lib/scene-visuals'
 import type { ComponentSpec } from '@/lib/component-runtime/types'
 import type { GameMode } from '@/components/scene/TownApproach'
@@ -10,12 +10,13 @@ import type { SpecFormCardStatus } from '@/components/scene/SpecFormCard'
 import SceneShell from '@/components/scene/SceneShell'
 import NavigationHUD from '@/components/scene/NavigationHUD'
 import CharacterStage from '@/components/scene/CharacterStage'
+import SceneAppDock from '@/components/scene/SceneAppDock'
 import HoloActionPanel from '@/components/scene/HoloActionPanel'
 import SceneTransitionEngine from '@/components/scene/SceneTransitionEngine'
 import ChatHistory from '@/components/scene/ChatHistory'
 import SpecFormCard from '@/components/scene/SpecFormCard'
 import FeedbackPanel, { FeedbackBadge } from '@/components/scene/FeedbackPanel'
-import DeckView from '@/components/scene/DeckView'
+import SpaceMiniWindow from '@/components/scene/SpaceMiniWindow'
 
 interface ActionOption {
   id: string
@@ -97,8 +98,34 @@ export default function ConversationView({
   const showAdvisorInput = phase === 'conversation' && mode === 'advisor'
   const showAutoControls = phase === 'conversation' && mode === 'auto'
 
+  const layout = getSceneLayout(scene)
+  const showCardDock = phase === 'conversation'
+    && !subFlowCard
+    && behaviorPresentation?.style === 'card_deck'
+    && Array.isArray(behaviorPresentation.data)
+    && behaviorPresentation.data.length > 0
+
+  const dockSource = showCardDock ? behaviorPresentation.data : []
+  const dockItems = dockSource.slice(0, layout.maxAppDockItems)
+
+  const npcBubbleForStage = (() => {
+    if (!npcBubble) return null
+    if (!showCardDock || !layout.shortNpcBubbleWhenDock) return npcBubble
+    const max = layout.npcBubbleMaxChars
+    if (npcBubble.length <= max) return npcBubble
+    return `${npcBubble.slice(0, max).trim()}…\n${layout.dockBubbleHint}`
+  })()
+
   return (
-    <SceneShell scene={scene} accentRgb={cfg.accentRgb} particleCount={cfg.bgParticleCount}>
+    <SceneShell
+      scene={scene}
+      accentRgb={cfg.accentRgb}
+      particleCount={cfg.bgParticleCount}
+      plaque={phase === 'conversation'
+        ? { label: cfg.label, icon: cfg.icon, npcName: cfg.agentName }
+        : null}
+      dockActive={showCardDock}
+    >
       {phase === 'entering' && (
         <div className="scene-tr-v2">
           <div className="scene-tr-v2__content">
@@ -141,22 +168,23 @@ export default function ConversationView({
         npcName={cfg.agentName}
         paName={paName}
         accentRgb={cfg.accentRgb}
-        npcBubble={npcBubble}
+        npcBubble={npcBubbleForStage}
         paBubble={paBubble}
         paState={paState}
         npcState={npcState}
-        npcBubbleSlot={
-          behaviorPresentation && !subFlowCard && phase === 'conversation'
-            && behaviorPresentation.style === 'card_deck'
-            ? <DeckView
-                data={behaviorPresentation.data}
-                card={behaviorPresentation.card as { title: string; subtitle?: string } | undefined}
-                animation={behaviorPresentation.animation as { enter?: string; idle?: string } | undefined}
-                accentRgb={cfg.accentRgb}
-              />
-            : undefined
-        }
       />
+
+      {showCardDock && behaviorPresentation && (
+        <SceneAppDock
+          title={layout.appDockTitle}
+          accentRgb={cfg.accentRgb}
+          data={dockItems}
+          card={behaviorPresentation.card as { title: string; subtitle?: string } | undefined}
+          animation={behaviorPresentation.animation as { enter?: string; idle?: string } | undefined}
+          totalSourceCount={dockSource.length}
+          maxSlots={layout.maxAppDockItems}
+        />
+      )}
 
       {transition?.active && (
         <SceneTransitionEngine
@@ -257,6 +285,10 @@ export default function ConversationView({
 
       {phase === 'conversation' && (
         <ChatHistory messages={chatLog} accentRgb={cfg.accentRgb} isTyping={processing} typingNpcName={cfg.agentName} />
+      )}
+
+      {phase === 'conversation' && (
+        <SpaceMiniWindow variant="human-in-agent" />
       )}
     </SceneShell>
   )

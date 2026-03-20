@@ -42,7 +42,8 @@ export async function GET() {
         : b.app.createdAt.getTime() - a.app.createdAt.getTime()
     )
 
-    const top = scored.slice(0, 5)
+    /* Cap at 6 — matches scene layout `maxAppDockItems` (see configs.json / scene-layout-architecture.md) */
+    const top = scored.slice(0, 6)
 
     const formatted = top.map((s, i) => ({
       index: i + 1,
