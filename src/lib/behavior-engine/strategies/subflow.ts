@@ -39,10 +39,11 @@ export const subflowStrategy: ResolutionStrategy = {
 
     const body = await response.json() as Record<string, unknown>
     const msg = body.message as { pa: string; agent: string } | undefined
+    const presentation = buildSubFlowPresentation(spec, session)
 
     return {
       message: msg ?? { pa: '', agent: 'SubFlow returned no message.' },
-      presentation: buildSubFlowPresentation(spec, session),
+      presentation: presentation ?? undefined,
       data: body.data as Record<string, unknown> | undefined,
     }
   },

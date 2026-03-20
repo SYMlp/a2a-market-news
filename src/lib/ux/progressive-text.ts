@@ -99,7 +99,7 @@ export function useProgressiveText(
   const [revealedAll, setRevealedAll] = useState(false)
   const chunksRef = useRef<string[]>([])
   const prevTextRef = useRef('')
-  const timerRef = useRef<ReturnType<typeof setTimeout>>()
+  const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
   useEffect(() => {
     if (fullText !== prevTextRef.current) {
