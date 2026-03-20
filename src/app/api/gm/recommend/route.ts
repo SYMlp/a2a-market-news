@@ -4,7 +4,7 @@ import { prisma } from '@/lib/prisma'
 /**
  * GET /api/gm/recommend
  * Returns top apps for the News Space, ranked by activity score.
- * Score = feedbackCount * 2 + avgRating * 3 + recentFeedback7d * 5
+ * Score = feedbackCount * 2 + avgRating * 3 + recentFeedback7d * 5 + voteCount * 1.5
  * Falls back to createdAt desc when all scores are 0 (cold start).
  */
 export async function GET() {
@@ -31,8 +31,9 @@ export async function GET() {
       const feedbackCount = app._count.feedbacks
       const avgRating = app.metrics[0]?.rating ?? 0
       const recentCount = app.feedbacks.length
-      const score = feedbackCount * 2 + avgRating * 3 + recentCount * 5
-      return { app, score, feedbackCount, avgRating, recentCount }
+      const votes = app.voteCount ?? 0
+      const score = feedbackCount * 2 + avgRating * 3 + recentCount * 5 + votes * 1.5
+      return { app, score, feedbackCount, avgRating, recentCount, votes }
     })
 
     const hasActivity = scored.some(s => s.score > 0)

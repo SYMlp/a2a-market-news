@@ -21,6 +21,7 @@ interface LeaderboardApp {
   description: string
   logo?: string
   rank: number
+  voteCount?: number
   latestMetrics?: {
     totalUsers: number
     activeUsers: number
@@ -43,6 +44,7 @@ const SORT_OPTIONS = [
   { value: 'totalUsers', label: '用户数' },
   { value: 'activeUsers', label: '活跃' },
   { value: 'rating', label: '评分' },
+  { value: 'votes', label: '投票' },
   { value: 'totalVisits', label: '访问量' },
 ]
 
@@ -290,7 +292,7 @@ export default function LeaderboardPage() {
                     </div>
 
                     {/* Metrics */}
-                    <div className="hidden md:grid grid-cols-4 gap-8 text-center">
+                    <div className="hidden md:grid grid-cols-5 gap-6 text-center">
                       <div>
                         <div className="text-2xl font-bold" style={{ color: activeBoard.circle.color }}>
                           {app.latestMetrics?.totalUsers || 0}
@@ -308,6 +310,12 @@ export default function LeaderboardPage() {
                           {app.latestMetrics?.rating?.toFixed(1) || '0.0'}
                         </div>
                         <div className="text-xs text-gray-400">评分</div>
+                      </div>
+                      <div>
+                        <div className="text-2xl font-bold" style={{ color: activeBoard.circle.color }}>
+                          {app.voteCount ?? 0}
+                        </div>
+                        <div className="text-xs text-gray-400">投票</div>
                       </div>
                       <div>
                         <div className="text-2xl font-bold" style={{ color: activeBoard.circle.color }}>

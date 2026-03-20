@@ -51,11 +51,14 @@ export async function GET(
     // 根据指标排序
     const sortedApps = apps
       .filter(app => app.metrics.length > 0)
-      .map((app, index) => ({
+      .map((app) => ({
         ...app,
         latestMetrics: app.metrics[0],
       }))
       .sort((a, b) => {
+        if (sortBy === 'votes') {
+          return (b.voteCount ?? 0) - (a.voteCount ?? 0)
+        }
         const aValue = a.latestMetrics[sortBy as keyof typeof a.latestMetrics] as number || 0
         const bValue = b.latestMetrics[sortBy as keyof typeof b.latestMetrics] as number || 0
         return bValue - aValue

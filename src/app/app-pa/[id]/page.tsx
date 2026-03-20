@@ -320,11 +320,12 @@ export default function AppDetailPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <h2 className="text-2xl font-extrabold text-gray-800 mb-6 font-heading">数据概览</h2>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
             {[
               { label: '总用户', value: latestMetrics?.totalUsers || 0, icon: '👥', color: app.circle.color },
               { label: '活跃用户', value: latestMetrics?.activeUsers || 0, icon: '⚡', color: app.circle.color },
               { label: '评分', value: (latestMetrics?.rating || 0).toFixed(1), icon: '⭐', color: app.circle.color },
+              { label: 'PA 投票', value: app.voteCount ?? 0, icon: '🗳️', color: app.circle.color },
               { label: '总访问', value: latestMetrics?.totalVisits || 0, icon: '📊', color: app.circle.color },
             ].map((metric, i) => (
               <Card key={i} className="p-6 text-center">

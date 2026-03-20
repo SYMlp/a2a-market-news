@@ -54,6 +54,8 @@ export default function AppSettingsPage() {
   })
   const [showArchivedConfirm, setShowArchivedConfirm] = useState(false)
 
+  const clientIdLocked = !!(app?.clientId && !app.clientId.startsWith('app-'))
+
   useEffect(() => {
     if (authLoading) return
     if (!user) return
@@ -264,16 +266,26 @@ export default function AppSettingsPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-600 mb-2">SecondMe Client ID</label>
+                <label className="block text-sm font-semibold text-gray-600 mb-2">
+                  SecondMe Client ID
+                  {clientIdLocked && (
+                    <span className="ml-2 inline-flex items-center px-2 py-0.5 bg-emerald-50 border border-emerald-200 rounded-full text-[10px] text-emerald-600 font-normal">
+                      已绑定
+                    </span>
+                  )}
+                </label>
                 <input
                   type="text"
                   value={form.clientId}
                   onChange={e => setForm(f => ({ ...f, clientId: e.target.value }))}
-                  className={`${inputClass} font-mono text-sm`}
+                  readOnly={clientIdLocked}
+                  className={`${inputClass} font-mono text-sm ${clientIdLocked ? 'bg-gray-50 text-gray-400 cursor-not-allowed' : ''}`}
                   placeholder="526d9920-c43c-4512-917d-5f59f706f087"
                 />
                 <p className="mt-1 text-xs text-gray-400">
-                  在 SecondMe 开发者平台获取的应用唯一标识
+                  {clientIdLocked
+                    ? '已绑定 SecondMe 平台，不可修改'
+                    : '在 SecondMe 开发者平台获取的应用唯一标识'}
                 </p>
               </div>
 
