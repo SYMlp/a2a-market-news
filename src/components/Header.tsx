@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
 
 interface HeaderProps {
-  activeNav?: 'home' | 'portal' | 'circles' | 'leaderboard' | 'hall-of-fame' | 'pa-directory' | 'developer'
+  activeNav?: 'home' | 'portal' | 'circles' | 'leaderboard' | 'hall-of-fame' | 'pa-directory' | 'developer' | 'my-reviews' | 'pa-activity'
 }
 
 export default function Header({ activeNav = 'home' }: HeaderProps) {
@@ -74,7 +74,11 @@ export default function Header({ activeNav = 'home' }: HeaderProps) {
     { key: 'hall-of-fame', label: '名人墙', href: '/hall-of-fame' },
     { key: 'pa-directory', label: 'PA通讯录', href: '/pa-directory' },
     { key: 'developer', label: '开发者', href: '/developer' },
-  ] as const
+    ...(user ? [
+      { key: 'my-reviews' as const, label: '我的评价', href: '/my-reviews' },
+      { key: 'pa-activity' as const, label: 'PA 动态', href: '/pa-activity' },
+    ] : []),
+  ]
 
   const navClass = (key: string) =>
     key === activeNav
