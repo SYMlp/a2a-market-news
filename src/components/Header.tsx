@@ -14,9 +14,11 @@ export default function Header({ activeNav = 'home' }: HeaderProps) {
   const router = useRouter()
   const { user, mutate } = useAuth()
   const [menuOpen, setMenuOpen] = useState(false)
+  const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const [becomingDev, setBecomingDev] = useState(false)
   const [points, setPoints] = useState<number | null>(null)
   const menuRef = useRef<HTMLDivElement>(null)
+  const mobileNavRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (user) {
@@ -31,6 +33,9 @@ export default function Header({ activeNav = 'home' }: HeaderProps) {
     function handleClickOutside(e: MouseEvent) {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
         setMenuOpen(false)
+      }
+      if (mobileNavRef.current && !mobileNavRef.current.contains(e.target as Node)) {
+        setMobileNavOpen(false)
       }
     }
     document.addEventListener('mousedown', handleClickOutside)
@@ -110,6 +115,44 @@ export default function Header({ activeNav = 'home' }: HeaderProps) {
             ))}
           </nav>
 
+          <div className="flex items-center gap-2">
+          <div className="relative md:hidden" ref={mobileNavRef}>
+            <button
+              onClick={() => setMobileNavOpen(prev => !prev)}
+              className="p-2 rounded-lg hover:bg-orange-50 transition-colors"
+              aria-label="导航菜单"
+            >
+              {mobileNavOpen ? (
+                <svg className="w-6 h-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              ) : (
+                <svg className="w-6 h-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              )}
+            </button>
+
+            {mobileNavOpen && (
+              <nav className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-[#E8E0D8] py-2 z-50">
+                {navItems.map(item => (
+                  <Link
+                    key={item.key}
+                    href={item.href}
+                    onClick={() => setMobileNavOpen(false)}
+                    className={`block px-4 py-2.5 text-sm transition-colors ${
+                      item.key === activeNav
+                        ? 'text-orange-600 font-semibold bg-orange-50'
+                        : 'text-gray-600 hover:bg-orange-50 hover:text-orange-600'
+                    }`}
+                  >
+                    {item.label}
+                  </Link>
+                ))}
+              </nav>
+            )}
+          </div>
+
           {user ? (
             <div className="relative" ref={menuRef}>
               <button
@@ -186,6 +229,7 @@ export default function Header({ activeNav = 'home' }: HeaderProps) {
               <Link href="/api/auth/login">登录</Link>
             </Button>
           )}
+          </div>
         </div>
       </div>
     </header>
