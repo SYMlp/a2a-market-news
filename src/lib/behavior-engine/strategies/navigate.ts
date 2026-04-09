@@ -38,9 +38,11 @@ export const navigateStrategy: ResolutionStrategy = {
   },
 
   buildPresentation(
-    _spec: BehaviorSpec,
-    _session: GameSession,
+    spec: BehaviorSpec,
+    session: GameSession,
   ): PresentationData | null {
+    void spec
+    void session
     return null
   },
 
@@ -59,11 +61,13 @@ export const navigateStrategy: ResolutionStrategy = {
   },
 
   deactivate(
-    _spec: BehaviorSpec,
+    spec: BehaviorSpec,
     session: GameSession,
   ): void {
+    void spec
     if (session.flags) {
-      const { activeBehavior: _, ...rest } = session.flags
+      const rest = { ...session.flags }
+      delete rest.activeBehavior
       session.flags = rest
     }
   },

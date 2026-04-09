@@ -1,0 +1,112 @@
+---
+globs: src/lib/engine/**,src/lib/scenes/**,src/lib/npc/**,src/app/api/gm/**,src/lib/model-config.ts,src/lib/component-runtime/**,src/lib/subflow/**,src/lib/gm/**,src/lib/pa/**,src/lib/registration/**,src/lib/behavior-engine/**,src/lib/domain-runtime/**,specs/**
+alwaysApply: false
+---
+# Design-Code Sync Gate
+
+When modifying engine code, scene definitions, or NPC logic, check whether the corresponding design documents need to be updated.
+
+## Dependency Map
+
+| Code (trigger)                                   | Design Doc (check target)                                     | What to check                                    |
+| :----------------------------------------------- | :------------------------------------------------------------ | :----------------------------------------------- |
+| `src/lib/engine/types.ts`                        | `docs/game-loop-architecture.md` §3, §5                       | Type interfaces match                            |
+| `src/lib/engine/types.ts`                        | `docs/script-engine-spec.md` §types                           | SceneAction interface matches                    |
+| `src/lib/engine/types.ts`                        | `docs/engine-invariants.md` §1.2, §1.3                        | Invariant constraints still accurate             |
+| `src/lib/engine/game-loop.ts`                    | `docs/game-loop-architecture.md` §4 RESOLVE                   | Pseudocode matches actual logic                  |
+| `src/lib/engine/ai-classifier.ts`                | `docs/engine-invariants.md` §4.2                              | Matching pipeline description matches            |
+| `src/lib/engine/match.ts`                        | `docs/engine-invariants.md` §4.2                              | Keyword fallback description matches             |
+| `src/lib/engine/precondition-eval.ts`            | `docs/engine-invariants.md` §2.1                              | Expression DSL invariant still accurate           |
+| `src/lib/engine/precondition-eval.ts`            | `.cursor/rules/scene-plugin-guide.mdc` §Precondition         | Expression syntax documentation matches          |
+| `src/lib/engine/session-context.ts`              | `docs/pa-lifecycle-architecture.md`                           | Session context projection matches               |
+| `specs/scenes/*.yaml`                            | `docs/script-engine-spec.md` §scenes                          | Scene definitions match                          |
+| `specs/scenes/*.yaml`                            | `docs/engine-invariants.md` §2.1                              | Spec-loader invariants still accurate            |
+| `src/lib/engine/scene-loader.ts`                 | `docs/script-engine-spec.md` §registration                    | Loader behavior and auto-discovery match         |
+| `src/lib/engine/scene-loader.ts`                 | `docs/engine-invariants.md` §2.1                              | Schema validation invariant still accurate       |
+| `src/lib/npc/engine.ts`                          | `docs/engine-invariants.md` §4.3                              | NPC degradation chain matches                    |
+| `src/lib/engine/ontology.ts`                     | `docs/pa-lifecycle-architecture.md` §7                        | Serialization logic matches doc description      |
+| `src/lib/engine/ontology.ts`                     | `docs/engine-invariants.md` §2.2                              | Ontology-driven scope model matches              |
+| `src/lib/engine/platform-ontology.json`          | `docs/ontology-architecture.md` §2.1                          | Layer 1 scope and single-source-of-truth matches |
+| `src/lib/engine/platform-ontology.json`          | `docs/pa-lifecycle-architecture.md` §7.1                      | JSON schema matches doc description              |
+| `src/lib/engine/operational-ontology.json`       | `docs/pa-lifecycle-architecture.md` §8.1                      | FC registry schema matches doc description       |
+| `src/lib/engine/operational-ontology.json`       | `docs/ontology-architecture.md` §2.2                          | Layer 2 scope and read-only principle matches    |
+| `src/lib/engine/operational-ontology.json`       | `docs/engine-invariants.md` §2.3                              | FC context enrichment constraint still accurate  |
+| `src/lib/engine/platform-ontology.json`          | `.cursor/rules/npc-authoring.mdc` §Platform Ontology          | Ontology file referenced correctly               |
+| `specs/npcs/*.yaml`                              | `.cursor/rules/npc-authoring.mdc`                             | NPC spec format and loading flow match           |
+| `specs/npcs/*.yaml`                              | `docs/engine-invariants.md` §2.1                              | NPC spec-loader invariant still accurate         |
+| `src/lib/npc/npc-loader.ts`                      | `.cursor/rules/npc-authoring.mdc`                             | Loader behavior matches guide                    |
+| `src/lib/npc/npc-loader.ts`                      | `docs/engine-invariants.md` §2.1                              | NPC loader invariant still accurate              |
+| `src/lib/npc/prompts.ts`                         | `docs/engine-invariants.md` §2.2                              | NPC scope system matches                         |
+| `src/lib/npc/scope.ts`                           | `.cursor/rules/npc-authoring.mdc` §Legacy Scope Gate          | Gate disabled status matches                     |
+| `src/lib/npc/scope.ts`                           | `.cursor/rules/engine-invariants.mdc` §NPC Scope Enforcement  | Ontology-driven model still accurate             |
+| `src/lib/engine/conversation-guard.ts`           | `.cursor/rules/engine-invariants.mdc` §Conversation Guard     | Detection modes and thresholds match             |
+| `src/lib/engine/event-logger.ts`                 | `docs/event-logging.md` §3, §4                                | Data model and integration points match          |
+| `src/app/api/gm/process/route.ts`                | `docs/event-logging.md` §4                                    | Logging hook points match actual route branches  |
+| `src/app/api/gm/process/route.ts`                | `.cursor/rules/engine-invariants.mdc` §Session End Conditions | End reason triggers match                        |
+| `src/lib/model-config.ts`                        | `docs/model-selection.md` §2                                  | Model assignments match                          |
+| `src/lib/model-config.ts`                        | `.cursor/rules/interaction-protocol.mdc` §Mode Configurations | Model annotations per stage match                |
+| `src/lib/engine/communication-protocol.json`     | `docs/pa-lifecycle-architecture.md` §10.1                     | Protocol ontology schema matches doc             |
+| `src/lib/engine/communication-protocol.json`     | `docs/ontology-architecture.md` §2.3                          | Layer 3 scope and channel model matches          |
+| `src/lib/engine/ontology.ts`                     | `docs/pa-lifecycle-architecture.md` §10.3                     | serializeProtocolForNPC logic matches doc        |
+| `src/lib/engine/ontology.ts`                     | `.cursor/rules/engine-invariants.mdc` §MessageEnvelope        | toEnvelope boundary rule still accurate          |
+| `src/lib/npc/types.ts`                           | `docs/pa-lifecycle-architecture.md` §10.5                     | NPCReplyResult metadata interface matches        |
+| `src/lib/npc/engine.ts`                          | `docs/pa-lifecycle-architecture.md` §10.5                     | Meta population in generateNPCReply matches      |
+| `src/lib/subflow/router.ts`                      | `docs/pa-lifecycle-architecture.md` §9.4, §9.5, §9.9          | Handler interface, routing, and protocol match   |
+| `src/lib/component-runtime/subflow-adapter.ts`   | `docs/pa-lifecycle-architecture.md` §9.9                      | Adapter follows handler protocol contract        |
+| `src/lib/component-runtime/subflow-persistence.ts` | `docs/pa-lifecycle-architecture.md` §9.9.3                  | Persistence bridge delegates to session-context  |
+| `src/lib/component-runtime/handler-registry.ts`  | `docs/pa-lifecycle-architecture.md` §9.8                      | Effect keys match validation gate description    |
+| `src/lib/component-runtime/parser.ts`            | `docs/component-spec-architecture.md` §3.2                    | Parser pipeline matches                          |
+| `src/lib/component-runtime/lifecycle-manager.ts` | `docs/component-spec-architecture.md` §5                      | Lifecycle management logic matches               |
+| `src/lib/component-runtime/mcp-export.ts`        | `docs/component-spec-architecture.md` §6                      | MCP export pipeline matches                      |
+| `src/lib/component-runtime/types.ts`             | `docs/component-spec-architecture.md` §2.2                    | ComponentSpec type definitions match             |
+| `src/lib/registration/validate.ts`               | `docs/pa-lifecycle-architecture.md` §9.8                      | Validation gate logic matches                    |
+| `src/lib/registration/extract.ts`                | `docs/pa-lifecycle-architecture.md` §9.8                      | Extract logic matches                            |
+| `src/lib/gm/engine.ts`                           | `docs/gm-orchestration-architecture.md` §2                    | Facade re-exports match module structure         |
+| `src/lib/gm/npc-ai.ts`                           | `docs/gm-orchestration-architecture.md` §2, §4                | NPC AI re-exports and pipeline match             |
+| `src/lib/gm/npc-prompts.ts`                      | `docs/gm-orchestration-architecture.md` §4.4                  | NPC prompt construction matches                  |
+| `src/lib/gm/scene-config.ts`                     | `docs/gm-orchestration-architecture.md` §2                    | Scene config re-exports match                    |
+| `src/lib/gm/scenes.ts`                           | `docs/gm-orchestration-architecture.md` §2                    | GM scene re-exports match                        |
+| `src/lib/gm/types.ts`                            | `docs/gm-orchestration-architecture.md` §2                    | GM type re-exports match                         |
+| `src/app/api/gm/process/route.ts`                | `docs/gm-orchestration-architecture.md` §3                    | Route orchestration matches                      |
+| `src/lib/gm/function-call-executor.ts`           | `docs/gm-orchestration-architecture.md` §7                    | Thin wrapper API preserved; delegates to fc-dispatcher |
+| `src/lib/engine/fc-dispatcher.ts`                | `docs/gm-orchestration-architecture.md` §7                    | Ontology-driven dispatch logic matches           |
+| `src/lib/engine/fc-dispatcher.ts`                | `docs/engine-invariants.md` §Operational Ontology             | execution.type dispatch matches invariant        |
+| `src/lib/engine/ai-classifier.ts`                | `docs/gm-orchestration-architecture.md` §5                    | Classifier pipeline matches                      |
+| `src/lib/engine/conversation-guard.ts`           | `docs/gm-orchestration-architecture.md` §8                    | Guard detection modes and state match            |
+| `src/lib/npc/engine.ts`                          | `docs/gm-orchestration-architecture.md` §4                    | NPC generation pipeline matches                  |
+| `src/lib/npc/prompts.ts`                         | `docs/gm-orchestration-architecture.md` §4.4                  | NPC message construction matches                 |
+| `src/lib/pa/intent.ts`                           | `docs/pa-lifecycle-architecture.md` §11.2                     | Intent extraction types and pipeline match       |
+| `src/lib/pa/auto-loop.ts`                        | `docs/pa-lifecycle-architecture.md` §11.3                     | Auto-loop step flow and stop conditions match    |
+| `src/lib/pa/prompts.ts`                          | `docs/pa-lifecycle-architecture.md` §11.1                     | Prompt functions and template conventions match  |
+| `src/lib/engine/platform-ontology.json`          | `docs/system-ontology-manifest.yaml`                          | Entity/edge types still covered by manifest      |
+| `src/lib/engine/operational-ontology.json`       | `docs/system-ontology-manifest.yaml`                          | Entity/edge types still covered by manifest      |
+| `src/lib/engine/communication-protocol.json`     | `docs/system-ontology-manifest.yaml`                          | Entity/edge types still covered by manifest      |
+| `src/lib/behavior-engine/types.ts`               | `docs/behavior-spec-architecture.md` §2                       | BehaviorSpec type definitions match               |
+| `src/lib/behavior-engine/engine.ts`              | `docs/behavior-spec-architecture.md` §4                       | Engine public API matches                         |
+| `src/lib/behavior-engine/registry.ts`            | `docs/behavior-spec-architecture.md` §4.1                     | Validation pipeline matches                       |
+| `src/lib/behavior-engine/strategies/*.ts`        | `docs/behavior-spec-architecture.md` §2.5                     | Strategy dispatch matches                         |
+| `specs/behaviors/*.yaml`                         | `docs/behavior-spec-architecture.md` §6                       | Behavior catalog matches                          |
+| `src/lib/domain-runtime/types.ts`                | `docs/domain-spec-architecture.md` §2                         | DomainSpec type definitions match                 |
+| `src/lib/domain-runtime/route-factory.ts`        | `docs/domain-spec-architecture.md` §3, §4                     | Handler generation logic matches                  |
+| `src/lib/domain-runtime/bootstrap.ts`           | `docs/domain-spec-architecture.md` §3.3                       | Schema + service registration matches             |
+| `src/lib/domain-runtime/pa-directory-handlers.ts` | `docs/domain-spec-architecture.md` §7.1                    | PA Directory service delegation matches           |
+| `specs/domains/*.yaml`                           | `docs/domain-spec-architecture.md` §2                         | Spec format matches                               |
+
+## Behavior
+
+After completing code changes to any file listed above:
+
+1. Read the dependency map to identify which design docs may be affected
+2. Skim the relevant sections (not the whole doc) to check if descriptions still match the code
+3. If a mismatch is found, update the design doc section to match the new code
+4. Report what was checked and what (if anything) was updated
+
+## Principle
+
+Design docs are the authority for understanding system architecture. Code expresses behavior but not intent, trade-offs, or degradation strategies. If someone reads only the design doc, they should get an accurate picture of how the system works — without needing to read the code.
+
+## What This Rule Does NOT Cover
+
+- Adding new design docs (covered by component-lifecycle-gate pattern)
+- Cursor rule sync (each .mdc manages its own scope)
+- API docs (`docs/API.md`) — maintained separately

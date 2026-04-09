@@ -1,4 +1,5 @@
 'use client'
+import Image from 'next/image'
 
 export type CharacterState = 'idle' | 'walking' | 'thinking' | 'entering_portal' | 'exiting'
 
@@ -36,9 +37,12 @@ export default function SpriteCharacter({
       )}
 
       <div className="spr__wrap">
-        <img
+        <Image
           src={src}
           alt={label || 'character'}
+          width={160}
+          height={160}
+          unoptimized
           className="spr__img"
           style={{ transform: imgTransform }}
           draggable={false}

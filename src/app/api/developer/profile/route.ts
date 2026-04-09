@@ -1,39 +1,40 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { getCurrentUser } from '@/lib/auth'
+import { NextRequest } from 'next/server'
+import { getDeveloperProfile, updateDeveloperProfile } from '@/lib/developer/profile'
+import {
+  apiError,
+  apiSuccess,
+  AuthError,
+  ForbiddenError,
+  requireAuth,
+  requireDeveloper,
+} from '@/lib/api-utils'
+import { reportApiError } from '@/lib/server-observability'
 
 /**
  * GET /api/developer/profile
  * Retrieve current developer profile and notification preferences
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const user = await getCurrentUser()
-    if (!user) {
-      return NextResponse.json({ error: 'Login required' }, { status: 401 })
-    }
-    if (!user.isDeveloper) {
-      return NextResponse.json({ error: 'Not a developer' }, { status: 403 })
-    }
+    const user = await requireAuth()
+    requireDeveloper(user)
 
-    const profile = await prisma.user.findUnique({
-      where: { id: user.id },
-      select: {
-        id: true,
-        developerName: true,
-        callbackUrl: true,
-        notifyPreference: true,
-      },
-    })
+    const profile = await getDeveloperProfile(user.id)
 
     if (!profile) {
-      return NextResponse.json({ error: 'Profile not found' }, { status: 404 })
+      return apiError('Profile not found', 404)
     }
 
-    return NextResponse.json({ success: true, data: profile })
+    return apiSuccess(profile)
   } catch (error) {
-    console.error('Profile fetch failed:', error)
-    return NextResponse.json({ error: 'Fetch failed' }, { status: 500 })
+    if (error instanceof AuthError) {
+      return error.response
+    }
+    if (error instanceof ForbiddenError) {
+      return error.response
+    }
+    reportApiError(request, error, 'profile_fetch_failed')
+    return apiError('Fetch failed', 500)
   }
 }
 
@@ -43,46 +44,26 @@ export async function GET() {
  */
 export async function PUT(request: NextRequest) {
   try {
-    const user = await getCurrentUser()
-    if (!user) {
-      return NextResponse.json({ error: 'Login required' }, { status: 401 })
-    }
-    if (!user.isDeveloper) {
-      return NextResponse.json({ error: 'Not a developer' }, { status: 403 })
-    }
+    const user = await requireAuth()
+    requireDeveloper(user)
 
     const body = await request.json()
-    const data: Record<string, unknown> = {}
+    const updated = await updateDeveloperProfile(user.id, body)
 
-    if (body.developerName !== undefined) {
-      data.developerName = body.developerName?.trim() || null
-    }
-    if (body.callbackUrl !== undefined) {
-      data.callbackUrl = body.callbackUrl?.trim() || null
-    }
-    if (body.notifyPreference !== undefined) {
-      const validPrefs = ['none', 'callback', 'in_app', 'both']
-      if (validPrefs.includes(body.notifyPreference)) {
-        data.notifyPreference = body.notifyPreference
-      }
-    }
-
-    const updated = await prisma.user.update({
-      where: { id: user.id },
-      data,
-    })
-
-    return NextResponse.json({
-      success: true,
-      data: {
-        id: updated.id,
-        developerName: updated.developerName,
-        callbackUrl: updated.callbackUrl,
-        notifyPreference: updated.notifyPreference,
-      },
+    return apiSuccess({
+      id: updated.id,
+      developerName: updated.developerName,
+      callbackUrl: updated.callbackUrl,
+      notifyPreference: updated.notifyPreference,
     })
   } catch (error) {
-    console.error('Profile update failed:', error)
-    return NextResponse.json({ error: 'Update failed' }, { status: 500 })
+    if (error instanceof AuthError) {
+      return error.response
+    }
+    if (error instanceof ForbiddenError) {
+      return error.response
+    }
+    reportApiError(request, error, 'profile_update_failed')
+    return apiError('Update failed', 500)
   }
 }

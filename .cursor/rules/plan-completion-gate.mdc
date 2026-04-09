@@ -1,0 +1,84 @@
+---
+alwaysApply: true
+---
+# Plan Completion Gate
+
+Plan 执行完成后，必须走完验证→清理→同步三步才算闭环。
+本规则来源于实际踩坑：plan 标记 completed 但代码有死函数、设计文档不同步、plan 状态不一致。
+
+## 触发条件
+
+Plan 文件中所有 TODO 被标记为 completed（或仅剩 pending 的是收尾类任务）时。
+
+## Phase 1: 交叉验证（Cross-Validation）
+
+由**不同于执行者的模型**逐项检查：
+
+### 1.1 类型与接口一致性
+
+- Plan 规格中定义的接口签名 vs 实际 `types.ts` 中的定义
+- 导出的类型是否被正确导入和使用（非导入未用、非用了未导入）
+
+### 1.2 数据流端到端
+
+追踪每条数据从产生到消费的完整路径：
+
+```
+设置方 → 存储位置（session.flags.xxx）→ 读取方 → 最终消费（prompt 注入 / API 响应 / UI 渲染）
+```
+
+如果链条中有断裂（设了没读、读了没设），标记为问题。
+
+### 1.3 死代码检测
+
+检查 plan 要求创建的每个函数/常量：
+
+- 是否被项目中其他文件实际 import 和调用
+- 如果仅被同文件内部使用，是否合理（内部工具函数 OK，导出但无外部调用 = 死代码）
+
+### 1.4 Plan 状态 vs 代码事实
+
+- Plan 标记 `pending` 但代码已完成 → 标记不同步
+- Plan 标记 `completed` 但代码中缺失 → 执行遗漏
+
+## Phase 2: 清理（Cleanup）
+
+对 Phase 1 发现的问题逐项处置：
+
+| 问题类型                 | 处置策略                       |
+| :----------------------- | :----------------------------- |
+| 死代码：有封装价值的函数 | 让调用方改为使用它（消除重复） |
+| 死代码：无封装价值的函数 | 删除                           |
+| 重复常量 / 逻辑          | 保留一份，另一处改为引用或导入 |
+| Plan 状态不同步          | 更新 plan 文件                 |
+
+**判断原则**：session 状态变更操作应归 `session-context.ts` 独占；route 层只做调度决策，不直接写 `session.flags`。
+
+## Phase 3: 同步检查（Sync Check）
+
+### 3.1 设计文档（Design Docs）
+
+按 `design-code-sync.mdc` 映射表，检查被改动的代码文件对应的设计文档：
+
+- 设计文档存在 → 检查相关章节是否仍准确，不准确则更新
+- 设计文档不存在 → 记录为欠债（不在本 gate 中补写，单独安排）
+
+### 3.2 Cursor Rules
+
+检查受影响的 `.cursor/rules/*.mdc`：
+
+- `engine-invariants.mdc`：是否新增了不变量、是否改变了已有不变量
+- `interaction-protocol.mdc`：是否改变了对话链架构、角色职责
+- `visual-conventions.mdc`：是否新增了 UI 组件状态或动画
+- 其他按改动范围判断
+
+### 3.3 CLAUDE.md
+
+如果改动涉及项目级架构变化（新增子系统、新增模块），检查 CLAUDE.md 是否需要补充。
+
+## 已知欠债登记
+
+> 以下为历次 gate 执行中发现的系统性欠债，等待专项处理。
+
+- **V1 compat 层迁移策略未定义**：`game-loop-architecture.md` 中 @deprecated 类型与 V1 兼容层的迁移策略尚未成文。
+- ~~**PA 模块 (src/lib/pa/) 无独立设计文档**~~：已补充至 `pa-lifecycle-architecture.md` §11（PA Agent Module），覆盖 prompts、intent、auto-loop、formulation pipeline。

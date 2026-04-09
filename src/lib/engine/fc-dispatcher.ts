@@ -9,7 +9,6 @@
  * Architecture: docs/gm-orchestration-architecture.md §7
  */
 
-import { prisma } from '@/lib/prisma'
 import { getOperationalOntology } from './ontology'
 import { activateSubFlowFromSpec } from '@/lib/subflow/router'
 import { invokeEffect, type EffectContext } from '@/lib/component-runtime/handler-registry'
@@ -47,11 +46,11 @@ export async function dispatchFC(
 
   switch (exec.type) {
     case 'builtin':
-      result = handleBuiltin(fcName, exec.handler)
+      result = handleBuiltin(fcName, exec.handler, exec.detail)
       break
 
     case 'subflow':
-      result = await handleSubflow(session, fcName, exec.specName!, exec.detail!, user)
+      result = await handleSubflow(session, fcName, exec.specName!, exec.detail!, user, exec.contextBuilder)
       break
 
     case 'handler':
@@ -97,11 +96,11 @@ export async function dispatchFC(
 function handleBuiltin(
   fcName: string,
   handler: string | undefined,
+  detail: string | undefined,
 ): FCResult {
   if (handler === 'passthrough') {
-    return { name: fcName, status: 'executed', detail: 'dataLoader 已加载' }
+    return { name: fcName, status: 'executed', detail: detail ?? 'executed' }
   }
-  // navigation and other builtins
   return { name: fcName, status: 'executed' }
 }
 
@@ -113,35 +112,22 @@ async function handleSubflow(
   specName: string,
   detail: string,
   user: FCUserContext,
+  contextBuilderKey?: string,
 ): Promise<FCResult> {
-  let context: Record<string, unknown>
+  let context: Record<string, unknown> = {}
 
-  if (fcName === 'GM.startRegistration') {
-    const existingApps = await prisma.app.findMany({
-      where: { developerId: user.id },
-      select: { id: true, name: true, clientId: true, status: true },
-    })
-    if (existingApps.length > 0 && existingApps.some(a => a.clientId)) {
-      const registered = existingApps.filter(a => a.clientId)
-      const appList = registered.map(a => `「${a.name}」`).join('、')
-      return {
-        name: fcName,
-        status: 'executed',
-        detail: `你已经注册了 ${appList}。如果想注册新的应用，请继续说明新应用的信息。`,
-      }
+  if (contextBuilderKey) {
+    const effectCtx: EffectContext = { session, user }
+    const result = (await invokeEffect(contextBuilderKey, {}, effectCtx)) as {
+      earlyReturn?: boolean
+      detail?: string
+      context?: Record<string, unknown>
     }
-    context = {
-      developerId: user.id,
-      existingApps: existingApps.map(a => ({ name: a.name, clientId: a.clientId })),
+
+    if (result.earlyReturn) {
+      return { name: fcName, status: 'executed', detail: result.detail }
     }
-  } else if (fcName === 'GM.startAppSettings') {
-    const userApps = await prisma.app.findMany({
-      where: { developerId: user.id },
-      select: { id: true, name: true, description: true, website: true, clientId: true },
-    })
-    context = { userApps }
-  } else {
-    context = {}
+    context = result.context ?? {}
   }
 
   activateSubFlowFromSpec(session, specName, context)

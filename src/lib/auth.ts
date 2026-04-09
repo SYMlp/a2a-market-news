@@ -1,4 +1,5 @@
 import { cookies } from 'next/headers'
+import { rootLogger } from '@/lib/logger'
 import { prisma } from './prisma'
 
 export interface SecondMeTokens {
@@ -138,7 +139,7 @@ export async function getCurrentUser() {
 
       return updatedUser
     } catch (error) {
-      console.error('Token refresh failed:', error)
+      rootLogger.error({ err: error }, 'token_refresh_failed')
       // Token 刷新失败，清除 Cookie
       cookieStore.delete('user_id')
       return null

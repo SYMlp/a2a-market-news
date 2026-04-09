@@ -1,19 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import type { GameSession, SubFlowType } from '@/lib/engine/types'
-import { persistSession } from '@/lib/engine/session'
-import { loadSpec } from '@/lib/component-runtime/parser'
+import { persistSubFlowSession } from '@/lib/component-runtime/subflow-persistence'
+import { loadAllSpecs, loadSpec } from '@/lib/component-runtime/parser'
 import { createSubFlowHandler } from '@/lib/component-runtime/subflow-adapter'
 import { getCancelPatterns, isConfirmTimeoutExceeded } from '@/lib/component-runtime/lifecycle-manager'
 
-const SPEC_NAME_BY_TYPE: Record<SubFlowType, string> = {
-  app_settings: 'app-settings',
-  app_lifecycle: 'app-lifecycle',
-  profile: 'profile',
-  register: 'register',
-}
-
 export interface SubFlowHandler {
-  type: SubFlowType
+  type: string
   handleMessage(session: GameSession, message: string, user: { id: string; name: string | null }): NextResponse | Promise<NextResponse>
   handleConfirm(
     session: GameSession,
@@ -23,23 +16,19 @@ export interface SubFlowHandler {
   ): Promise<NextResponse>
 }
 
-// Spec-driven handlers (P3/P4: load YAML → generate handler → register)
-const appSettingsHandler = createSubFlowHandler(loadSpec('app-settings'))
-const profileHandler = createSubFlowHandler(loadSpec('profile'))
-const appLifecycleHandler = createSubFlowHandler(loadSpec('app-lifecycle'))
-const registerSpecHandler = createSubFlowHandler(loadSpec('register'))
-
-const handlers = new Map<SubFlowType, SubFlowHandler>([
-  [registerSpecHandler.type, registerSpecHandler],
-  [appSettingsHandler.type, appSettingsHandler],
-  [profileHandler.type, profileHandler],
-  [appLifecycleHandler.type, appLifecycleHandler],
-])
+const allSpecs = loadAllSpecs()
+const specById = new Map(allSpecs.map(spec => [spec.id, spec]))
+const handlers = new Map<string, SubFlowHandler>(
+  allSpecs.map(spec => {
+    const handler = createSubFlowHandler(spec)
+    return [handler.type, handler]
+  }),
+)
 
 export function cancelSubFlow(session: GameSession): boolean {
   if (!session.flags?.subFlow) return false
   session.flags = { ...session.flags, subFlow: undefined }
-  persistSession(session)
+  persistSubFlowSession(session)
   return true
 }
 
@@ -51,7 +40,8 @@ export async function routeSubFlow(
   const subFlow = session.flags?.subFlow
   if (!subFlow) return null
 
-  const spec = loadSpec(SPEC_NAME_BY_TYPE[subFlow.type as SubFlowType])
+  const spec = specById.get(subFlow.type)
+  if (!spec) return null
   const cancelPatterns = getCancelPatterns(spec)
   const activatedAt = (subFlow as { activatedAt?: number }).activatedAt ?? 0
 
@@ -81,7 +71,7 @@ export async function routeSubFlow(
     })
   }
 
-  const handler = handlers.get(subFlow.type as SubFlowType)
+  const handler = handlers.get(subFlow.type)
   if (!handler) return null
 
   return handler.handleMessage(session, message, user)
@@ -98,7 +88,7 @@ export async function routeSubFlowConfirm(
     return NextResponse.json({ success: false, error: '无活跃子流程' }, { status: 400 })
   }
 
-  const handler = handlers.get(subFlow.type as SubFlowType)
+  const handler = handlers.get(subFlow.type)
   if (!handler) {
     return NextResponse.json({ success: false, error: `未知子流程类型: ${subFlow.type}` }, { status: 400 })
   }
@@ -121,7 +111,7 @@ export function activateSubFlow(
       activatedAt: Date.now(),
     },
   }
-  persistSession(session)
+  persistSubFlowSession(session)
 }
 
 /** Spec-driven activation: load spec by name, activate with spec.id. Use for spec-driven SubFlows. */
@@ -131,5 +121,5 @@ export function activateSubFlowFromSpec(
   initialContext: Record<string, unknown>,
 ): void {
   const spec = loadSpec(specName)
-  activateSubFlow(session, spec.id as SubFlowType, initialContext)
+  activateSubFlow(session, spec.id, initialContext)
 }

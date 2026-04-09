@@ -24,6 +24,10 @@ function req(body: unknown): NextRequest {
   })
 }
 
+function getReq(): NextRequest {
+  return new NextRequest(new URL('http://localhost/api/developer/profile'))
+}
+
 beforeEach(() => vi.clearAllMocks())
 
 describe('PUT /api/developer/profile', () => {
@@ -116,13 +120,13 @@ describe('PUT /api/developer/profile', () => {
 describe('GET /api/developer/profile', () => {
   it('returns 401 when not logged in', async () => {
     mockGetUser.mockResolvedValue(null as never)
-    const res = await GET()
+    const res = await GET(getReq())
     expect(res.status).toBe(401)
   })
 
   it('returns 403 when user is not a developer', async () => {
     mockGetUser.mockResolvedValue({ id: 'u-1', isDeveloper: false } as never)
-    const res = await GET()
+    const res = await GET(getReq())
     expect(res.status).toBe(403)
   })
 
@@ -135,7 +139,7 @@ describe('GET /api/developer/profile', () => {
       notifyPreference: 'both',
     } as never)
 
-    const res = await GET()
+    const res = await GET(getReq())
     const json = await res.json()
 
     expect(res.status).toBe(200)
@@ -161,7 +165,7 @@ describe('GET /api/developer/profile', () => {
     mockGetUser.mockResolvedValue({ id: 'u-1', isDeveloper: true } as never)
     mockUserFind.mockResolvedValue(null as never)
 
-    const res = await GET()
+    const res = await GET(getReq())
     expect(res.status).toBe(404)
   })
 })

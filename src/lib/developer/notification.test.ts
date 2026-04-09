@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-vi.mock('./prisma', () => ({
+vi.mock('@/lib/prisma', () => ({
   prisma: {
     user: { findUnique: vi.fn() },
     appFeedback: { count: vi.fn() },
@@ -8,7 +8,7 @@ vi.mock('./prisma', () => ({
   },
 }))
 
-import { prisma } from './prisma'
+import { prisma } from '@/lib/prisma'
 import { notifyDeveloper } from './notification'
 
 const mockUserFind = vi.mocked(prisma.user.findUnique)

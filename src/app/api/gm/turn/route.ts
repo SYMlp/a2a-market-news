@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getCurrentUser } from '@/lib/auth'
+import { apiError, AuthError, requireAuth } from '@/lib/api-utils'
 import {
   getOrCreateSession,
   processTurn,
@@ -7,6 +7,8 @@ import {
 } from '@/lib/gm/engine'
 import { getScene } from '@/lib/scenes'
 import type { PlayerTurn } from '@/lib/gm/types'
+import { reportApiError } from '@/lib/server-observability'
+import { getLoggerForRequest } from '@/lib/logger'
 
 /**
  * POST /api/gm/turn
@@ -14,11 +16,10 @@ import type { PlayerTurn } from '@/lib/gm/types'
  * Returns TurnResponse with structured actions + outcome.
  */
 export async function POST(request: NextRequest) {
+  const log = getLoggerForRequest(request)
   try {
-    const user = await getCurrentUser()
-    if (!user) {
-      return NextResponse.json({ error: '请先登录' }, { status: 401 })
-    }
+    log.debug({ route: 'api/gm/turn' }, 'handler_enter')
+    const user = await requireAuth()
 
     const body = await request.json()
     const { sessionId, turn, mode } = body as {
@@ -75,8 +76,11 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true, ...result })
   } catch (error) {
-    console.error('GM turn error:', error)
-    return NextResponse.json({ error: '处理失败' }, { status: 500 })
+    if (error instanceof AuthError) {
+      return error.response
+    }
+    reportApiError(request, error, 'gm_turn_error')
+    return apiError('处理失败', 500)
   }
 }
 

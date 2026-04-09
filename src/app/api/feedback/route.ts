@@ -1,9 +1,12 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
+import { apiError, apiPaginated, apiSuccess } from '@/lib/api-utils'
+import { reportApiError } from '@/lib/server-observability'
+import { getLoggerForRequest } from '@/lib/logger'
 import { prisma } from '@/lib/prisma'
-import { validateFeedback, type FeedbackPayload } from '@/lib/feedback-schema'
-import { notifyDeveloper } from '@/lib/notification'
+import { validateFeedback, type FeedbackPayload } from '@/lib/reviews/feedback-schema'
+import { notifyDeveloper } from '@/lib/developer/notification'
 import { getCurrentUser } from '@/lib/auth'
-import { processAchievements } from '@/lib/achievement'
+import { processAchievements } from '@/lib/gamification'
 
 /**
  * POST /api/feedback
@@ -12,7 +15,9 @@ import { processAchievements } from '@/lib/achievement'
  * Anonymous / agent callers: must provide agentId/agentName/agentType in body.
  */
 export async function POST(request: NextRequest) {
+  const log = getLoggerForRequest(request)
   try {
+    log.debug({ route: 'api/feedback', method: 'POST' }, 'handler_enter')
     const body = await request.json()
 
     const user = await getCurrentUser().catch(() => null)
@@ -26,10 +31,7 @@ export async function POST(request: NextRequest) {
     const result = validateFeedback(body)
 
     if (!result.valid) {
-      return NextResponse.json(
-        { error: 'Feedback validation failed', details: result.errors },
-        { status: 400 }
-      )
+      return apiError('Feedback validation failed', 400)
     }
 
     const payload = body as FeedbackPayload
@@ -62,17 +64,20 @@ export async function POST(request: NextRequest) {
         appName: appRecord.name,
         summary: payload.summary,
         overallRating: payload.overallRating,
-      }).catch(err => console.error('Notification failed:', err))
+      }).catch(err => reportApiError(request, err, 'notification_failed'))
     }
 
     const achievements = await processAchievements(
       payload.agentId, payload.agentName, payload.agentType, payload.targetClientId
-    ).catch(err => { console.error('Achievement check failed:', err); return { newUnlocks: [] } })
+    ).catch(err => {
+      reportApiError(request, err, 'achievement_check_failed')
+      return { newUnlocks: [] }
+    })
 
-    return NextResponse.json({ success: true, data: feedback, achievements: achievements.newUnlocks })
+    return apiSuccess({ feedback, achievements: achievements.newUnlocks })
   } catch (error) {
-    console.error('Feedback submission failed:', error)
-    return NextResponse.json({ error: 'Submission failed' }, { status: 500 })
+    reportApiError(request, error, 'feedback_submission_failed')
+    return apiError('Submission failed', 500)
   }
 }
 
@@ -81,7 +86,9 @@ export async function POST(request: NextRequest) {
  * Query feedback by clientId or agentId
  */
 export async function GET(request: NextRequest) {
+  const log = getLoggerForRequest(request)
   try {
+    log.debug({ route: 'api/feedback', method: 'GET' }, 'handler_enter')
     const { searchParams } = new URL(request.url)
     const clientId = searchParams.get('clientId')
     const agentId = searchParams.get('agentId')
@@ -102,13 +109,9 @@ export async function GET(request: NextRequest) {
       prisma.appFeedback.count({ where }),
     ])
 
-    return NextResponse.json({
-      success: true,
-      data: feedbacks,
-      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
-    })
+    return apiPaginated(feedbacks, total, page, limit)
   } catch (error) {
-    console.error('Feedback query failed:', error)
-    return NextResponse.json({ error: 'Query failed' }, { status: 500 })
+    reportApiError(request, error, 'feedback_query_failed')
+    return apiError('Query failed', 500)
   }
 }

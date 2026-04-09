@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useTranslations } from 'next-intl'
 
 interface FeedbackItem {
   id: string
@@ -23,15 +23,18 @@ function ratingStars(rating: number): string {
   return '★'.repeat(Math.max(0, Math.min(5, rating))) + '☆'.repeat(Math.max(0, 5 - rating))
 }
 
-function timeAgo(dateStr: string): string {
-  const diff = Date.now() - new Date(dateStr).getTime()
-  const mins = Math.floor(diff / 60000)
-  if (mins < 1) return '刚刚'
-  if (mins < 60) return `${mins} 分钟前`
-  const hours = Math.floor(mins / 60)
-  if (hours < 24) return `${hours} 小时前`
-  const days = Math.floor(hours / 24)
-  return `${days} 天前`
+function useTimeAgo() {
+  const t = useTranslations('agentSpace')
+  return (dateStr: string) => {
+    const diff = Date.now() - new Date(dateStr).getTime()
+    const mins = Math.floor(diff / 60000)
+    if (mins < 1) return t('feedbackPanel.timeAgo.justNow')
+    if (mins < 60) return t('feedbackPanel.timeAgo.minutes', { count: mins })
+    const hours = Math.floor(mins / 60)
+    if (hours < 24) return t('feedbackPanel.timeAgo.hours', { count: hours })
+    const days = Math.floor(hours / 24)
+    return t('feedbackPanel.timeAgo.days', { count: days })
+  }
 }
 
 export default function FeedbackPanel({
@@ -41,6 +44,8 @@ export default function FeedbackPanel({
   open,
   onClose,
 }: FeedbackPanelProps) {
+  const t = useTranslations('agentSpace')
+  const timeAgo = useTimeAgo()
   return (
     <>
       {open && (
@@ -67,7 +72,7 @@ export default function FeedbackPanel({
           <div className="px-4 py-3 flex items-center justify-between border-b border-white/10">
             <div className="flex items-center gap-2">
               <span className="text-base">💬</span>
-              <span className="text-white font-semibold text-sm">用户建议</span>
+              <span className="text-white font-semibold text-sm">{t('feedbackPanel.title')}</span>
               {feedbackCount > 0 && (
                 <span
                   className="px-1.5 py-0.5 text-[10px] font-bold rounded-full text-white"
@@ -89,7 +94,7 @@ export default function FeedbackPanel({
           <div className="flex-1 overflow-y-auto px-3 py-2 space-y-2">
             {feedbacks.length === 0 ? (
               <div className="text-center text-white/30 text-xs py-12">
-                暂无用户建议，等有访客体验后就会出现啦
+                {t('feedbackPanel.empty')}
               </div>
             ) : (
               feedbacks.map((fb) => (
@@ -138,6 +143,7 @@ export function FeedbackBadge({
   accentRgb: string
   onClick: () => void
 }) {
+  const t = useTranslations('agentSpace')
   if (count <= 0) return null
 
   return (
@@ -153,7 +159,7 @@ export function FeedbackBadge({
       }}
     >
       <span>💬</span>
-      <span>{count} 条新建议</span>
+      <span>{t('feedbackPanel.newSuggestions', { count })}</span>
     </button>
   )
 }

@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server'
+import { rootLogger } from '@/lib/logger'
 import { prisma } from './prisma'
 import { callSecondMeAPI } from './auth'
 
@@ -63,7 +64,7 @@ export async function resolveUserFromToken(request: NextRequest): Promise<MCPUse
       softMemory: user.softMemory,
     }
   } catch (e) {
-    console.error('MCP auth: failed to resolve user from token:', e)
+    rootLogger.error({ err: e }, 'mcp_auth_resolve_user_failed')
     return null
   }
 }

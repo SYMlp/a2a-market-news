@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { apiError } from '@/lib/api-utils'
+import { reportApiError } from '@/lib/server-observability'
 import { validateAgentToken } from '@/lib/agent-auth'
 import {
   getOrCreateSession,
@@ -96,10 +98,7 @@ export async function POST(request: NextRequest) {
 
     // ── V1 path: process message ──
     if (!message) {
-      return NextResponse.json(
-        { error: 'Missing "message" or "turn" field' },
-        { status: 400 },
-      )
+      return apiError('Missing "message" or "turn" field', 400)
     }
 
     const visitorInfo = { name: agentName, type: 'agent' as const }
@@ -122,8 +121,8 @@ export async function POST(request: NextRequest) {
       scene_transition: response.sceneTransition || null,
     })
   } catch (error) {
-    console.error('Agent GM error:', error)
-    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
+    reportApiError(request, error, 'agent_gm_error')
+    return apiError('Internal error', 500)
   }
 }
 

@@ -1,4 +1,5 @@
 'use client'
+import Image from 'next/image'
 
 const SCENE_BG_IMAGES: Record<string, string> = {
   lobby: '/sprites/backgrounds/lobby-bg.png',
@@ -16,7 +17,7 @@ export default function SceneBackground({ scene }: SceneBackgroundProps) {
   if (bgSrc) {
     return (
       <div className="scene-bg">
-        <img src={bgSrc} alt="" className="scene-bg__img" />
+        <Image src={bgSrc} alt="" width={1920} height={1080} className="scene-bg__img" priority />
         <div className="scene-bg__overlay" />
       </div>
     )

@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>report</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+      font-size: 14px;
+      line-height: 1.6;
+      color: #24292f;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 24px 32px 48px;
+      background: #fff;
+    }
+    @media print {
+      body { padding: 16px 24px; font-size: 11pt; }
+      pre, table { break-inside: avoid; }
+    }
+    h1, h2, h3, h4, h5, h6 {
+      margin: 1.2em 0 0.6em;
+      font-weight: 600;
+      line-height: 1.3;
+    }
+    h1 { font-size: 1.8em; border-bottom: 1px solid #d0d7de; padding-bottom: 0.3em; }
+    h2 { font-size: 1.4em; border-bottom: 1px solid #d0d7de; padding-bottom: 0.2em; }
+    h3 { font-size: 1.2em; }
+    p { margin: 0.6em 0; }
+    ul, ol { margin: 0.6em 0; padding-left: 1.5em; }
+    li { margin: 0.2em 0; }
+    blockquote {
+      margin: 0.8em 0;
+      padding: 0 1em;
+      border-left: 4px solid #d0d7de;
+      color: #57606a;
+      background: #f6f8fa;
+    }
+    pre, code {
+      font-family: Consolas, "Cascadia Code", "SF Mono", Monaco, "Courier New", monospace;
+      font-size: 0.95em;
+    }
+    code {
+      padding: 0.2em 0.4em;
+      background: #f6f8fa;
+      border-radius: 4px;
+      border: 1px solid #d0d7de;
+    }
+    pre {
+      padding: 12px 16px;
+      background: #f6f8fa;
+      border: 1px solid #d0d7de;
+      border-radius: 6px;
+      overflow-x: auto;
+      margin: 0.8em 0;
+    }
+    pre code { padding: 0; background: none; border: none; }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 0.8em 0;
+      font-size: 0.95em;
+    }
+    th, td {
+      border: 1px solid #d0d7de;
+      padding: 8px 12px;
+      text-align: left;
+    }
+    th { background: #f6f8fa; font-weight: 600; }
+    tr:nth-child(even) { background: #f9fafb; }
+    hr { border: none; border-top: 1px solid #d0d7de; margin: 1.5em 0; }
+    a { color: #0969da; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+<h1>Deep Research Report: A2A Market News 当前系统架构评估</h1>
+<p><strong>调研计划</strong>: <code>docs/research/current-system-architecture-evaluation/plan.md</code><br><strong>执行日期</strong>: 2026-03-21<br><strong>执行模式</strong>: 内部代码审计（无外部搜索）</p>
+<hr>
+<h2>1. Executive Summary</h2>
+<p>A2A Market News 项目采用四层模型（L0–L3）、双空间（Human Space / Agent Space）和三层 Ontology 驱动的设计，整体架构成熟度处于<strong>中上水平</strong>。设计文档体系完整，约 26 个设计文档覆盖了大部分核心模块；Ontology 实体与边类型实现率达 100%；双空间对 AppFeedback 的副作用通过 <code>rewardReview()</code> 实现了对齐。GM 编排层职责边界清晰，route 层保持薄层，编排逻辑集中在 <code>gm/engine</code>。</p>
+<p>主要风险集中在三处：<strong>L3→L0 越层调用</strong>（<code>game-loop</code> 和 <code>conversation-guard</code> 直接调用 <code>session.persistSession</code>）、<strong>Human Space 领域内聚度偏低</strong>（Community、Practices、PA Directory 逻辑全 inline）、以及<strong>可观测性与测试覆盖不足</strong>（无请求追踪 ID，gm/gamification/pa-actions 无测试）。短期建议优先修复越层调用，中期补齐 Human Space 领域 lib 化与可观测性，长期推进 BehaviorSpec 实现与 V1 兼容层迁移。</p>
+<hr>
+<h2>2. Key Findings</h2>
+<h3>2.1 设计文档与 Ontology 体系</h3>
+<p><strong>设计文档覆盖度</strong>：约 26 个 <code>.md</code> 文档（不含 research 子目录）及 <code>system-ontology-manifest.yaml</code>，覆盖 D1–D3 层级。核心模块如 engine、gm、npc、scenes、component-runtime、gamification、pa-actions 均有对应设计文档（见 <code>notes/1-1-design-doc-coverage.md</code>）。</p>
+<table>
+<thead>
+<tr>
+<th align="left">模块</th>
+<th align="left">设计文档</th>
+<th align="left">状态</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">engine, gm, npc, scenes</td>
+<td align="left">game-loop, gm-orchestration, ontology-architecture</td>
+<td align="left">✅ 覆盖</td>
+</tr>
+<tr>
+<td align="left">component-runtime, subflow, pa</td>
+<td align="left">component-spec, pa-lifecycle</td>
+<td align="left">✅ 覆盖</td>
+</tr>
+<tr>
+<td align="left">gamification, pa-actions</td>
+<td align="left">human-space-domain-map</td>
+<td align="left">✅ 覆盖</td>
+</tr>
+<tr>
+<td align="left">behavior-engine</td>
+<td align="left">behavior-spec-architecture</td>
+<td align="left">⚠️ 设计中，未实现</td>
+</tr>
+<tr>
+<td align="left">registration</td>
+<td align="left">-</td>
+<td align="left">❌ 无独立设计文档</td>
+</tr>
+</tbody></table>
+<p><strong>文档层级一致性</strong>：D1 的 L0–L3 概念在 D2 中有对应展开，D3 的 engine-invariants 可追溯到 game-loop-architecture。存在<strong>命名空间重叠</strong>：game-loop 中的 L1/L2（PlayerTurn/TurnOutcome）与架构层的 L1/L2 含义不同，易混淆（<code>notes/1-2-design-doc-hierarchy.md</code>）。</p>
+<p><strong>Ontology 一致性</strong>：Manifest 定义的 10 实体类型、14 边类型在代码中均有实现；<code>ontology.ts</code> 正确加载三层 JSON 并导出 <code>getOntology</code>、<code>getOperationalOntology</code>、<code>getCommunicationProtocol</code>。覆盖率 100%（<code>notes/1-3-ontology-consistency.md</code>，原始证据 <code>raw/task-1-3-ontology-coverage.md</code>）。</p>
+<hr>
+<h3>2.2 分层架构与越层调用</h3>
+<p><strong>四层模型落地</strong>：L0（session.ts）、L1（scenes/registry）、L2（session-context）、L3（game-loop）代码映射正确。session-context（L2）→ session（L0）为合理调用（L2 可调用 L0 持久化）。</p>
+<p><strong>越层调用清单</strong>（<code>notes/2-1-four-layer-verification.md</code>，<code>raw/task-2-1-layer-deps.md</code>）：</p>
+<table>
+<thead>
+<tr>
+<th align="left">调用方</th>
+<th align="left">被调用方</th>
+<th align="left">函数</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">game-loop (L3)</td>
+<td align="left">session (L0)</td>
+<td align="left">persistSession</td>
+</tr>
+<tr>
+<td align="left">conversation-guard</td>
+<td align="left">session (L0)</td>
+<td align="left">persistSession</td>
+</tr>
+</tbody></table>
+<p>层间依赖示意：</p>
+<pre><code>L0 session.ts ←── session-context (L2)
+     ↑              ↑
+     |              |
+     +──────────────+── game-loop (L3)
+     |
+     +── conversation-guard
+</code></pre>
+<hr>
+<h3>2.3 双空间隔离与 GM 编排边界</h3>
+<p><strong>双空间依赖</strong>：Agent Space 的 <code>handler-registry</code> 调用 <code>gamification.rewardReview</code>，符合设计意图——双空间副作用对齐（AppFeedback 写入后统一奖励）。gm/pa-respond 调用 pa-actions.callSecondMeStream（PA 顾问模式），合理。Human Space API 不直接调用 gm（<code>notes/2-2-dual-space-isolation.md</code>）。</p>
+<p><strong>GM 编排层</strong>：<code>process/route.ts</code> 为薄路由层，仅做 body 解析与分支分发，编排逻辑全部委托 <code>gm/engine</code>。Route 不直接操作 <code>session.flags</code>，通过 session-context 和 engine 完成。GM facade 边界清晰（<code>notes/2-3-gm-orchestration-boundary.md</code>）。</p>
+<hr>
+<h3>2.4 Human Space 领域内聚度与共享层</h3>
+<p><strong>领域内聚度</strong>（<code>notes/3-1-human-space-domains.md</code>）：</p>
+<table>
+<thead>
+<tr>
+<th align="left">领域</th>
+<th align="left">内聚度</th>
+<th align="left">说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">Gamification</td>
+<td align="left">High</td>
+<td align="left">独立 lib，API 薄</td>
+</tr>
+<tr>
+<td align="left">PA Actions</td>
+<td align="left">High</td>
+<td align="left">pa-actions + gamification</td>
+</tr>
+<tr>
+<td align="left">Developer</td>
+<td align="left">Medium</td>
+<td align="left">notification.ts，其余 inline</td>
+</tr>
+<tr>
+<td align="left">Community</td>
+<td align="left">Low</td>
+<td align="left">全 inline</td>
+</tr>
+<tr>
+<td align="left">Practices</td>
+<td align="left">Low</td>
+<td align="left">全 inline</td>
+</tr>
+<tr>
+<td align="left">PA Directory</td>
+<td align="left">Low</td>
+<td align="left">全 inline，依赖 gamification 数据</td>
+</tr>
+</tbody></table>
+<p><strong>跨域调用</strong>：gamification.reward-pipeline → pa-actions.logPAAction；pa-action routes → gamification（addPoints, rewardReview, incrementDailyTask）；pa-directory → AchievementUnlock（Prisma 模型，非 lib）。</p>
+<p><strong>共享 lib 审计</strong>（<code>notes/3-3-shared-lib-audit.md</code>）：<code>notification</code> 建议移至 <code>src/lib/developer/</code> 或标注领域归属；<code>feedback-schema</code> 属于 PA Actions 领域。</p>
+<hr>
+<h3>2.5 Agent Space 模块依赖</h3>
+<p>engine 为枢纽，被 gm、npc、component-runtime、behavior-engine、subflow、pa 依赖；未检测到循环依赖。component-runtime 同时依赖 engine、gm、gamification，承担双空间桥接。扇入最高：engine/types、engine/session（<code>notes/3-2-agent-module-deps.md</code>）。</p>
+<hr>
+<h3>2.6 API 契约与数据流</h3>
+<p><strong>API 契约</strong>（<code>notes/4-api-contract.md</code>）：多数 Human Space API 使用 apiSuccess/apiError/apiPaginated 或等效格式；pa-directory 使用自定义 pagination 结构，合规率约 90%。Auth 模式：<code>requireAuth()</code> 与 <code>getCurrentUser + if (!user) 401</code> 并存，均能达到认证目的。无统一错误处理中间件，各 route 自行 try-catch。</p>
+<p><strong>AppFeedback 数据流</strong>（<code>notes/5-dataflow.md</code>，<code>raw/task-5-dataflow.md</code>）：</p>
+<table>
+<thead>
+<tr>
+<th align="left">路径</th>
+<th align="left">写入</th>
+<th align="left">副作用</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">Agent (fc.saveReport)</td>
+<td align="left">AppFeedback source=gm_report</td>
+<td align="left">rewardReview ✅</td>
+</tr>
+<tr>
+<td align="left">Human (pa-action/review)</td>
+<td align="left">AppFeedback source=pa_action</td>
+<td align="left">rewardReview ✅</td>
+</tr>
+</tbody></table>
+<p>两条路径均调用 <code>rewardReview</code>，副作用对齐。Session 状态变更通过 session-context 提供的函数完成，Route 层未发现直接写 <code>session.flags</code> 的情况。</p>
+<hr>
+<h3>2.7 可扩展性、可观测性与可维护性</h3>
+<p><strong>低代码覆盖</strong>（<code>notes/6-ext-obs-maint.md</code>）：</p>
+<table>
+<thead>
+<tr>
+<th align="left">子系统</th>
+<th align="left">YAML/Spec 驱动</th>
+<th align="left">覆盖度</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">Agent Space 场景</td>
+<td align="left">specs/scenes/*.yaml</td>
+<td align="left">✅</td>
+</tr>
+<tr>
+<td align="left">Agent Space NPC</td>
+<td align="left">specs/npcs/*.yaml</td>
+<td align="left">✅</td>
+</tr>
+<tr>
+<td align="left">Agent Space SubFlow</td>
+<td align="left">specs/component-specs/*.yaml</td>
+<td align="left">✅</td>
+</tr>
+<tr>
+<td align="left">Agent Space FC 分发</td>
+<td align="left">operational-ontology.json</td>
+<td align="left">✅</td>
+</tr>
+<tr>
+<td align="left">Human Space</td>
+<td align="left">-</td>
+<td align="left">0%</td>
+</tr>
+</tbody></table>
+<p><strong>可观测性</strong>：event-logger 写入 game_session_logs、game_turn_logs；无请求追踪 ID，无统一 JSON 结构化日志。评分：中。</p>
+<p><strong>测试覆盖</strong>：developer/*、agent/feedback 有测试；gm/process、game-loop、gamification、pa-actions、session-context 无测试。</p>
+<p><strong>技术债务</strong>：GM 主动编排、多 PA 同场（system-architecture）；BehaviorSpec 未实现；V1 compat 迁移策略未定义（plan-completion-gate）。</p>
+<hr>
+<h2>3. Analysis &amp; Implications</h2>
+<h3>3.1 架构优势</h3>
+<ol>
+<li><strong>设计文档体系完整</strong>：D1–D3 层级清晰，文档间引用关系完整，为代码审计和新人上手提供良好基准。</li>
+<li><strong>Ontology 驱动</strong>：三层 Ontology 与 manifest 一致，实体与边类型实现率 100%，支撑 Agent 认知与 FC 分发。</li>
+<li><strong>双空间副作用对齐</strong>：AppFeedback 两条写入路径均调用 rewardReview，避免双空间行为不一致。</li>
+<li><strong>GM 编排边界清晰</strong>：Route 薄层，编排逻辑集中在 gm/engine，职责划分合理。</li>
+<li><strong>Agent Space 低代码覆盖高</strong>：场景、NPC、SubFlow、FC 均由 YAML/JSON 驱动，扩展成本低。</li>
+</ol>
+<h3>3.2 风险与技术债务</h3>
+<table>
+<thead>
+<tr>
+<th align="left">风险</th>
+<th align="left">影响</th>
+<th align="left">证据</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">L3→L0 越层调用</td>
+<td align="left">分层模型被破坏，后续演进易引入更多越层</td>
+<td align="left"><code>raw/task-2-1-layer-deps.md</code></td>
+</tr>
+<tr>
+<td align="left">Human Space 领域 inline 化</td>
+<td align="left">Community/Practices/PA Directory 逻辑膨胀，难以复用与测试</td>
+<td align="left"><code>notes/3-1-human-space-domains.md</code></td>
+</tr>
+<tr>
+<td align="left">无请求追踪 ID</td>
+<td align="left">生产排障困难，无法关联跨请求日志</td>
+<td align="left"><code>notes/6-ext-obs-maint.md</code></td>
+</tr>
+<tr>
+<td align="left">关键路径无测试</td>
+<td align="left">gm、gamification、pa-actions 变更风险高</td>
+<td align="left"><code>notes/6-ext-obs-maint.md</code></td>
+</tr>
+<tr>
+<td align="left">BehaviorSpec 未实现</td>
+<td align="left">行为维度声明式抽象缺失</td>
+<td align="left"><code>notes/1-1-design-doc-coverage.md</code></td>
+</tr>
+<tr>
+<td align="left">V1 compat 迁移未定义</td>
+<td align="left">技术债务累积，迁移成本不确定</td>
+<td align="left">plan-completion-gate</td>
+</tr>
+</tbody></table>
+<h3>3.3 分维度评价</h3>
+<table>
+<thead>
+<tr>
+<th align="left">评估维度</th>
+<th align="left">评级</th>
+<th align="left">证据摘要</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">分层架构实效</td>
+<td align="left">B</td>
+<td align="left">四层映射正确，存在 L3→L0 越层</td>
+</tr>
+<tr>
+<td align="left">模块边界清晰度</td>
+<td align="left">B</td>
+<td align="left">Agent Space 清晰，Human Space 3 领域 inline</td>
+</tr>
+<tr>
+<td align="left">API 契约一致性</td>
+<td align="left">B</td>
+<td align="left">约 90% 合规，pa-directory 分页格式偏离</td>
+</tr>
+<tr>
+<td align="left">数据流完整性</td>
+<td align="left">A</td>
+<td align="left">AppFeedback 双路径对齐，Session 变更规范</td>
+</tr>
+<tr>
+<td align="left">耦合/内聚度</td>
+<td align="left">B</td>
+<td align="left">engine 枢纽合理，Human Space 内聚度偏低</td>
+</tr>
+<tr>
+<td align="left">可扩展性</td>
+<td align="left">B</td>
+<td align="left">Agent Space 低代码覆盖高，Human Space 0%</td>
+</tr>
+<tr>
+<td align="left">可观测性</td>
+<td align="left">C</td>
+<td align="left">有 event-logger，缺追踪与结构化日志</td>
+</tr>
+<tr>
+<td align="left">可维护性</td>
+<td align="left">B</td>
+<td align="left">文档同步度高，测试覆盖不足</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>4. Actionable Recommendations</h2>
+<h3>4.1 短期（1–2 周）</h3>
+<ol>
+<li><p><strong>消除 L3→L0 越层调用</strong>  </p>
+<ul>
+<li>将 <code>persistSession</code> 的调用从 game-loop、conversation-guard 迁移至 session-context（L2），由 L2 统一负责持久化触发。  </li>
+<li>证据：<code>raw/task-2-1-layer-deps.md</code>。</li>
+</ul>
+</li>
+<li><p><strong>统一 API 分页格式</strong>  </p>
+<ul>
+<li>将 pa-directory 的 pagination 结构对齐 apiPaginated 的 total/page 约定。  </li>
+<li>证据：<code>notes/4-api-contract.md</code>。</li>
+</ul>
+</li>
+<li><p><strong>引入请求追踪 ID</strong>  </p>
+<ul>
+<li>在 API 入口生成或透传 <code>x-request-id</code>，写入 event-logger 与错误日志。  </li>
+<li>证据：<code>notes/6-ext-obs-maint.md</code>。</li>
+</ul>
+</li>
+</ol>
+<h3>4.2 中期（1–2 月）</h3>
+<ol start="4">
+<li><p><strong>Human Space 领域 lib 化</strong>  </p>
+<ul>
+<li>将 Community、Practices、PA Directory 的核心逻辑抽取至 <code>src/lib/community/</code>、<code>src/lib/practices/</code>、<code>src/lib/pa-directory/</code>，API route 保持薄层。  </li>
+<li>证据：<code>notes/3-1-human-space-domains.md</code>。</li>
+</ul>
+</li>
+<li><p><strong>notification 归属明确化</strong>  </p>
+<ul>
+<li>将 <code>notification.ts</code> 移至 <code>src/lib/developer/</code> 或标注领域归属。  </li>
+<li>证据：<code>notes/3-3-shared-lib-audit.md</code>。</li>
+</ul>
+</li>
+<li><p><strong>补齐关键路径测试</strong>  </p>
+<ul>
+<li>为 gm/process、gamification、pa-actions、session-context 增加单元/集成测试。  </li>
+<li>证据：<code>notes/6-ext-obs-maint.md</code>。</li>
+</ul>
+</li>
+</ol>
+<h3>4.3 长期</h3>
+<ol start="7">
+<li><p><strong>BehaviorSpec 实现</strong>  </p>
+<ul>
+<li>按 behavior-spec-architecture 推进行为维度声明式抽象。  </li>
+<li>证据：<code>notes/1-1-design-doc-coverage.md</code>。</li>
+</ul>
+</li>
+<li><p><strong>V1 compat 迁移策略</strong>  </p>
+<ul>
+<li>在 game-loop-architecture 或独立文档中定义 @deprecated 类型与 V1 兼容层的迁移路径。  </li>
+<li>证据：plan-completion-gate。</li>
+</ul>
+</li>
+<li><p><strong>Human Space 低代码探索</strong>  </p>
+<ul>
+<li>评估 Practices、PA Directory 等场景是否可从 YAML 化中受益。  </li>
+<li>证据：<code>notes/6-ext-obs-maint.md</code>。</li>
+</ul>
+</li>
+</ol>
+<hr>
+<h2>5. References</h2>
+<table>
+<thead>
+<tr>
+<th align="left">来源</th>
+<th align="left">路径</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">执行摘要</td>
+<td align="left"><code>notes/execution-summary.md</code></td>
+</tr>
+<tr>
+<td align="left">设计文档覆盖</td>
+<td align="left"><code>notes/1-1-design-doc-coverage.md</code>，<code>raw/task-1-1-docs-inventory.md</code></td>
+</tr>
+<tr>
+<td align="left">文档层级</td>
+<td align="left"><code>notes/1-2-design-doc-hierarchy.md</code>，<code>raw/task-1-2-hierarchy-trace.md</code></td>
+</tr>
+<tr>
+<td align="left">Ontology 一致性</td>
+<td align="left"><code>notes/1-3-ontology-consistency.md</code>，<code>raw/task-1-3-ontology-coverage.md</code></td>
+</tr>
+<tr>
+<td align="left">四层依赖</td>
+<td align="left"><code>notes/2-1-four-layer-verification.md</code>，<code>raw/task-2-1-layer-deps.md</code></td>
+</tr>
+<tr>
+<td align="left">双空间隔离</td>
+<td align="left"><code>notes/2-2-dual-space-isolation.md</code>，<code>raw/task-2-2-dual-space-deps.md</code></td>
+</tr>
+<tr>
+<td align="left">GM 编排</td>
+<td align="left"><code>notes/2-3-gm-orchestration-boundary.md</code></td>
+</tr>
+<tr>
+<td align="left">Human Space 领域</td>
+<td align="left"><code>notes/3-1-human-space-domains.md</code>，<code>raw/task-3-1-domain-boundaries.md</code></td>
+</tr>
+<tr>
+<td align="left">Agent 模块依赖</td>
+<td align="left"><code>notes/3-2-agent-module-deps.md</code>，<code>raw/task-3-2-agent-deps.md</code></td>
+</tr>
+<tr>
+<td align="left">共享 lib</td>
+<td align="left"><code>notes/3-3-shared-lib-audit.md</code>，<code>raw/task-3-3-shared-lib-audit.md</code></td>
+</tr>
+<tr>
+<td align="left">API 契约</td>
+<td align="left"><code>notes/4-api-contract.md</code>，<code>raw/task-4-api-contract.md</code></td>
+</tr>
+<tr>
+<td align="left">数据流</td>
+<td align="left"><code>notes/5-dataflow.md</code>，<code>raw/task-5-dataflow.md</code></td>
+</tr>
+<tr>
+<td align="left">可扩展性/可观测性</td>
+<td align="left"><code>notes/6-ext-obs-maint.md</code>，<code>raw/task-6-ext-obs-maint.md</code></td>
+</tr>
+<tr>
+<td align="left">调研计划</td>
+<td align="left"><code>plan.md</code></td>
+</tr>
+</tbody></table>
+
+</body>
+</html>

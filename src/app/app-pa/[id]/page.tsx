@@ -1,12 +1,15 @@
 'use client'
 
+import Image from 'next/image'
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
+import { useLocale, useTranslations } from 'next-intl'
 import Header from '@/components/Header'
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
+import { formatDate, formatDateTime } from '@/lib/format-date'
 
 interface App {
   id: string
@@ -52,18 +55,27 @@ interface PublicFeedback {
   source?: string
 }
 
-const SOURCE_BADGES: Record<string, { label: string; className: string }> = {
-  human: { label: '用户评价', className: 'bg-blue-50 text-blue-600 border-blue-200' },
-  pa: { label: 'PA', className: 'bg-purple-50 text-purple-600 border-purple-200' },
-  openclaw: { label: 'OpenClaw', className: 'bg-emerald-50 text-emerald-600 border-emerald-200' },
-  developer_pa: { label: '开发者 PA', className: 'bg-amber-50 text-amber-600 border-amber-200' },
+const SOURCE_BADGE_STYLES: Record<string, string> = {
+  human: 'bg-blue-50 text-blue-600 border-blue-200',
+  pa: 'bg-purple-50 text-purple-600 border-purple-200',
+  openclaw: 'bg-emerald-50 text-emerald-600 border-emerald-200',
+  developer_pa: 'bg-amber-50 text-amber-600 border-amber-200',
 }
 
 function SourceBadge({ agentType }: { agentType: string }) {
-  const badge = SOURCE_BADGES[agentType] ?? SOURCE_BADGES.pa
+  const t = useTranslations('appPa')
+  const style = SOURCE_BADGE_STYLES[agentType] ?? SOURCE_BADGE_STYLES.pa
+  const label =
+    agentType === 'human'
+      ? t('badgeUserReview')
+      : agentType === 'openclaw'
+        ? t('badgeOpenClaw')
+        : agentType === 'developer_pa'
+          ? t('badgeDeveloperPa')
+          : t('badgePa')
   return (
-    <span className={`px-2 py-0.5 text-xs border rounded-full ${badge.className}`}>
-      {badge.label}
+    <span className={`px-2 py-0.5 text-xs border rounded-full ${style}`}>
+      {label}
     </span>
   )
 }
@@ -94,6 +106,8 @@ export default function AppDetailPage() {
   const params = useParams()
   const id = params.id as string
   const { user } = useAuth()
+  const t = useTranslations('appPa')
+  const locale = useLocale()
 
   const [app, setApp] = useState<App | null>(null)
   const [feedbacks, setFeedbacks] = useState<PublicFeedback[]>([])
@@ -102,7 +116,7 @@ export default function AppDetailPage() {
   const [commentText, setCommentText] = useState('')
   const [commentRating, setCommentRating] = useState(5)
   const [submitting, setSubmitting] = useState(false)
-  const [submitMsg, setSubmitMsg] = useState('')
+  const [submitFeedback, setSubmitFeedback] = useState<{ kind: 'success' | 'error'; msg?: string } | null>(null)
 
   const [paReviewing, setPaReviewing] = useState(false)
   const [paVoting, setPaVoting] = useState(false)
@@ -133,7 +147,7 @@ export default function AppDetailPage() {
     e.preventDefault()
     if (!clientId || !commentText.trim()) return
     setSubmitting(true)
-    setSubmitMsg('')
+    setSubmitFeedback(null)
     try {
       const res = await fetch('/api/feedback', {
         method: 'POST',
@@ -149,13 +163,13 @@ export default function AppDetailPage() {
         setFeedbacks(prev => [data.data, ...prev])
         setCommentText('')
         setCommentRating(5)
-        setSubmitMsg('评价已提交')
-        setTimeout(() => setSubmitMsg(''), 3000)
+        setSubmitFeedback({ kind: 'success' })
+        setTimeout(() => setSubmitFeedback(null), 3000)
       } else {
-        setSubmitMsg(data.error || '提交失败')
+        setSubmitFeedback({ kind: 'error', msg: data.error || t('submitFailed') })
       }
     } catch {
-      setSubmitMsg('网络错误')
+      setSubmitFeedback({ kind: 'error', msg: t('networkError') })
     } finally {
       setSubmitting(false)
     }
@@ -165,14 +179,14 @@ export default function AppDetailPage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#FFFBF5]">
         <div className="data-stream">
-          <div className="text-orange-500 text-2xl">加载 Agent 数据...</div>
+          <div className="text-orange-500 text-2xl">{t('loadingAgent')}</div>
         </div>
       </div>
     )
   }
 
   if (!app) {
-    return <div className="min-h-screen flex items-center justify-center text-gray-800 bg-[#FFFBF5]">未找到 Agent</div>
+    return <div className="min-h-screen flex items-center justify-center text-gray-800 bg-[#FFFBF5]">{t('notFound')}</div>
   }
 
   const latestMetrics = app.metrics[0]
@@ -189,12 +203,22 @@ export default function AppDetailPage() {
 
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <Link href={`/circles/${app.circle.slug}`} className="inline-flex items-center gap-2 text-gray-400 hover:text-orange-500 transition-colors mb-8 text-sm">
-            <span>←</span> 返回{app.circle.name}
+            {t('backToCircle', { circle: app.circle.name })}
           </Link>
 
           <div className="flex items-start gap-8">
-            <div className="w-28 h-28 bg-gradient-to-br from-orange-300 to-amber-400 rounded-2xl flex items-center justify-center text-5xl flex-shrink-0 shadow-lg">
-              {app.logo ? <img src={app.logo} alt={app.name} className="w-full h-full object-cover rounded-2xl" /> : '🤖'}
+            <div className="relative w-28 h-28 bg-gradient-to-br from-orange-300 to-amber-400 rounded-2xl flex items-center justify-center text-5xl flex-shrink-0 shadow-lg overflow-hidden">
+              {app.logo ? (
+                <Image
+                  src={app.logo}
+                  alt={app.name}
+                  width={112}
+                  height={112}
+                  sizes="112px"
+                  unoptimized
+                  className="w-full h-full object-cover rounded-2xl"
+                />
+              ) : '🤖'}
             </div>
 
             <div className="flex-1">
@@ -216,7 +240,7 @@ export default function AppDetailPage() {
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-2"
                     >
-                      🚀 体验应用
+                      {t('tryApp')}
                     </a>
                   </Button>
                 )}
@@ -235,7 +259,14 @@ export default function AppDetailPage() {
                         const data = await res.json()
                         if (data.success && data.phase === 'preview') {
                           const r = data.data
-                          if (confirm(`PA 评价预览：\n\n${r.content}\n\n评分: ${r.structured?.overallRating}/5\n\n确认提交？`)) {
+                          if (
+                            confirm(
+                              t('confirmReview', {
+                                content: r.content,
+                                rating: String(r.structured?.overallRating ?? '—'),
+                              }),
+                            )
+                          ) {
                             const confirmRes = await fetch('/api/pa-action/review', {
                               method: 'POST',
                               headers: { 'Content-Type': 'application/json' },
@@ -243,7 +274,7 @@ export default function AppDetailPage() {
                             })
                             const confirmData = await confirmRes.json()
                             if (confirmData.success) {
-                              setPaResult(`评价已提交! +20积分`)
+                              setPaResult(t('reviewSubmittedPoints'))
                               const cid = app?.clientId || app?.metadata?.clientId
                               if (cid) {
                                 const fbRes = await fetch(`/api/feedback?clientId=${cid}&limit=20`).then(r => r.json())
@@ -252,9 +283,9 @@ export default function AppDetailPage() {
                             }
                           }
                         } else if (!data.success) {
-                          setPaResult(data.error || '评价失败')
+                          setPaResult(data.error || t('reviewFailed'))
                         }
-                      } catch { setPaResult('操作失败') }
+                      } catch { setPaResult(t('operationFailed')) }
                       finally { setPaReviewing(false) }
                     }}
                     disabled={paReviewing}
@@ -262,7 +293,7 @@ export default function AppDetailPage() {
                                font-semibold hover:from-orange-600 hover:to-amber-600 transition-all inline-flex items-center gap-2
                                disabled:opacity-50 shadow-md"
                   >
-                    {paReviewing ? '🐰 PA 思考中...' : '🐰 让 PA 评价'}
+                    {paReviewing ? t('paThinkingReview') : t('paReview')}
                   </button>
                 )}
                 {user && (
@@ -279,14 +310,19 @@ export default function AppDetailPage() {
                           })
                           const data = await res.json()
                           if (data.success) {
-                            setPaResult(`${data.data.voteType === 'up' ? '👍' : '👎'} ${data.data.reasoning}`)
+                            setPaResult(
+                              t('voteResult', {
+                                emoji: data.data.voteType === 'up' ? '👍' : '👎',
+                                reasoning: data.data.reasoning,
+                              }),
+                            )
                           } else {
-                            setPaResult(data.error || '投票失败')
+                            setPaResult(data.error || t('voteFailed'))
                           }
                         } else {
-                          setPaResult('该应用暂不支持投票（旧应用需重新注册）')
+                          setPaResult(t('voteUnsupported'))
                         }
-                      } catch { setPaResult('操作失败') }
+                      } catch { setPaResult(t('operationFailed')) }
                       finally { setPaVoting(false) }
                     }}
                     disabled={paVoting}
@@ -294,7 +330,7 @@ export default function AppDetailPage() {
                                hover:bg-purple-50 transition-colors inline-flex items-center gap-2
                                disabled:opacity-50"
                   >
-                    {paVoting ? '🗳️ 投票中...' : '🗳️ PA 投票'}
+                    {paVoting ? t('paVoting') : t('paVote')}
                   </button>
                 )}
                 <a
@@ -302,7 +338,7 @@ export default function AppDetailPage() {
                   className="px-5 py-2.5 border border-orange-200 text-orange-500 rounded-lg text-sm
                              hover:bg-orange-50 transition-colors inline-flex items-center gap-2"
                 >
-                  💬 手动反馈
+                  {t('manualFeedback')}
                 </a>
               </div>
               {paResult && (
@@ -318,15 +354,15 @@ export default function AppDetailPage() {
       {/* Metrics Dashboard */}
       <section className="relative py-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 className="text-2xl font-extrabold text-gray-800 mb-6 font-heading">数据概览</h2>
+          <h2 className="text-2xl font-extrabold text-gray-800 mb-6 font-heading">{t('dataOverview')}</h2>
 
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
             {[
-              { label: '总用户', value: latestMetrics?.totalUsers || 0, icon: '👥', color: app.circle.color },
-              { label: '活跃用户', value: latestMetrics?.activeUsers || 0, icon: '⚡', color: app.circle.color },
-              { label: '评分', value: (latestMetrics?.rating || 0).toFixed(1), icon: '⭐', color: app.circle.color },
-              { label: 'PA 投票', value: app.voteCount ?? 0, icon: '🗳️', color: app.circle.color },
-              { label: '总访问', value: latestMetrics?.totalVisits || 0, icon: '📊', color: app.circle.color },
+              { label: t('metricTotalUsers'), value: latestMetrics?.totalUsers || 0, icon: '👥', color: app.circle.color },
+              { label: t('metricActiveUsers'), value: latestMetrics?.activeUsers || 0, icon: '⚡', color: app.circle.color },
+              { label: t('metricRating'), value: (latestMetrics?.rating || 0).toFixed(1), icon: '⭐', color: app.circle.color },
+              { label: t('metricVotes'), value: app.voteCount ?? 0, icon: '🗳️', color: app.circle.color },
+              { label: t('metricVisits'), value: latestMetrics?.totalVisits || 0, icon: '📊', color: app.circle.color },
             ].map((metric, i) => (
               <Card key={i} className="p-6 text-center">
                 <div className="text-3xl mb-3">{metric.icon}</div>
@@ -343,21 +379,31 @@ export default function AppDetailPage() {
       {/* Activity Feed */}
       <section className="relative py-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 className="text-2xl font-extrabold text-gray-800 mb-6 font-heading">动态</h2>
+          <h2 className="text-2xl font-extrabold text-gray-800 mb-6 font-heading">{t('activityTitle')}</h2>
 
           <div className="space-y-6">
             {app.posts.map((post) => (
               <Card key={post.id} className="p-6">
                 <div className="flex items-start gap-4">
-                  <div className="w-12 h-12 bg-gradient-to-br from-orange-300 to-amber-400 rounded-xl flex items-center justify-center text-xl flex-shrink-0 shadow-sm">
-                    {app.logo ? <img src={app.logo} alt={app.name} className="w-full h-full object-cover rounded-xl" /> : '🤖'}
+                  <div className="relative w-12 h-12 bg-gradient-to-br from-orange-300 to-amber-400 rounded-xl flex items-center justify-center text-xl flex-shrink-0 shadow-sm overflow-hidden">
+                    {app.logo ? (
+                      <Image
+                        src={app.logo}
+                        alt={app.name}
+                        width={48}
+                        height={48}
+                        sizes="48px"
+                        unoptimized
+                        className="w-full h-full object-cover rounded-xl"
+                      />
+                    ) : '🤖'}
                   </div>
 
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-3">
                       <span className="font-bold text-gray-800 font-heading">{app.name}</span>
                       <span className="text-xs text-gray-400">
-                        {new Date(post.createdAt).toLocaleString()}
+                        {formatDateTime(post.createdAt, locale)}
                       </span>
                     </div>
 
@@ -376,10 +422,10 @@ export default function AppDetailPage() {
 
                     <div className="flex gap-6 text-sm text-gray-400">
                       <button className="hover:text-orange-500 transition-colors">
-                        💬 {post.commentCount} 评论
+                        💬 {post.commentCount} {t('comments')}
                       </button>
                       <button className="hover:text-orange-500 transition-colors">
-                        ❤️ {post.likeCount} 点赞
+                        ❤️ {post.likeCount} {t('likes')}
                       </button>
                     </div>
                   </div>
@@ -389,7 +435,7 @@ export default function AppDetailPage() {
 
             {app.posts.length === 0 && (
               <div className="text-center py-20">
-                <div className="text-gray-400 text-lg">暂无动态</div>
+                <div className="text-gray-400 text-lg">{t('noActivity')}</div>
               </div>
             )}
           </div>
@@ -400,11 +446,11 @@ export default function AppDetailPage() {
       <section id="feedback-section" className="relative py-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between mb-8">
-            <h2 className="text-2xl font-extrabold text-gray-800 font-heading">社区反馈</h2>
+            <h2 className="text-2xl font-extrabold text-gray-800 font-heading">{t('communityFeedback')}</h2>
             {clientId && (
               <Button asChild size="sm">
                 <Link href={`/feedback/${clientId}`}>
-                  提交详细反馈
+                  {t('submitDetailedFeedback')}
                 </Link>
               </Button>
             )}
@@ -417,13 +463,13 @@ export default function AppDetailPage() {
                 <form onSubmit={handleCommentSubmit}>
                   <div className="flex items-center gap-3 mb-4">
                     {user.avatarUrl ? (
-                      <img src={user.avatarUrl} alt="" className="w-8 h-8 rounded-full" />
+                      <Image src={user.avatarUrl} alt="" width={32} height={32} unoptimized className="w-8 h-8 rounded-full" />
                     ) : (
                       <div className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-300 to-amber-400 flex items-center justify-center text-sm text-white font-bold">
                         {(user.name || 'U')[0]}
                       </div>
                     )}
-                    <span className="text-sm font-medium text-gray-700">{user.name || '匿名用户'}</span>
+                    <span className="text-sm font-medium text-gray-700">{user.name || t('anonymousUser')}</span>
                     <StarPicker value={commentRating} onChange={setCommentRating} />
                   </div>
                   <div className="flex gap-3">
@@ -431,7 +477,7 @@ export default function AppDetailPage() {
                       type="text"
                       value={commentText}
                       onChange={e => setCommentText(e.target.value)}
-                      placeholder="写下你的评价..."
+                      placeholder={t('commentPlaceholder')}
                       maxLength={200}
                       className="flex-1 px-4 py-2.5 border border-gray-200 rounded-lg text-sm
                                  focus:outline-none focus:border-orange-300 focus:ring-1 focus:ring-orange-200
@@ -443,19 +489,25 @@ export default function AppDetailPage() {
                       disabled={submitting || !commentText.trim()}
                       className="disabled:cursor-not-allowed"
                     >
-                      {submitting ? '提交中...' : '评价'}
+                      {submitting ? t('submitting') : t('review')}
                     </Button>
                   </div>
-                  {submitMsg && (
-                    <p className={`text-xs mt-2 ${submitMsg.includes('失败') || submitMsg.includes('错误') ? 'text-red-500' : 'text-emerald-500'}`}>
-                      {submitMsg}
+                  {submitFeedback && (
+                    <p
+                      className={`text-xs mt-2 ${
+                        submitFeedback.kind === 'error' ? 'text-red-500' : 'text-emerald-500'
+                      }`}
+                    >
+                      {submitFeedback.kind === 'success'
+                        ? t('submitSuccess')
+                        : submitFeedback.msg || t('submitFailed')}
                     </p>
                   )}
                 </form>
               ) : (
                 <div className="text-center py-3">
                   <a href="/api/auth/login" className="text-orange-500 hover:text-orange-600 text-sm font-medium">
-                    登录后评论 →
+                    {t('loginToComment')}
                   </a>
                 </div>
               )}
@@ -472,7 +524,7 @@ export default function AppDetailPage() {
                         <span className="text-gray-800 font-bold">{fb.agentName}</span>
                         <SourceBadge agentType={fb.agentType} />
                         <span className="text-xs text-gray-300">
-                          {new Date(fb.createdAt).toLocaleDateString('zh-CN')}
+                          {formatDate(fb.createdAt, locale, 'short')}
                         </span>
                       </div>
                       <p className="text-gray-500 text-sm">{fb.summary}</p>
@@ -487,11 +539,11 @@ export default function AppDetailPage() {
           ) : (
             <Card className="p-12 text-center">
               <div className="text-4xl mb-4">🐰</div>
-              <p className="text-gray-400 mb-4">还没有反馈，来做第一个吧！</p>
+              <p className="text-gray-400 mb-4">{t('noFeedbackYet')}</p>
               {clientId && (
                 <Button asChild size="sm">
                   <Link href={`/feedback/${clientId}`}>
-                    第一个评价
+                    {t('firstReview')}
                   </Link>
                 </Button>
               )}

@@ -15,10 +15,14 @@ import type {
 import { getScene } from '@/lib/scenes'
 import { fillTemplate } from './template'
 import { matchAction } from './match'
-import { checkPrecondition, clearSceneScopedFlags, getReturnContext } from './session-context'
-import { getSceneLabel } from './ontology'
+import {
+  checkPrecondition,
+  clearSceneScopedFlags,
+  getReturnContext,
+  persistSessionState,
+} from './session-context'
+import { getSceneLabel, getHubSceneId } from './ontology'
 import type { VisitorInfo, NPCReplyMeta } from '@/lib/npc/types'
-import { persistSession } from './session'
 import { checkAndRecord, resetGuard } from './conversation-guard'
 import { activateBehavior, deactivateBehavior, getBehaviorsForScene } from '@/lib/behavior-engine'
 
@@ -64,7 +68,7 @@ export function resolveTurn(session: GameSession, turn: PlayerTurn): TurnOutcome
   if (turn.actionId === '_back') {
     return {
       type: 'move',
-      target: 'lobby',
+      target: getHubSceneId(),
       transitionType: 'enter_space',
       message: { pa: '好的，回大厅了！', agent: 'Returning to lobby.' },
     }
@@ -110,7 +114,7 @@ export function resolveTurn(session: GameSession, turn: PlayerTurn): TurnOutcome
 
   return {
     type: 'move',
-    target: action.transition?.target || 'lobby',
+    target: action.transition?.target || getHubSceneId(),
     transitionType: action.transition?.type || 'enter_space',
     message,
   }
@@ -128,7 +132,7 @@ export function applyResult(session: GameSession, outcome: TurnOutcome): void {
     session.round = 0
   }
   session.lastActiveAt = Date.now()
-  persistSession(session)
+  persistSessionState(session)
 }
 
 export function processTurn(session: GameSession, turn: PlayerTurn): TurnResponse {
@@ -186,7 +190,7 @@ export async function enterScene(
     session.flags = { ...session.flags, visitedScenes: [...visited, sceneId] }
   }
 
-  if (sceneId === 'lobby' && !isFirstVisit) {
+  if (sceneId === getHubSceneId() && !isFirstVisit) {
     const rc = getReturnContext(session)
     const recLabel = rc?.recommendation ? getSceneLabel(rc.recommendation) : ''
     session.data = {
@@ -197,7 +201,7 @@ export async function enterScene(
     }
   }
 
-  persistSession(session)
+  persistSessionState(session)
 
   // Activate onSceneEnter behaviors (e.g. browse_apps in news scene)
   for (const spec of getBehaviorsForScene(sceneId)) {
@@ -444,7 +448,7 @@ function toActionSlot(action: SceneAction, session: GameSession): ActionSlot {
 
 function buildMetaActions(sceneId: string): MetaActionType[] {
   const meta: MetaActionType[] = ['rest', 'help']
-  if (sceneId !== 'lobby') meta.push('back')
+  if (sceneId !== getHubSceneId()) meta.push('back')
   return meta
 }
 

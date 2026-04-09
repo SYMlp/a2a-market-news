@@ -8,7 +8,8 @@
  */
 
 import type { GameSession, DualText } from './types'
-import { persistSession } from './session'
+import { persistSessionState } from './session-context'
+import { getHubSceneId, getOntology, getCommunicationProtocol, getSceneLabel } from './ontology'
 
 const REPEAT_THRESHOLD = 3
 const HISTORY_SIZE = 10
@@ -81,20 +82,31 @@ export function checkAndRecord(
     hist.guardTriggered = true
     hist.consecutiveRepeats = 0
     saveHistory(session, hist)
-    persistSession(session)
+    persistSessionState(session)
 
-    const breakerPa = sceneId === 'lobby'
-      ? '看起来我们聊了好几轮同样的话题了。要不换个方向？你可以去日报栏逛逛，或者去开发者空间看看。'
-      : '我们好像兜圈子了！要不先回大厅换个话题？直接说"回大厅"就行。'
+    const { guardMessages } = getCommunicationProtocol()
+    const hubId = getHubSceneId()
+    const isHub = sceneId === hubId
+    const template = isHub
+      ? guardMessages.conversationLoop.atHub
+      : guardMessages.conversationLoop.atScene
+
+    const ontology = getOntology()
+    const exitLabels = (ontology.scenes[sceneId]?.exits ?? [])
+      .map(e => getSceneLabel(e))
+      .join('、')
+    const hubLabel = getSceneLabel(hubId)
 
     return {
-      pa: breakerPa,
-      agent: `[GUARD] Conversation loop detected. Circuit breaker activated.`,
+      pa: template.pa
+        .replace('{exitLabels}', exitLabels)
+        .replace('{hubLabel}', hubLabel),
+      agent: template.agent,
     }
   }
 
   saveHistory(session, hist)
-  persistSession(session)
+  persistSessionState(session)
   return null
 }
 
@@ -109,7 +121,7 @@ export function recordPaMessage(session: GameSession, paMessage: string): void {
     hist.paMessages = hist.paMessages.slice(-HISTORY_SIZE)
   }
   saveHistory(session, hist)
-  persistSession(session)
+  persistSessionState(session)
 }
 
 /**
@@ -170,12 +182,18 @@ export function checkActionRepeat(
   }
 
   session.flags = { ...session.flags, _actionRepeat: state }
-  persistSession(session)
+  persistSessionState(session)
 
   if (state.count >= ACTION_REPEAT_THRESHOLD) {
+    const { guardMessages } = getCommunicationProtocol()
+    const hubLabel = getSceneLabel(getHubSceneId())
     return {
-      pa: '我们好像重复同样的操作好几次了，换个方向吧！你可以提交体验报告，或者回大厅看看其他场景。',
-      agent: `[GUARD] Same action "${actionMatched}" repeated ${state.count} times in scene "${sceneId}". Circuit breaker activated.`,
+      pa: guardMessages.actionRepeat.pa
+        .replace('{hubLabel}', hubLabel),
+      agent: guardMessages.actionRepeat.agent
+        .replace('{actionId}', actionMatched)
+        .replace('{count}', String(state.count))
+        .replace('{sceneId}', sceneId),
     }
   }
 
@@ -226,7 +244,7 @@ export function recordTransitionAndCheck(
   history.push({ from, to, turn: session.globalTurn })
   if (history.length > 20) history.splice(0, history.length - 20)
   session.flags = { ...session.flags, transitionHistory: history }
-  persistSession(session)
+  persistSessionState(session)
 
   // Check 1: A↔B ping-pong detection (existing)
   if (history.length >= TRANSITION_LOOP_THRESHOLD * 2) {
@@ -241,9 +259,15 @@ export function recordTransitionAndCheck(
     if (isPingPong) {
       const loopA = tail[0].from
       const loopB = tail[0].to
+      const { guardMessages } = getCommunicationProtocol()
       return {
-        pa: `我们已经在「${loopA}」和「${loopB}」之间来回跑了好几趟了。这次换个方向——你还没去过的地方或许有惊喜，也可以先离开下次再来。`,
-        agent: `[GUARD] Cross-scene A↔B loop detected: ${loopA} ↔ ${loopB} repeated ${TRANSITION_LOOP_THRESHOLD} times. Breaking loop.`,
+        pa: guardMessages.transitionPingPong.pa
+          .replace('{loopA}', loopA)
+          .replace('{loopB}', loopB),
+        agent: guardMessages.transitionPingPong.agent
+          .replace('{loopA}', loopA)
+          .replace('{loopB}', loopB)
+          .replace('{count}', String(TRANSITION_LOOP_THRESHOLD)),
       }
     }
   }
@@ -252,9 +276,12 @@ export function recordTransitionAndCheck(
   const cycle = detectPathCycle(history)
   if (cycle) {
     const cycleLabels = cycle.join('→')
+    const { guardMessages } = getCommunicationProtocol()
     return {
-      pa: `你已经走了同样的路线了（${cycleLabels}），要不换个新方向？也可以直接离开，下次再来。`,
-      agent: `[GUARD] Path cycle detected: ${cycleLabels}. Breaking loop.`,
+      pa: guardMessages.pathCycle.pa
+        .replace('{cycleLabels}', cycleLabels),
+      agent: guardMessages.pathCycle.agent
+        .replace('{cycleLabels}', cycleLabels),
     }
   }
 

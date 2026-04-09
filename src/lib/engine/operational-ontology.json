@@ -45,7 +45,8 @@
       "execution": {
         "type": "subflow",
         "specName": "register",
-        "detail": "注册流程已开始"
+        "detail": "注册流程已开始",
+        "contextBuilder": "fc.buildContext.registration"
       }
     },
     "GM.startAppSettings": {
@@ -59,7 +60,8 @@
       "execution": {
         "type": "subflow",
         "specName": "app-settings",
-        "detail": "应用设置流程已开始"
+        "detail": "应用设置流程已开始",
+        "contextBuilder": "fc.buildContext.appSettings"
       }
     },
     "GM.startAppLifecycle": {
@@ -224,5 +226,21 @@
       "meaning": "访客已是开发者",
       "unlocks": "推荐应用给日报"
     }
-  }
+  },
+  "sessionStateDisplay": [
+    {
+      "flag": "experiencingApp",
+      "label": "正在体验的应用",
+      "format": "name",
+      "emptyText": "无"
+    },
+    {
+      "flag": "hasExperienced",
+      "label": "已完成体验",
+      "type": "boolean",
+      "trueText": "是",
+      "falseText": "否"
+    }
+  ],
+  "sceneScopedFlags": ["experiencingApp", "hasExperienced"]
 }

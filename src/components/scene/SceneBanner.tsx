@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 interface SceneBannerProps {
   label: string
   icon: string
@@ -8,6 +10,7 @@ interface SceneBannerProps {
 }
 
 export default function SceneBanner({ label, icon, npcName, accentRgb }: SceneBannerProps) {
+  const t = useTranslations('agentSpace')
   return (
     <div
       className="scene-banner"
@@ -61,7 +64,7 @@ export default function SceneBanner({ label, icon, npcName, accentRgb }: SceneBa
           <div className="scene-banner__npc">
             <span className="scene-banner__npc-indicator" />
             <span>{npcName}</span>
-            <span className="scene-banner__npc-status">在线</span>
+            <span className="scene-banner__npc-status">{t('sceneBanner.online')}</span>
           </div>
         </div>
       </div>

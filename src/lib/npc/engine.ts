@@ -1,6 +1,7 @@
 import { prisma } from '../prisma'
+import { rootLogger } from '@/lib/logger'
 import { refreshAccessToken } from '../auth'
-import { callSecondMeStream } from '../pa-engine'
+import { callSecondMeStream } from '../pa-actions'
 import { buildNPCMessage, buildAgentText } from './prompts'
 import { loadAllNPCSpecs } from './npc-loader'
 // v7: scope gate disabled — ontology handles scope via prompt
@@ -31,7 +32,7 @@ async function getOwnerToken(ownerId: string): Promise<string | null> {
       })
       return tokens.access_token
     } catch (e) {
-      console.error(`NPC owner token refresh failed for ${ownerId}:`, e)
+      rootLogger.error({ err: e, ownerId }, 'npc_owner_token_refresh_failed')
       return null
     }
   }
@@ -139,7 +140,7 @@ export async function generateNPCReply(
       meta: { scopeAssessment: 'in_scope' },
     }
   } catch (e) {
-    console.error(`NPC AI generation failed for ${npcKey}:`, e)
+    rootLogger.error({ err: e, npcKey }, 'npc_ai_generation_failed')
     return { ...fallbackMessage, meta: { scopeAssessment: 'in_scope' } }
   }
 }

@@ -1,15 +1,13 @@
-import { NextResponse } from 'next/server'
-import { getCurrentUser } from '@/lib/auth'
+import { NextRequest } from 'next/server'
+import { reportApiError } from '@/lib/server-observability'
+import { apiError, apiSuccess, AuthError, requireAuth } from '@/lib/api-utils'
 import { prisma } from '@/lib/prisma'
-import { executeDailyReportAction, logPAAction } from '@/lib/pa-engine'
-import { addPoints } from '@/lib/points'
+import { executeDailyReportAction, logPAAction } from '@/lib/pa-actions'
+import { addPoints } from '@/lib/gamification'
 
-export async function POST() {
+export async function POST(request: NextRequest) {
   try {
-    const user = await getCurrentUser()
-    if (!user) {
-      return NextResponse.json({ error: '请先登录' }, { status: 401 })
-    }
+    const user = await requireAuth()
 
     const today = new Date()
     today.setHours(0, 0, 0, 0)
@@ -64,17 +62,17 @@ export async function POST() {
       logPAAction(user.id, 'daily_report', null, 'daily-report', result.content, null, 10),
     ])
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        report,
-        content: result.content,
-        activities,
-        points: points.newBalance,
-      },
+    return apiSuccess({
+      report,
+      content: result.content,
+      activities,
+      points: points.newBalance,
     })
   } catch (error) {
-    console.error('PA daily report failed:', error)
-    return NextResponse.json({ error: '日报生成失败' }, { status: 500 })
+    if (error instanceof AuthError) {
+      return error.response
+    }
+    reportApiError(request, error, 'pa_daily_report_failed')
+    return apiError('日报生成失败', 500)
   }
 }

@@ -1,4 +1,7 @@
 import { prisma } from '@/lib/prisma'
+import { rootLogger } from '@/lib/logger'
+
+const log = rootLogger.child({ component: 'EventLogger' })
 
 /**
  * Bump this when deploying PA behavior fixes.
@@ -91,7 +94,7 @@ export async function ensureSessionLog(params: SessionLogParams): Promise<string
     })
     return log.id
   } catch (err) {
-    console.error('[EventLogger] ensureSessionLog failed:', err)
+    log.error({ err }, 'ensureSessionLog failed')
     return ''
   }
 }
@@ -156,7 +159,7 @@ export async function logTurn(
       await updateScenesVisited(sessionLogId, params.transitionTo)
     }
   } catch (err) {
-    console.error('[EventLogger] logTurn failed:', err)
+    log.error({ err }, 'logTurn failed')
   }
 }
 
@@ -177,7 +180,7 @@ export async function closeSessionLog(
       },
     })
   } catch (err) {
-    console.error('[EventLogger] closeSessionLog failed:', err)
+    log.error({ err }, 'closeSessionLog failed')
   }
 }
 

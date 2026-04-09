@@ -1,22 +1,22 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { getCurrentUser } from '@/lib/auth'
+import { NextRequest } from 'next/server'
+import { reportApiError } from '@/lib/server-observability'
+import { getLoggerForRequest } from '@/lib/logger'
+import { apiError, apiSuccess, AuthError, requireAuth } from '@/lib/api-utils'
 import { prisma } from '@/lib/prisma'
-import { executeReviewAction, logPAAction } from '@/lib/pa-engine'
-import { processAchievements } from '@/lib/achievement'
-import { addPoints, incrementDailyTask } from '@/lib/points'
+import { executeReviewAction } from '@/lib/pa-actions'
+import { rewardReview } from '@/lib/gamification'
 
 export async function POST(request: NextRequest) {
+  const log = getLoggerForRequest(request)
   try {
-    const user = await getCurrentUser()
-    if (!user) {
-      return NextResponse.json({ error: '请先登录' }, { status: 401 })
-    }
+    log.debug({ route: 'api/pa-action/review' }, 'handler_enter')
+    const user = await requireAuth()
 
     const { appPAId, appId, clientId, confirm, editedContent, editedRating } = await request.json()
-    const lookupId = appId ?? appPAId
+    const lookupId = appPAId ?? appId
 
     if (!lookupId && !clientId) {
-      return NextResponse.json({ error: '缺少 appId/appPAId 或 clientId' }, { status: 400 })
+      return apiError('缺少 appId/appPAId 或 clientId', 400)
     }
 
     const appRecord = lookupId
@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
       : await prisma.app.findUnique({ where: { clientId }, include: { circle: true, developer: true } })
 
     if (!appRecord) {
-      return NextResponse.json({ error: '应用不存在' }, { status: 404 })
+      return apiError('应用不存在', 404)
     }
 
     const pa = {
@@ -42,14 +42,11 @@ export async function POST(request: NextRequest) {
     if (!confirm) {
       const result = await executeReviewAction(user.accessToken, app, pa)
 
-      return NextResponse.json({
-        success: true,
+      return apiSuccess({
         phase: 'preview',
-        data: {
-          content: result.content,
-          structured: result.structured,
-          appName: appRecord.name,
-        },
+        content: result.content,
+        structured: result.structured,
+        appName: appRecord.name,
       })
     }
 
@@ -73,29 +70,27 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    const [achievements, points] = await Promise.all([
-      processAchievements(
-        user.secondmeUserId,
-        user.name || 'Anonymous',
-        'human',
-        clientId || appRecord.id
-      ).catch(() => ({ newUnlocks: [] })),
-      addPoints(user.id, 'review', `评价了 ${appRecord.name}`),
-      incrementDailyTask(user.id, 'review'),
-      logPAAction(user.id, 'review', appRecord.id, `review:${appRecord.name}`, content, structured, 20),
-    ])
+    const reward = await rewardReview({
+      userId: user.id,
+      agentId: user.secondmeUserId,
+      agentName: user.name || 'Anonymous',
+      appId: appRecord.id,
+      appName: appRecord.name,
+      content,
+      structured,
+    })
 
-    return NextResponse.json({
-      success: true,
+    return apiSuccess({
       phase: 'confirmed',
-      data: {
-        feedback,
-        achievements: achievements.newUnlocks,
-        points: points.newBalance,
-      },
+      feedback,
+      achievements: reward.achievements,
+      points: reward.newBalance,
     })
   } catch (error) {
-    console.error('PA review action failed:', error)
-    return NextResponse.json({ error: '操作失败' }, { status: 500 })
+    if (error instanceof AuthError) {
+      return error.response
+    }
+    reportApiError(request, error, 'pa_review_action_failed')
+    return apiError('操作失败', 500)
   }
 }

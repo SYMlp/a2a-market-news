@@ -1,11 +1,14 @@
 'use client'
 
+import Image from 'next/image'
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
+import { useLocale, useTranslations } from 'next-intl'
 import ReactMarkdown from 'react-markdown'
 import Header from '@/components/Header'
 import { Card } from '@/components/ui/Card'
+import { formatDate } from '@/lib/format-date'
 
 interface KeyStep {
   step: string
@@ -33,12 +36,6 @@ interface Practice {
   }
 }
 
-const CATEGORY_LABELS: Record<string, string> = {
-  practice: '最佳实践',
-  showcase: '案例展示',
-  tip: '技巧',
-}
-
 const CATEGORY_ICONS: Record<string, string> = {
   practice: '📋',
   showcase: '🏗️',
@@ -48,6 +45,8 @@ const CATEGORY_ICONS: Record<string, string> = {
 export default function PracticeDetailPage() {
   const params = useParams()
   const id = params.id as string
+  const locale = useLocale()
+  const t = useTranslations('practiceDetail')
 
   const [practice, setPractice] = useState<Practice | null>(null)
   const [loading, setLoading] = useState(true)
@@ -67,7 +66,7 @@ export default function PracticeDetailPage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#FFFBF5]">
         <div className="data-stream">
-          <div className="text-orange-500 text-2xl">加载实践详情...</div>
+          <div className="text-orange-500 text-2xl">{t('loading')}</div>
         </div>
       </div>
     )
@@ -79,13 +78,13 @@ export default function PracticeDetailPage() {
         <Header activeNav="practices" />
         <div className="flex flex-col items-center justify-center py-32">
           <div className="text-6xl mb-6">📝</div>
-          <h2 className="text-2xl font-bold text-gray-800 mb-3 font-heading">未找到该实践</h2>
-          <p className="text-gray-400 mb-6">可能已被删除或不存在</p>
+          <h2 className="text-2xl font-bold text-gray-800 mb-3 font-heading">{t('notFoundTitle')}</h2>
+          <p className="text-gray-400 mb-6">{t('notFoundDescription')}</p>
           <Link
             href="/practices"
             className="text-orange-500 hover:text-orange-600 font-semibold transition-colors"
           >
-            ← 返回实践列表
+            ← {t('backToList')}
           </Link>
         </div>
       </div>
@@ -109,6 +108,15 @@ export default function PracticeDetailPage() {
   const keySteps: KeyStep[] = Array.isArray(practice.keySteps) ? practice.keySteps : []
   const applicableTo: string[] = Array.isArray(practice.applicableTo) ? practice.applicableTo : []
 
+  const categoryLabel =
+    practice.category === 'practice'
+      ? t('practice')
+      : practice.category === 'showcase'
+        ? t('showcase')
+        : practice.category === 'tip'
+          ? t('tip')
+          : practice.category
+
   return (
     <div className="min-h-screen">
       <div className="fixed inset-0 cyber-grid pointer-events-none" />
@@ -124,7 +132,7 @@ export default function PracticeDetailPage() {
             href="/practices"
             className="inline-flex items-center gap-2 text-gray-400 hover:text-orange-500 transition-colors mb-8 text-sm"
           >
-            <span>←</span> 返回实践列表
+            <span>←</span> {t('backToList')}
           </Link>
 
           <div className="max-w-4xl">
@@ -132,14 +140,10 @@ export default function PracticeDetailPage() {
             <div className="flex items-center gap-3 mb-4">
               <span className="inline-flex items-center gap-1.5 px-3 py-1 text-xs font-semibold rounded-full bg-orange-50 text-orange-600 border border-orange-200">
                 {CATEGORY_ICONS[practice.category] || '📝'}{' '}
-                {CATEGORY_LABELS[practice.category] || practice.category}
+                {categoryLabel}
               </span>
               <span className="text-xs text-gray-400">
-                {new Date(practice.createdAt).toLocaleDateString('zh-CN', {
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric',
-                })}
+                {formatDate(practice.createdAt, locale, 'medium')}
               </span>
             </div>
 
@@ -153,9 +157,12 @@ export default function PracticeDetailPage() {
             <div className="flex items-center gap-6">
               <div className="flex items-center gap-3">
                 {practice.author.avatarUrl ? (
-                  <img
+                  <Image
                     src={practice.author.avatarUrl}
                     alt=""
+                    width={40}
+                    height={40}
+                    unoptimized
                     className="w-10 h-10 rounded-full object-cover ring-2 ring-orange-200"
                   />
                 ) : (
@@ -164,7 +171,7 @@ export default function PracticeDetailPage() {
                   </div>
                 )}
                 <span className="text-sm font-semibold text-gray-700">
-                  {practice.author.name || '匿名开发者'}
+                  {practice.author.name || t('anonymousDeveloper')}
                 </span>
               </div>
 
@@ -219,7 +226,7 @@ export default function PracticeDetailPage() {
                   {keySteps.length > 0 && (
                     <Card className="p-6">
                       <h3 className="text-sm font-bold text-orange-600 tracking-widest mb-4 uppercase">
-                        关键步骤
+                        {t('keySteps')}
                       </h3>
                       <ol className="space-y-4">
                         {keySteps.map((ks, i) => (
@@ -241,7 +248,7 @@ export default function PracticeDetailPage() {
                   {applicableTo.length > 0 && (
                     <Card className="p-6">
                       <h3 className="text-sm font-bold text-orange-600 tracking-widest mb-4 uppercase">
-                        适用场景
+                        {t('applicableScenarios')}
                       </h3>
                       <div className="flex flex-wrap gap-2">
                         {applicableTo.map(item => (

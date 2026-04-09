@@ -13,7 +13,7 @@ const MARKDOWN_THINKING_BLOCK =
 const CONSECUTIVE_BLANK_LINES = /\n{3,}/g
 
 export function stripLLMTags(text: string): string {
-  let cleaned = text
+  const cleaned = text
     .replace(LLM_TAG_PATTERN, '')
     .replace(SELF_CLOSING_TAG_PATTERN, '')
     .replace(UNCLOSED_TAG_PATTERN, '')

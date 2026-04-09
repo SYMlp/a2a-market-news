@@ -13,9 +13,26 @@
 import { parse as parseYaml } from 'yaml'
 import { readFileSync, readdirSync, existsSync } from 'fs'
 import { join } from 'path'
+import Ajv from 'ajv'
 import type { BehaviorSpec, ResolutionType } from './types'
 
 const BEHAVIORS_DIR = join(process.cwd(), 'specs', 'behaviors')
+const SCHEMA_PATH = join(process.cwd(), 'specs', 'behaviorspec.schema.json')
+
+let _schemaValidate: ReturnType<Ajv['compile']> | null = null
+
+function getSchemaValidator(): ReturnType<Ajv['compile']> | null {
+  if (_schemaValidate !== undefined && _schemaValidate !== null) return _schemaValidate
+  try {
+    if (!existsSync(SCHEMA_PATH)) return null
+    const schema = JSON.parse(readFileSync(SCHEMA_PATH, 'utf-8'))
+    const ajv = new Ajv({ allErrors: true, strict: false })
+    _schemaValidate = ajv.compile(schema)
+    return _schemaValidate
+  } catch {
+    return null
+  }
+}
 
 const VALID_RESOLUTION_TYPES: ReadonlySet<string> = new Set<ResolutionType>([
   'select_one',
@@ -60,6 +77,12 @@ function validateBehaviorSpec(raw: unknown, sourceHint: string): BehaviorSpec {
     throw new Error(
       `BehaviorSpec validation failed (${sourceHint}): 'resolution.type' must be one of: ${Array.from(VALID_RESOLUTION_TYPES).join(', ')}`,
     )
+  }
+
+  const schemaValidator = getSchemaValidator()
+  if (schemaValidator && !schemaValidator(raw)) {
+    const errors = schemaValidator.errors?.map(e => `${e.instancePath || '/'} ${e.message}`).join('; ')
+    throw new Error(`BehaviorSpec schema validation failed (${sourceHint}): ${errors}`)
   }
 
   return raw as unknown as BehaviorSpec

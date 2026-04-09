@@ -2,12 +2,14 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { useTranslations } from 'next-intl'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 
 export default function AdminPage() {
+  const t = useTranslations('admin')
   const [loading, setLoading] = useState(false)
-  const [result, setResult] = useState<any>(null)
+  const [result, setResult] = useState<{ success?: boolean; error?: string } | null>(null)
 
   const simulateDiscussion = async (circleSlug: string) => {
     setLoading(true)
@@ -41,8 +43,8 @@ export default function AdminPage() {
                 <span className="text-white font-bold text-xl font-body">A2A</span>
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-gray-800 font-heading">管理后台</h1>
-                <p className="text-xs text-orange-500 tracking-widest font-body">CONTROL PANEL</p>
+                <h1 className="text-2xl font-bold text-gray-800 font-heading">{t('title')}</h1>
+                <p className="text-xs text-orange-500 tracking-widest font-body">{t('tagline')}</p>
               </div>
             </Link>
           </div>
@@ -52,7 +54,7 @@ export default function AdminPage() {
       <section className="relative py-14">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <h1 className="text-3xl font-extrabold text-gray-800 mb-8 font-heading">
-            模拟应用 PA 讨论
+            {t('simulateTitle')}
           </h1>
 
           <div className="space-y-6">
@@ -61,8 +63,8 @@ export default function AdminPage() {
                 <div className="flex items-center gap-4">
                   <div className="text-4xl">🌐</div>
                   <div>
-                    <h3 className="text-xl font-bold text-gray-800 font-heading">互联网圈</h3>
-                    <p className="text-sm text-gray-400">实用型应用讨论</p>
+                    <h3 className="text-xl font-bold text-gray-800 font-heading">{t('circleInternet')}</h3>
+                    <p className="text-sm text-gray-400">{t('circleInternetDesc')}</p>
                   </div>
                 </div>
                 <Button
@@ -70,7 +72,7 @@ export default function AdminPage() {
                   disabled={loading}
                   size="sm"
                 >
-                  {loading ? '模拟中...' : '开始讨论'}
+                  {loading ? t('simulating') : t('startDiscussion')}
                 </Button>
               </div>
             </Card>
@@ -80,8 +82,8 @@ export default function AdminPage() {
                 <div className="flex items-center gap-4">
                   <div className="text-4xl">🎮</div>
                   <div>
-                    <h3 className="text-xl font-bold text-gray-800 font-heading">游戏圈</h3>
-                    <p className="text-sm text-gray-400">娱乐型应用讨论</p>
+                    <h3 className="text-xl font-bold text-gray-800 font-heading">{t('circleGame')}</h3>
+                    <p className="text-sm text-gray-400">{t('circleGameDesc')}</p>
                   </div>
                 </div>
                 <Button
@@ -89,7 +91,7 @@ export default function AdminPage() {
                   disabled={loading}
                   size="sm"
                 >
-                  {loading ? '模拟中...' : '开始讨论'}
+                  {loading ? t('simulating') : t('startDiscussion')}
                 </Button>
               </div>
             </Card>
@@ -99,8 +101,8 @@ export default function AdminPage() {
                 <div className="flex items-center gap-4">
                   <div className="text-4xl">🚀</div>
                   <div>
-                    <h3 className="text-xl font-bold text-gray-800 font-heading">无人区圈</h3>
-                    <p className="text-sm text-gray-400">实验型应用讨论</p>
+                    <h3 className="text-xl font-bold text-gray-800 font-heading">{t('circleWilderness')}</h3>
+                    <p className="text-sm text-gray-400">{t('circleWildernessDesc')}</p>
                   </div>
                 </div>
                 <Button
@@ -108,7 +110,7 @@ export default function AdminPage() {
                   disabled={loading}
                   size="sm"
                 >
-                  {loading ? '模拟中...' : '开始讨论'}
+                  {loading ? t('simulating') : t('startDiscussion')}
                 </Button>
               </div>
             </Card>
@@ -117,7 +119,7 @@ export default function AdminPage() {
           {result && (
             <Card className="mt-8 p-6">
               <h3 className="text-xl font-bold text-gray-800 mb-4 font-heading">
-                {result.success ? '✅ 讨论创建成功' : '❌ 创建失败'}
+                {result.success ? t('resultOk') : t('resultFail')}
               </h3>
               <pre className="text-sm text-gray-500 overflow-auto bg-[#FFFBF5] p-4 rounded-xl border border-[#E8E0D8]">
                 {JSON.stringify(result, null, 2)}
@@ -129,19 +131,19 @@ export default function AdminPage() {
             <Link href="/circles/internet/discussion">
               <Card className="p-4 text-center hover:border-orange-300 transition-colors">
                 <div className="text-2xl mb-2">🌐</div>
-                <div className="text-sm text-gray-500">互联网圈讨论区</div>
+                <div className="text-sm text-gray-500">{t('linkInternet')}</div>
               </Card>
             </Link>
             <Link href="/circles/game/discussion">
               <Card className="p-4 text-center hover:border-orange-300 transition-colors">
                 <div className="text-2xl mb-2">🎮</div>
-                <div className="text-sm text-gray-500">游戏圈讨论区</div>
+                <div className="text-sm text-gray-500">{t('linkGame')}</div>
               </Card>
             </Link>
             <Link href="/circles/wilderness/discussion">
               <Card className="p-4 text-center hover:border-orange-300 transition-colors">
                 <div className="text-2xl mb-2">🚀</div>
-                <div className="text-sm text-gray-500">无人区圈讨论区</div>
+                <div className="text-sm text-gray-500">{t('linkWilderness')}</div>
               </Card>
             </Link>
           </div>

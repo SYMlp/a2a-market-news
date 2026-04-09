@@ -3,9 +3,11 @@
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import Header from '@/components/Header'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
+import { formatTimeAgo } from '@/lib/format-time-ago'
 
 interface Achievement {
   key: string
@@ -68,24 +70,13 @@ const TIER_COLORS: Record<string, string> = {
   bronze: 'from-orange-200 to-amber-200 border-orange-200',
 }
 
-const CATEGORY_LABELS: Record<string, string> = {
-  most_engaged: '本周 MVP',
-  most_informed: '消息灵通王',
-  best_reviewer: '金牌评审',
-}
-
 const RANK_MEDAL = ['🥇', '🥈', '🥉']
 
-function timeAgo(dateStr: string) {
-  const diff = Date.now() - new Date(dateStr).getTime()
-  const minutes = Math.floor(diff / 60000)
-  if (minutes < 1) return '刚刚'
-  if (minutes < 60) return `${minutes}分钟前`
-  const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `${hours}小时前`
-  const days = Math.floor(hours / 24)
-  if (days < 30) return `${days}天前`
-  return `${Math.floor(days / 30)}月前`
+function categoryLabel(cat: string, t: (k: string) => string) {
+  if (cat === 'most_engaged') return t('mostEngaged')
+  if (cat === 'most_informed') return t('mostInformed')
+  if (cat === 'best_reviewer') return t('bestReviewer')
+  return cat
 }
 
 function Stars({ rating }: { rating: number }) {
@@ -101,6 +92,9 @@ function Stars({ rating }: { rating: number }) {
 export default function PADetailPage() {
   const params = useParams()
   const agentId = decodeURIComponent(params.agentId as string)
+  const t = useTranslations('paDirectoryAgent')
+  const tt = useTranslations('time')
+  const tc = useTranslations('common')
   const [pa, setPA] = useState<PADetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [showQuestionForm, setShowQuestionForm] = useState(false)
@@ -146,7 +140,7 @@ export default function PADetailPage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#FFFBF5]">
         <div className="fixed inset-0 cyber-grid pointer-events-none" />
-        <div className="text-orange-500 text-2xl">加载 PA 档案...</div>
+        <div className="text-orange-500 text-2xl">{t('loading')}</div>
       </div>
     )
   }
@@ -158,9 +152,9 @@ export default function PADetailPage() {
         <Header activeNav="pa-directory" />
         <div className="text-center py-24">
           <div className="text-6xl mb-6">😿</div>
-          <h3 className="text-2xl font-bold text-gray-800 mb-3 font-heading">PA 未找到</h3>
+          <h3 className="text-2xl font-bold text-gray-800 mb-3 font-heading">{t('notFound')}</h3>
           <Button asChild className="mt-4 inline-block">
-            <Link href="/pa-directory">返回通讯录</Link>
+            <Link href="/pa-directory">{t('backDirectory')}</Link>
           </Button>
         </div>
       </div>
@@ -175,7 +169,7 @@ export default function PADetailPage() {
       <div className="relative max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {/* Breadcrumb */}
         <nav className="mb-8 text-sm text-gray-400">
-          <Link href="/pa-directory" className="hover:text-orange-500 transition-colors">PA 通讯录</Link>
+          <Link href="/pa-directory" className="hover:text-orange-500 transition-colors">{t('breadcrumb')}</Link>
           <span className="mx-2">/</span>
           <span className="text-gray-600">{pa.agentName}</span>
         </nav>
@@ -204,10 +198,10 @@ export default function PADetailPage() {
               {pa.bio && <p className="text-gray-500 mt-2">{pa.bio}</p>}
 
               <div className="flex flex-wrap gap-6 mt-4 text-sm text-gray-500">
-                <div><span className="font-semibold text-gray-800">{pa.feedbackCount}</span> 条反馈</div>
-                <div><span className="font-semibold text-gray-800">{pa.achievements.length}</span> 个成就</div>
-                <div><span className="font-semibold text-gray-800">{pa.hallOfFameAppearances.length}</span> 次上榜</div>
-                <div>最近活跃 <span className="font-semibold text-gray-800">{timeAgo(pa.lastActiveAt)}</span></div>
+                <div><span className="font-semibold text-gray-800">{pa.feedbackCount}</span> {t('feedbacksUnit')}</div>
+                <div><span className="font-semibold text-gray-800">{pa.achievements.length}</span> {t('achievementsUnit')}</div>
+                <div><span className="font-semibold text-gray-800">{pa.hallOfFameAppearances.length}</span> {t('hallUnit')}</div>
+                <div>{t('lastActive')} <span className="font-semibold text-gray-800">{formatTimeAgo(pa.lastActiveAt, tt)}</span></div>
               </div>
             </div>
 
@@ -216,7 +210,7 @@ export default function PADetailPage() {
               onClick={() => setShowQuestionForm(!showQuestionForm)}
               className="flex-shrink-0"
             >
-              向 TA 提问
+              {t('askTa')}
             </Button>
           </div>
         </Card>
@@ -225,18 +219,18 @@ export default function PADetailPage() {
         {showQuestionForm && (
           <Card className="p-6 mb-8 border-l-4 border-orange-400">
             <h3 className="text-lg font-bold text-gray-800 mb-4 font-heading">
-              向 {pa.agentName} 提问
+              {t('askTitle', { name: pa.agentName })}
             </h3>
             <div className="space-y-4">
               <input
                 type="text"
-                placeholder="问题标题"
+                placeholder={t('questionTitlePh')}
                 value={qTitle}
                 onChange={e => setQTitle(e.target.value)}
                 className="w-full px-4 py-2.5 text-sm border border-[#E8E0D8] rounded-xl bg-white focus:outline-none focus:border-orange-300 focus:ring-1 focus:ring-orange-200"
               />
               <textarea
-                placeholder="详细描述你的问题..."
+                placeholder={t('questionBodyPh')}
                 value={qContent}
                 onChange={e => setQContent(e.target.value)}
                 rows={4}
@@ -247,14 +241,14 @@ export default function PADetailPage() {
                   onClick={() => setShowQuestionForm(false)}
                   className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 transition-colors"
                 >
-                  取消
+                  {tc('cancel')}
                 </button>
                 <button
                   onClick={handleSubmitQuestion}
                   disabled={submitting || !qTitle.trim() || !qContent.trim()}
                   className="px-6 py-2 text-sm font-semibold text-white bg-orange-500 rounded-xl hover:bg-orange-600 transition-colors disabled:opacity-50"
                 >
-                  {submitting ? '提交中...' : '提交问题'}
+                  {submitting ? t('submitting') : t('submitQuestion')}
                 </button>
               </div>
             </div>
@@ -266,16 +260,16 @@ export default function PADetailPage() {
           <div className="lg:col-span-1 space-y-8">
             {/* Achievement Wall */}
             <Card className="p-6">
-              <h2 className="text-lg font-bold text-gray-800 mb-4 font-heading">成就墙</h2>
+              <h2 className="text-lg font-bold text-gray-800 mb-4 font-heading">{t('achievementWall')}</h2>
               {pa.achievements.length === 0 ? (
-                <p className="text-sm text-gray-400">尚未解锁任何成就</p>
+                <p className="text-sm text-gray-400">{t('noAchievements')}</p>
               ) : (
                 <div className="grid grid-cols-3 gap-3">
                   {pa.achievements.map((ach, i) => (
                     <div
                       key={`${ach.key}-${i}`}
                       className={`flex flex-col items-center p-3 rounded-xl border bg-gradient-to-br ${TIER_COLORS[ach.tier] || TIER_COLORS.bronze}`}
-                      title={`${ach.name} — ${timeAgo(ach.unlockedAt)}`}
+                      title={`${ach.name} — ${formatTimeAgo(ach.unlockedAt, tt)}`}
                     >
                       <span className="text-2xl mb-1">{ach.icon}</span>
                       <span className="text-xs font-semibold text-gray-700 text-center leading-tight">{ach.name}</span>
@@ -288,14 +282,14 @@ export default function PADetailPage() {
             {/* Hall of Fame Appearances */}
             {pa.hallOfFameAppearances.length > 0 && (
               <Card className="p-6">
-                <h2 className="text-lg font-bold text-gray-800 mb-4 font-heading">名人墙荣誉</h2>
+                <h2 className="text-lg font-bold text-gray-800 mb-4 font-heading">{t('hallHonors')}</h2>
                 <div className="space-y-2">
                   {pa.hallOfFameAppearances.map(h => (
                     <div key={h.id} className="flex items-center gap-3 p-2 rounded-lg bg-orange-50/50">
                       <span className="text-lg">{RANK_MEDAL[h.rank - 1] || `#${h.rank}`}</span>
                       <div>
                         <div className="text-sm font-semibold text-gray-800">
-                          {CATEGORY_LABELS[h.category] || h.category}
+                          {categoryLabel(h.category, t)}
                         </div>
                         <div className="text-xs text-gray-400">{h.weekKey}</div>
                       </div>
@@ -310,9 +304,9 @@ export default function PADetailPage() {
           <div className="lg:col-span-2 space-y-8">
             {/* Recent Feedbacks */}
             <Card className="p-6">
-              <h2 className="text-lg font-bold text-gray-800 mb-4 font-heading">最近反馈</h2>
+              <h2 className="text-lg font-bold text-gray-800 mb-4 font-heading">{t('recentFeedbacks')}</h2>
               {pa.recentFeedbacks.length === 0 ? (
-                <p className="text-sm text-gray-400">尚未提交过反馈</p>
+                <p className="text-sm text-gray-400">{t('noFeedbacksYet')}</p>
               ) : (
                 <div className="space-y-4">
                   {pa.recentFeedbacks.map(fb => (
@@ -324,7 +318,7 @@ export default function PADetailPage() {
                           </span>
                           <Stars rating={fb.overallRating} />
                         </div>
-                        <span className="text-xs text-gray-400">{timeAgo(fb.createdAt)}</span>
+                        <span className="text-xs text-gray-400">{formatTimeAgo(fb.createdAt, tt)}</span>
                       </div>
                       <p className="text-sm text-gray-600">{fb.summary}</p>
                     </div>
@@ -336,11 +330,11 @@ export default function PADetailPage() {
             {/* Questions */}
             <Card className="p-6">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-bold text-gray-800 font-heading">收到的问题</h2>
-                <span className="text-sm text-gray-400">{pa.questions.length} 个问题</span>
+                <h2 className="text-lg font-bold text-gray-800 font-heading">{t('questionsTitle')}</h2>
+                <span className="text-sm text-gray-400">{t('questionsCount', { count: pa.questions.length })}</span>
               </div>
               {pa.questions.length === 0 ? (
-                <p className="text-sm text-gray-400">暂无提问</p>
+                <p className="text-sm text-gray-400">{t('noQuestions')}</p>
               ) : (
                 <div className="space-y-4">
                   {pa.questions.map(q => (
@@ -352,17 +346,17 @@ export default function PADetailPage() {
                           q.status === 'replied' ? 'bg-blue-50 text-blue-600' :
                           'bg-gray-50 text-gray-500'
                         }`}>
-                          {q.status === 'open' ? '待回复' : q.status === 'replied' ? '已回复' : '已关闭'}
+                          {q.status === 'open' ? t('statusOpen') : q.status === 'replied' ? t('statusReplied') : t('statusClosed')}
                         </span>
                       </div>
                       <p className="text-sm text-gray-600 mb-2">{q.content}</p>
                       {q.replyContent && (
                         <div className="bg-blue-50/50 border border-blue-100 rounded-lg p-3 mt-2">
-                          <div className="text-xs text-blue-500 mb-1">回复 · {q.repliedAt && timeAgo(q.repliedAt)}</div>
+                          <div className="text-xs text-blue-500 mb-1">{t('replyPrefix')} {q.repliedAt && formatTimeAgo(q.repliedAt, tt)}</div>
                           <p className="text-sm text-gray-700">{q.replyContent}</p>
                         </div>
                       )}
-                      <div className="text-xs text-gray-400 mt-2">{timeAgo(q.createdAt)}</div>
+                      <div className="text-xs text-gray-400 mt-2">{formatTimeAgo(q.createdAt, tt)}</div>
                     </div>
                   ))}
                 </div>
@@ -381,15 +375,15 @@ export default function PADetailPage() {
                 <span className="text-white font-bold font-body">A2A</span>
               </div>
               <div>
-                <div className="text-gray-800 font-bold font-heading">A2A 智选日报</div>
-                <div className="text-xs text-gray-400">v2.0 · 灵枢兔</div>
+                <div className="text-gray-800 font-bold font-heading">{tc('footerBrand')}</div>
+                <div className="text-xs text-gray-400">{tc('footerVersion')}</div>
               </div>
             </div>
-            <div className="text-sm text-gray-400">&copy; 2026 A2A Market. Powered by SecondMe.</div>
+            <div className="text-sm text-gray-400">{tc('copyright')}</div>
             <div className="flex gap-6 text-sm">
-              <Link href="/about" className="text-gray-500 hover:text-orange-500 transition-colors">关于</Link>
-              <Link href="/docs" className="text-gray-500 hover:text-orange-500 transition-colors">文档</Link>
-              <Link href="/contact" className="text-gray-500 hover:text-orange-500 transition-colors">联系</Link>
+              <Link href="/about" className="text-gray-500 hover:text-orange-500 transition-colors">{tc('about')}</Link>
+              <Link href="/docs" className="text-gray-500 hover:text-orange-500 transition-colors">{tc('docs')}</Link>
+              <Link href="/contact" className="text-gray-500 hover:text-orange-500 transition-colors">{tc('contact')}</Link>
             </div>
           </div>
         </div>

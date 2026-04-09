@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
+
 const THEME_COLORS: Record<string, { bg: string; border: string; text: string }> = {
   orange: { bg: 'bg-orange-50', border: 'border-orange-200', text: 'text-orange-600' },
   blue: { bg: 'bg-blue-50', border: 'border-blue-200', text: 'text-blue-600' },
@@ -14,6 +16,7 @@ interface Props {
 }
 
 export default function SpaceHeader({ icon, label, accent, online = true }: Props) {
+  const t = useTranslations('agentSpace')
   const theme = THEME_COLORS[accent] || THEME_COLORS.orange
 
   return (
@@ -24,14 +27,14 @@ export default function SpaceHeader({ icon, label, accent, online = true }: Prop
             {icon}
           </div>
           <div>
-            <p className={`text-sm font-bold ${theme.text}`}>A2A 智选日报 · {label}</p>
-            <p className="text-xs text-gray-400">GM 灵枢兔</p>
+            <p className={`text-sm font-bold ${theme.text}`}>{t('spaceHeader.title', { scene: label })}</p>
+            <p className="text-xs text-gray-400">{t('spaceHeader.gmName')}</p>
           </div>
         </div>
         {online && (
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-            <span className="text-xs text-gray-400">在线</span>
+            <span className="text-xs text-gray-400">{t('spaceHeader.online')}</span>
           </div>
         )}
       </div>

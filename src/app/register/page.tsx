@@ -1,20 +1,15 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { useTranslations } from 'next-intl'
 import Header from '@/components/Header'
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 
-const CIRCLES = [
-  { value: 'internet', emoji: '🌐', label: '互联网圈', desc: '实用型' },
-  { value: 'game', emoji: '🎮', label: '游戏圈', desc: '娱乐型' },
-  { value: 'wilderness', emoji: '🚀', label: '无人区圈', desc: '实验型' },
-] as const
-
-type CircleType = (typeof CIRCLES)[number]['value']
+type CircleType = 'internet' | 'game' | 'wilderness' | ''
 
 interface FormState {
   name: string
@@ -32,6 +27,17 @@ interface PaFilledFields {
 export default function RegisterPage() {
   const router = useRouter()
   const { user, loading: authLoading } = useAuth()
+  const t = useTranslations('registerApp')
+  const tc = useTranslations('common')
+  const circles = useMemo(
+    () =>
+      [
+        { value: 'internet' as const, emoji: '🌐', label: t('circleInternet'), desc: t('circleInternetDesc') },
+        { value: 'game' as const, emoji: '🎮', label: t('circleGame'), desc: t('circleGameDesc') },
+        { value: 'wilderness' as const, emoji: '🚀', label: t('circleWilderness'), desc: t('circleWildernessDesc') },
+      ] as const,
+    [t],
+  )
 
   const [form, setForm] = useState<FormState>({
     name: '',
@@ -71,9 +77,9 @@ export default function RegisterPage() {
             next.description = String(s.description.value)
             filled.description = true
           }
-          if (s.circleType?.value) {
+            if (s.circleType?.value) {
             const ct = String(s.circleType.value)
-            if (CIRCLES.some(c => c.value === ct)) {
+            if (circles.some(c => c.value === ct)) {
               next.circleType = ct as CircleType
               filled.circleType = true
             }
@@ -83,10 +89,10 @@ export default function RegisterPage() {
 
         setPaFilled(filled)
       } else {
-        setError(data.error || 'PA 建议获取失败')
+        setError(data.error || t('paSuggestFailed'))
       }
     } catch {
-      setError('网络错误，请稍后再试')
+      setError(tc('networkError'))
     } finally {
       setPaLoading(false)
     }
@@ -123,7 +129,7 @@ export default function RegisterPage() {
       if (data.success) {
         router.push(`/app-pa/${data.data.id}`)
       } else {
-        setError(data.error || '注册失败')
+        setError(data.error || t('registerFailed'))
       }
     } catch {
       setError('网络错误，请稍后再试')
@@ -138,7 +144,7 @@ export default function RegisterPage() {
         <div className="fixed inset-0 cyber-grid pointer-events-none" />
         <Header activeNav="developer" />
         <main className="relative py-20 flex items-center justify-center">
-          <p className="text-gray-500">加载中...</p>
+          <p className="text-gray-500">{tc('loading')}</p>
         </main>
       </div>
     )
@@ -151,9 +157,9 @@ export default function RegisterPage() {
         <Header activeNav="developer" />
         <main className="relative py-20">
           <div className="max-w-2xl mx-auto px-4 text-center">
-            <p className="text-gray-600 mb-4">登录后才能注册应用</p>
+            <p className="text-gray-600 mb-4">{t('loginToRegister')}</p>
             <Button asChild size="sm">
-              <Link href="/api/auth/login">登录</Link>
+              <Link href="/api/auth/login">{tc('login')}</Link>
             </Button>
           </div>
         </main>
@@ -169,16 +175,16 @@ export default function RegisterPage() {
         <main className="relative py-20">
           <div className="max-w-2xl mx-auto px-4 text-center">
             <div className="inline-block px-6 py-2 bg-orange-50 border border-orange-200 rounded-full mb-6">
-              <span className="text-orange-600 text-sm tracking-wide">需要开发者身份</span>
+              <span className="text-orange-600 text-sm tracking-wide">{t('developerBadge')}</span>
             </div>
             <h2 className="text-3xl font-extrabold text-gray-800 mb-4 font-heading">
-              先注册成为开发者
+              {t('registerDevFirst')}
             </h2>
             <p className="text-gray-500 mb-8">
-              注册应用前需要先完成开发者注册
+              {t('registerDevHint')}
             </p>
             <Button asChild>
-              <Link href="/developer/register">前往开发者注册</Link>
+              <Link href="/developer/register">{t('goDeveloperRegister')}</Link>
             </Button>
           </div>
         </main>
@@ -196,13 +202,13 @@ export default function RegisterPage() {
         <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <div className="inline-block px-6 py-2 bg-orange-50 border border-orange-200 rounded-full mb-6">
-              <span className="text-orange-600 text-sm tracking-wide">注册新应用</span>
+              <span className="text-orange-600 text-sm tracking-wide">{t('badge')}</span>
             </div>
             <h2 className="text-4xl font-extrabold text-gray-800 mb-4 font-heading">
-              注册 A2A 应用
+              {t('title')}
             </h2>
             <p className="text-gray-500">
-              填写应用信息，让 PA 和用户发现你的应用
+              {t('subtitle')}
             </p>
           </div>
 
@@ -228,10 +234,10 @@ export default function RegisterPage() {
                   {paLoading ? (
                     <>
                       <span className="w-4 h-4 border-2 border-indigo-300 border-t-indigo-600 rounded-full animate-spin" />
-                      PA 思考中...
+                      {t('paThinking')}
                     </>
                   ) : (
-                    'PA 帮我填写'
+                    t('paAssistFill')
                   )}
                 </button>
               </div>
@@ -239,7 +245,7 @@ export default function RegisterPage() {
               {/* Name */}
               <div>
                 <label className="block text-orange-600 text-xs tracking-widest mb-2 font-semibold">
-                  应用名称 *
+                  {t('appNameLabel')}
                   {paFilled.name && <PaBadge />}
                 </label>
                 <input
@@ -251,14 +257,14 @@ export default function RegisterPage() {
                     clearPaIndicator('name')
                   }}
                   className={fieldClass(paFilled.name)}
-                  placeholder="给你的应用取个名字"
+                  placeholder={t('namePlaceholder')}
                 />
               </div>
 
               {/* Description */}
               <div>
                 <label className="block text-orange-600 text-xs tracking-widest mb-2 font-semibold">
-                  应用描述 *
+                  {t('appDescLabel')}
                   {paFilled.description && <PaBadge />}
                 </label>
                 <textarea
@@ -270,18 +276,18 @@ export default function RegisterPage() {
                     clearPaIndicator('description')
                   }}
                   className={fieldClass(paFilled.description)}
-                  placeholder="描述一下你的应用做什么、有什么特色"
+                  placeholder={t('descPlaceholder')}
                 />
               </div>
 
               {/* Circle Type */}
               <div>
                 <label className="block text-orange-600 text-xs tracking-widest mb-2 font-semibold">
-                  赛道 *
+                  {t('circleLabel')}
                   {paFilled.circleType && <PaBadge />}
                 </label>
                 <div className="grid grid-cols-3 gap-3">
-                  {CIRCLES.map(c => (
+                  {circles.map(c => (
                     <button
                       key={c.value}
                       type="button"
@@ -306,7 +312,7 @@ export default function RegisterPage() {
               {/* Client ID */}
               <div>
                 <label className="block text-orange-600 text-xs tracking-widest mb-2 font-semibold">
-                  Client ID <span className="text-gray-300">(可选)</span>
+                  {t('clientIdLabel')} <span className="text-gray-300">{t('clientIdOptional')}</span>
                 </label>
                 <input
                   type="text"
@@ -315,10 +321,10 @@ export default function RegisterPage() {
                   className="w-full bg-[#FFFBF5] border border-[#E8E0D8] text-gray-800 px-4 py-3 rounded-xl
                     focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-100
                     placeholder:text-gray-300 transition-all font-mono text-sm"
-                  placeholder="留空则自动生成"
+                  placeholder={t('clientIdPlaceholder')}
                 />
                 <p className="text-gray-400 text-xs mt-1">
-                  在 SecondMe 开发者后台查看
+                  {t('clientIdHint')}
                 </p>
               </div>
 
@@ -327,7 +333,7 @@ export default function RegisterPage() {
                 disabled={submitting || !form.name.trim() || !form.description.trim() || !form.circleType}
                 className="w-full py-4 text-center"
               >
-                {submitting ? '注册中...' : '注册应用'}
+                {submitting ? t('submitting') : t('submit')}
               </Button>
             </Card>
           </form>
@@ -338,9 +344,10 @@ export default function RegisterPage() {
 }
 
 function PaBadge() {
+  const t = useTranslations('registerApp')
   return (
     <span className="ml-2 inline-flex items-center px-2 py-0.5 bg-indigo-50 border border-indigo-200 rounded-full text-[10px] text-indigo-500 font-normal">
-      PA 建议
+      {t('paSuggestionBadge')}
     </span>
   )
 }

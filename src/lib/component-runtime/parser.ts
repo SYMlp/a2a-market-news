@@ -6,7 +6,7 @@
 
 import { parse as parseYaml } from 'yaml'
 import Ajv, { type ValidateFunction } from 'ajv'
-import { readFileSync } from 'fs'
+import { readFileSync, readdirSync } from 'fs'
 import { join } from 'path'
 import type { ComponentSpec } from './types'
 
@@ -52,8 +52,8 @@ export function validateSpec(raw: unknown, sourceHint = 'unknown'): ComponentSpe
   return raw as ComponentSpec
 }
 
-/** Load all 4 SubFlow specs. Useful for registration. */
+/** Load all SubFlow specs by scanning the specs directory for top-level YAML files. */
 export function loadAllSpecs(): ComponentSpec[] {
-  const names = ['app-settings', 'profile', 'app-lifecycle', 'register']
-  return names.map(name => loadSpec(name))
+  const files = readdirSync(SPECS_DIR).filter(f => f.endsWith('.yaml'))
+  return files.map(f => loadSpec(f.replace('.yaml', '')))
 }

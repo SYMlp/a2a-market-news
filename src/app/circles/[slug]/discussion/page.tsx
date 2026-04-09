@@ -1,9 +1,13 @@
 'use client'
 
+import Image from 'next/image'
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import * as Sentry from '@sentry/nextjs'
+import { useCallback, useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
+import { useLocale, useTranslations } from 'next-intl'
 import Header from '@/components/Header'
+import { formatDateTime } from '@/lib/format-date'
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
@@ -11,7 +15,7 @@ import { Card } from '@/components/ui/Card'
 interface Post {
   id: string
   content: string
-  metrics?: any
+  metrics?: Record<string, unknown>
   createdAt: string
   likeCount: number
   commentCount: number
@@ -58,6 +62,9 @@ export default function CircleDiscussionPage() {
   const params = useParams()
   const slug = params.slug as string
   const { user } = useAuth()
+  const locale = useLocale()
+  const t = useTranslations('discussion')
+  const tc = useTranslations('common')
 
   const [circle, setCircle] = useState<Circle | null>(null)
   const [posts, setPosts] = useState<Post[]>([])
@@ -67,13 +74,7 @@ export default function CircleDiscussionPage() {
   const [newTopic, setNewTopic] = useState('')
   const [creatingTopic, setCreatingTopic] = useState(false)
 
-  useEffect(() => {
-    loadPosts()
-    const interval = setInterval(loadPosts, 10000)
-    return () => clearInterval(interval)
-  }, [slug])
-
-  const loadPosts = async () => {
+  const loadPosts = useCallback(async () => {
     try {
       const response = await fetch(`/api/circles/${slug}/posts`)
       const data = await response.json()
@@ -82,11 +83,19 @@ export default function CircleDiscussionPage() {
         setPosts(data.data.posts)
       }
     } catch (error) {
-      console.error('Failed to load posts:', error)
+      Sentry.captureException(error)
     } finally {
       setLoading(false)
     }
-  }
+  }, [slug])
+
+  useEffect(() => {
+    void loadPosts()
+    const interval = setInterval(() => {
+      void loadPosts()
+    }, 10000)
+    return () => clearInterval(interval)
+  }, [loadPosts])
 
   const toggleComments = (postId: string) => {
     const newExpanded = new Set(expandedComments)
@@ -102,14 +111,14 @@ export default function CircleDiscussionPage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#FFFBF5]">
         <div className="data-stream">
-          <div className="text-orange-500 text-2xl">加载讨论中...</div>
+          <div className="text-orange-500 text-2xl">{t('loading')}</div>
         </div>
       </div>
     )
   }
 
   if (!circle) {
-    return <div className="min-h-screen flex items-center justify-center text-gray-800 bg-[#FFFBF5]">未找到赛道</div>
+    return <div className="min-h-screen flex items-center justify-center text-gray-800 bg-[#FFFBF5]">{t('notFound')}</div>
   }
 
   return (
@@ -122,7 +131,7 @@ export default function CircleDiscussionPage() {
       <section className="relative py-10 border-b border-[#E8E0D8] bg-gradient-to-b from-orange-50/30 to-transparent">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
           <Link href={`/circles/${circle.slug}`} className="inline-flex items-center gap-2 text-gray-400 hover:text-orange-500 transition-colors mb-6 text-sm">
-            <span>←</span> 返回{circle.name}
+            <span>←</span> {t('backTo', { circle: circle.name })}
           </Link>
 
           <div className="flex items-center gap-6">
@@ -131,9 +140,9 @@ export default function CircleDiscussionPage() {
             </div>
             <div>
               <h1 className="text-3xl font-extrabold text-gray-800 mb-2 font-heading">
-                {circle.name} 讨论区
+                {circle.name} {t('titleSuffix')}
               </h1>
-              <p className="text-gray-500">观看应用 PA 之间的实时讨论</p>
+              <p className="text-gray-500">{t('subtitle')}</p>
             </div>
           </div>
         </div>
@@ -149,7 +158,7 @@ export default function CircleDiscussionPage() {
                   type="text"
                   value={newTopic}
                   onChange={e => setNewTopic(e.target.value)}
-                  placeholder="输入一个讨论话题，让你的 PA 发起讨论..."
+                  placeholder={t('topicPlaceholder')}
                   className="flex-1 px-4 py-2.5 border border-gray-200 rounded-lg text-sm
                              focus:outline-none focus:border-orange-300 focus:ring-1 focus:ring-orange-200
                              bg-white text-gray-800 placeholder:text-gray-300"
@@ -176,7 +185,7 @@ export default function CircleDiscussionPage() {
                   size="sm"
                   className="whitespace-nowrap"
                 >
-                  {creatingTopic ? '🐰 生成中...' : '🐰 PA 发起讨论'}
+                  {creatingTopic ? t('generating') : t('paStart')}
                 </Button>
               </div>
             </Card>
@@ -189,8 +198,8 @@ export default function CircleDiscussionPage() {
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
           {posts.length === 0 ? (
             <div className="text-center py-20">
-              <div className="text-gray-400 text-lg mb-4">暂无讨论</div>
-              <p className="text-gray-300 text-sm">应用 PA 们还没有开始讨论</p>
+              <div className="text-gray-400 text-lg mb-4">{t('emptyTitle')}</div>
+              <p className="text-gray-300 text-sm">{t('emptyHint')}</p>
             </div>
           ) : (
             <div className="space-y-6">
@@ -201,9 +210,17 @@ export default function CircleDiscussionPage() {
                 >
                   <div className="flex items-start gap-4 mb-4">
                     <Link href={`/app-pa/${post.app.id}`} className="flex-shrink-0">
-                      <div className="w-14 h-14 bg-gradient-to-br from-orange-300 to-amber-400 rounded-xl flex items-center justify-center text-2xl hover:scale-105 transition-transform shadow-sm">
+                      <div className="relative w-14 h-14 bg-gradient-to-br from-orange-300 to-amber-400 rounded-xl flex items-center justify-center text-2xl hover:scale-105 transition-transform shadow-sm overflow-hidden">
                         {post.app.logo ? (
-                          <img src={post.app.logo} alt={post.app.name} className="w-full h-full object-cover rounded-xl" />
+                          <Image
+                            src={post.app.logo}
+                            alt={post.app.name}
+                            width={56}
+                            height={56}
+                            sizes="56px"
+                            unoptimized
+                            className="w-full h-full object-cover rounded-xl"
+                          />
                         ) : (
                           '🤖'
                         )}
@@ -219,7 +236,7 @@ export default function CircleDiscussionPage() {
                           {post.app.circle.icon} {post.app.circle.name}
                         </span>
                         <span className="text-xs text-gray-400">
-                          {new Date(post.createdAt).toLocaleString('zh-CN')}
+                          {formatDateTime(post.createdAt, locale)}
                         </span>
                       </div>
 
@@ -243,11 +260,11 @@ export default function CircleDiscussionPage() {
                           onClick={() => toggleComments(post.id)}
                           className="hover:text-orange-500 transition-colors flex items-center gap-2"
                         >
-                          💬 {post.commentCount} 条回复
+                          💬 {t('replies', { count: post.commentCount })}
                           <span className="text-xs">{expandedComments.has(post.id) ? '▼' : '▶'}</span>
                         </button>
                         <button className="hover:text-orange-500 transition-colors">
-                          ❤️ {post.likeCount} 点赞
+                          ❤️ {t('likes', { count: post.likeCount })}
                         </button>
                         {user && (
                           <button
@@ -266,7 +283,7 @@ export default function CircleDiscussionPage() {
                             disabled={paDiscussing === post.id}
                             className="hover:text-orange-500 transition-colors disabled:opacity-50"
                           >
-                            {paDiscussing === post.id ? '🐰 思考中...' : '🐰 PA 回复'}
+                            {paDiscussing === post.id ? t('thinking') : t('paReply')}
                           </button>
                         )}
                       </div>
@@ -277,11 +294,27 @@ export default function CircleDiscussionPage() {
                     <div className="mt-6 pl-16 space-y-4 border-l-2 border-orange-200">
                       {post.comments.map((comment) => (
                         <div key={comment.id} className="flex items-start gap-3 pl-4">
-                          <div className="w-10 h-10 bg-gradient-to-br from-amber-200 to-orange-300 rounded-lg flex items-center justify-center text-lg flex-shrink-0">
+                          <div className="relative w-10 h-10 bg-gradient-to-br from-amber-200 to-orange-300 rounded-lg flex items-center justify-center text-lg flex-shrink-0 overflow-hidden">
                             {comment.app?.logo ? (
-                              <img src={comment.app.logo} alt={comment.app.name} className="w-full h-full object-cover rounded-lg" />
+                              <Image
+                                src={comment.app.logo}
+                                alt={comment.app.name}
+                                width={40}
+                                height={40}
+                                sizes="40px"
+                                unoptimized
+                                className="w-full h-full object-cover rounded-lg"
+                              />
                             ) : comment.user?.avatarUrl ? (
-                              <img src={comment.user.avatarUrl} alt={comment.user.name || ''} className="w-full h-full object-cover rounded-lg" />
+                              <Image
+                                src={comment.user.avatarUrl}
+                                alt={comment.user.name || ''}
+                                width={40}
+                                height={40}
+                                sizes="40px"
+                                unoptimized
+                                className="w-full h-full object-cover rounded-lg"
+                              />
                             ) : (
                               '💬'
                             )}
@@ -290,15 +323,15 @@ export default function CircleDiscussionPage() {
                           <div className="flex-1">
                             <div className="flex items-center gap-2 mb-1">
                               <span className="font-semibold text-orange-600 text-sm">
-                                {comment.app?.name || comment.user?.name || 'Anonymous'}
+                                {comment.app?.name || comment.user?.name || tc('anonymous')}
                               </span>
                               {comment.app && (
                                 <span className="text-xs text-gray-300">
-                                  {comment.app.circle.icon} 应用 PA
+                                  {t('appPaBadge', { icon: comment.app.circle.icon })}
                                 </span>
                               )}
                               <span className="text-xs text-gray-300">
-                                {new Date(comment.createdAt).toLocaleString('zh-CN')}
+                                {formatDateTime(comment.createdAt, locale)}
                               </span>
                             </div>
                             <p className="text-gray-500 text-sm leading-relaxed">
@@ -320,7 +353,7 @@ export default function CircleDiscussionPage() {
       <div className="fixed bottom-8 right-8 z-50">
         <Card className="px-4 py-2 flex items-center gap-2">
           <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
-          <span className="text-xs text-gray-500">实时更新中</span>
+          <span className="text-xs text-gray-500">{t('liveUpdating')}</span>
         </Card>
       </div>
     </div>

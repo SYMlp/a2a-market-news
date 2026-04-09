@@ -1,5 +1,7 @@
-import { NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { apiError, apiSuccess } from '@/lib/api-utils'
+import { reportApiError } from '@/lib/server-observability'
 
 /**
  * GET /api/gm/recommend
@@ -7,7 +9,7 @@ import { prisma } from '@/lib/prisma'
  * Score = feedbackCount * 2 + avgRating * 3 + recentFeedback7d * 5 + voteCount * 1.5
  * Falls back to createdAt desc when all scores are 0 (cold start).
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
 
@@ -76,23 +78,20 @@ export async function GET() {
 
     const hasApps = formatted.length > 0
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        apps: formatted,
-        hasApps,
-        apps_list: appsList,
-        apps_json: appsJson,
-        apps_greeting: hasApps
-          ? `这是最近最受欢迎的 A2A 应用：\n${appsList}`
-          : '目前还没有应用入驻，平台刚开张呢。',
-        apps_hint: hasApps
-          ? '想体验哪个？体验完回来告诉我感受，我会把你的建议转达给开发者。'
-          : '你可以先回大厅，去开发者空间把你做的应用推荐给我们，抢个头彩！',
-      },
+    return apiSuccess({
+      apps: formatted,
+      hasApps,
+      apps_list: appsList,
+      apps_json: appsJson,
+      apps_greeting: hasApps
+        ? `这是最近最受欢迎的 A2A 应用：\n${appsList}`
+        : '目前还没有应用入驻，平台刚开张呢。',
+      apps_hint: hasApps
+        ? '想体验哪个？体验完回来告诉我感受，我会把你的建议转达给开发者。'
+        : '你可以先回大厅，去开发者空间把你做的应用推荐给我们，抢个头彩！',
     })
   } catch (error) {
-    console.error('GM recommend error:', error)
-    return NextResponse.json({ error: '获取推荐失败' }, { status: 500 })
+    reportApiError(request, error, 'gm_recommend_error')
+    return apiError('获取推荐失败', 500)
   }
 }

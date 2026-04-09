@@ -1,0 +1,140 @@
+---
+globs: src/lib/engine/**   ,src/lib/npc/scope.ts   , src/lib/npc/engine.ts
+alwaysApply: false
+---
+# Engine Invariants
+
+These patterns are structural invariants of the game engine. Breaking any of them will cause cascading failures.
+
+## Structural Invariants
+
+### Game Loop — 4 stages, always in order
+
+1. **PRESENT** (`presentScene`) — show scene opening + available actions
+2. **AWAIT** (`extractTurn`) — wait for player input, classify as REST or ACT
+3. **RESOLVE** (`resolveTurn`) — determine outcome: STAY (effect) or MOVE (transition)
+4. **APPLY** (`applyResult`) — update session state + return response
+
+Never skip a stage. Never reorder stages. `processTurn` is the only entry point that chains all four.
+
+### Binary Decision Tree
+
+- L1: `REST` | `ACT` (PlayerTurn type)
+- L2 (ACT only): `STAY` | `MOVE` (TurnOutcome type)
+
+Every player input resolves to exactly one leaf. No third option exists at either level.
+
+### DualText Model
+
+All user-facing text uses `DualText { pa: string; agent: string }`:
+
+- `pa` — natural language shown to the player
+- `agent` — structured/machine-readable for API consumers
+
+Never use a plain string where DualText is expected.
+
+### Scene Graph
+
+- Strongly connected — every scene is reachable from lobby
+- Lobby is the hub node — all scenes connect back to lobby
+- No dead ends — every scene has at least one `outcome: 'move'` action
+
+### Session Model
+
+`GameSession` tracks: `currentScene`, `round`, `mode`, `data`, `flags`, `globalTurn`, `agentId`, `agentName`, `ended`, `endReason`, `createdAt`, `lastActiveAt`.
+
+`mode` is `'manual' | 'auto' | 'advisor'`. It is **synced on every request** — `getOrCreateSession` updates `session.mode` from the request body when they differ. Mode-dependent branching in `process/route.ts` (auto-confirm, loop guards) uses the request-level `mode` variable, not `session.mode`, as a defense-in-depth measure.
+
+Sessions are ephemeral (in-memory Map with TTL). Never persist session state to database.
+
+### Session End Conditions
+
+A session ends for exactly one of these reasons (stored in `endReason`):
+
+| Reason                | Trigger                                                     | Layer              |
+| :-------------------- | :---------------------------------------------------------- | :----------------- |
+| `pa_leave`            | PA triggers `GM.leavePlatform` action                       | Game Loop          |
+| `loop_guard`          | Cross-scene transition loop detected (auto mode)            | Conversation Guard |
+| `timeout`             | Session TTL expired                                         | Session Manager    |
+| `navigator_exhausted` | PA returned to lobby 3+ times without successful navigation | Navigator Logic    |
+
+Adding a new end reason requires updating `GameSession.endReason` type union in `types.ts`.
+
+### NPC Scope Enforcement — Ontology-Driven (v7)
+
+NPC scope is enforced via **platform ontology** (`platform-ontology.json`) serialized into the NPC system prompt by `serializeForNPC(sceneId)` in `ontology.ts`.
+
+The ontology provides each NPC with:
+
+- Its own capabilities and scene role
+- Scene exit topology (which exits exist from current scene)
+- Other scenes' capabilities and how to reach them
+- Navigation rules ("场景之间不能直达，必须经过大厅")
+- Capability map (visitor desires → target scene, helps NPC redirect)
+
+The NPC naturally handles scope boundaries through this context — it knows what it can do, what other scenes do, and how to redirect visitors.
+
+**v6 runtime scope gate** (`checkScopeAndRedirect` in `scope.ts`) is disabled. Code retained for rollback. The gate's keyword matching caused false positives on navigation intents (PA saying "去开发者空间" was intercepted as out-of-scope even when NPC itself suggested it).
+
+Safety net: `conversation-guard.ts` remains as last-resort circuit breaker.
+
+### NPC Reply Post-Processing
+
+`generateNPCReply` in `npc/engine.ts` runs `stripLLMTags(aiReply)` (from `src/lib/ux/tag-stripper.ts`) on every AI-generated NPC reply before returning it. This removes LLM internal reasoning tags (`<think>`, `<thinking>`, `<thought>`, `<final>`) and markdown thinking blocks. If the cleaned result is empty, the template fallback activates.
+
+### Operational Ontology — FC Registry + Execution Dispatch
+
+`operational-ontology.json` serves two roles:
+
+1. **Metadata registry** — FC semantics (label, category, requires, produces, failHint, npcHint, sideEffects), data loaders, and precondition meanings.
+2. **Execution dispatch config** — each FC carries an `execution` field that determines how `fc-dispatcher.ts` handles it:
+
+| execution.type | Meaning | Needs code? |
+|:---|:---|:---|
+| `builtin` | Engine auto-handles (navigation, passthrough) | No |
+| `subflow` | Activates ComponentSpec SubFlow by `specName` | No (YAML only) |
+| `handler` | Calls registered effect handler by `handlerKey` | Yes (register in handler-registry) |
+| `behavior` | Activates BehaviorSpec (P5, stub) | No (YAML only) |
+
+Consumed by:
+
+- `fc-dispatcher.ts` (`dispatchFC`) — reads `execution` metadata, dispatches by type. This is the sole execution path for all FCs (except `GM.leavePlatform` which is intercepted at the route level for session-end semantics).
+- `describeFCForNPC(fcResult)` — enriches FC results for NPC context. Replaces bare `"操作执行结果：xxx"` with semantic descriptions.
+- `getSceneLabel(sceneId)` — single source of truth for scene display names. No hardcoded `SCENE_LABELS` or `SCENE_NAMES` maps.
+
+Adding a new FC: add the entry in `operational-ontology.json` with `execution` config. Only `handler` type requires writing code (register in `handler-registry.ts`). Raw JSON is never injected into prompts.
+
+### MessageEnvelope — API Boundary Only
+
+`MessageEnvelope` extends `DualText` with `sender: SenderRole`, `channel: MessageChannel`, and optional `meta: MessageMeta`. Conversion from `DualText` to `MessageEnvelope` happens **only** via `toEnvelope()` in `ontology.ts`, called at the API boundary (`process/route.ts`, `pa-respond/route.ts`).
+
+Internal engine functions (`resolveTurn`, `fillTemplate`, `conversation-guard`, NPC generation) remain on `DualText`. NPC replies carry structured metadata via `NPCReplyResult.meta` (with `scopeAssessment`), which feeds into the envelope's `meta` at the boundary.
+
+### Conversation Guard — Four Detection Modes
+
+`conversation-guard.ts` detects four patterns:
+
+1. **NPC message repetition** (`checkAndRecord`): Same/similar NPC reply 3+ times → circuit breaker. Resets on scene transition.
+2. **A↔B ping-pong** (`recordTransitionAndCheck`): Same two scenes alternating 2+ times → loop break message.
+3. **Path cycle** (`detectPathCycle`): Repeating scene sequence of length >= 3 (e.g. lobby→news→dev→lobby→news→dev) → loop break message.
+4. **Same-scene action repeat** (`checkActionRepeat`): Same FC fires 3+ times in the same scene → circuit breaker. Catches loops where NPC text varies (evading mode 1) but the underlying action is identical (e.g. `GM.assignMission` × 39).
+
+Guard state persists in `session.flags._conversationHistory` (NPC + PA message history), `session.flags.transitionHistory` (transitions), and `session.flags._actionRepeat` (action repeats).
+
+## What You Must NOT Do
+
+- Add a 5th game loop stage
+- Create an action outcome other than 'stay' or 'move'
+- Use plain strings where DualText is required
+- Create a scene with no exit action
+- Make session state persistent (DB, file, etc.)
+- Add a session end reason without updating the `endReason` type union
+- Remove the platform ontology from NPC system prompts (NPC needs the map to handle scope)
+- Reset `transitionHistory` on scene change (it must persist across scenes)
+- Hardcode scene label maps (`SCENE_LABELS`, `SCENE_NAMES`) — use `getSceneLabel()` from `ontology.ts`
+- Inject raw `operational-ontology.json` into prompts — always go through `describeFCForNPC()` or other serializers
+- Return raw `DualText` from API routes — wrap with `toEnvelope()` at the boundary
+- Use `MessageEnvelope` inside engine internals — keep internal functions on `DualText`
+- Inject raw `communication-protocol.json` into prompts — use `serializeProtocolForNPC()` serializer
+- Add FC execution logic in `function-call-executor.ts` — it is a thin wrapper; all dispatch goes through `fc-dispatcher.ts` reading ontology `execution` config
+- Add a new FC without an `execution` field in `operational-ontology.json` — the dispatcher will skip it silently

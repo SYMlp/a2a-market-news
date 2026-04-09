@@ -1,0 +1,112 @@
+---
+globs: src/components/scene/**
+alwaysApply: false
+---
+# Visual Conventions
+
+## SceneShell — Stack Order (back to front)
+
+1. **SceneBackground** — per-scene themed background (static asset)
+2. **Particles overlay** — ambient floating dots + scan
+3. **Corner frame** — `scene-shell__frame` SVG
+4. **Static plaque layer** — `scene-shell__plaque-layer` → `SceneBanner` when `plaque` prop is set (same lifecycle as background; `pointer-events: none`; not in content grid)
+5. **Content** — `scene-shell__content` CSS Grid (HUD, stage, optional dock, actions)
+
+Never break this stack order. Never put interactive controls under the plaque layer.
+
+Full spec: `docs/scene-layout-architecture.md`.
+
+## Scene Layout Grid
+
+Default (no `card_deck` dock):
+
+```
+"hud" → NavigationHUD
+"stage" → CharacterStage
+"actions" → HoloActionPanel / advisor input / auto controls / SubFlow cards
+```
+
+With `dockActive` (`scene-shell__content--with-dock`):
+
+```
+"hud" / "stage" / "dock" / "actions"
+```
+
+- **dock** — `SceneAppDock` (物品栏): horizontal `DeckView variant="dock"` for `behaviorPresentation.style === "card_deck"`.
+
+Per-scene caps and copy: `getSceneLayout(sceneId)` from `src/lib/scene-visuals/configs.json` → `layout`.
+
+Fixed-position overlays (not grid rows):
+- `ChatHistory`, `SpaceMiniWindow`, `FeedbackPanel`, `SceneTransitionEngine`
+
+## Scene Banner (匾额)
+
+Rendered only via `SceneShell` `plaque` prop (conversation phase). Cyberpunk plaque: icon ring, title, NPC online line, brackets, scan line. Uses `--sb-rgb`.
+
+## Character Layout — Face-to-Face
+
+`CharacterStage` uses a horizontal face-to-face layout:
+
+- **NPC on the LEFT** side — avatar + speech bubble below
+- **PA on the RIGHT** side — avatar + speech bubble below
+- **Center divider** — subtle vertical line between them
+
+This replaces the old vertical stack layout (NPC top, PA bottom).
+
+## Character Orientation
+
+- **NPC**: faces right (default direction)
+- **PA**: faces left (`direction="up"` — handled by SpriteCharacter)
+
+## Dialogue Bubbles
+
+- Bubbles appear below their character's avatar
+- NPC bubbles use scene accent color
+- PA bubbles use blue (`59,130,246`)
+- Long text (>200 chars) is auto-truncated with "展开全部" toggle
+- **`card_deck`**: apps/items render in **SceneAppDock** (not inside NPC bubble). When dock is visible and `layout.shortNpcBubbleWhenDock`, NPC bubble is shortened with hint to read the dock
+
+## Character States
+
+`SpriteCharacter` supports these states:
+
+- `idle` — gentle float animation
+- `walking` — bobbing walk cycle
+- `thinking` — glow effect + "思考中" indicator
+- `entering_portal` — shrink + move right + fade out (for portal transitions)
+- `exiting` — move right + fade out (for door/general exit)
+
+States are set via the `state` prop. CSS handles all animation via `.spr--{state}` classes.
+
+## Scene Transitions
+
+`SceneTransitionEngine` supports four animation types:
+
+- `door` — two panels close from sides → reveal destination → panels open
+- `portal` — spinning vortex rings grow → center info → shrink away
+- `fade` — simple opacity crossfade
+- `slide` — old scene slides left, new slides in from right
+
+Transition type is determined by `transitionOut` / `transitionIn` in `scene-visuals/configs.json`.
+
+## Accent Colors
+
+Each scene has a unique accent color defined in `configs.json`:
+
+- `accent` — hex string for CSS
+- `accentRgb` — comma-separated RGB for `rgba()` usage
+
+Use CSS variable `--sc-accent-rgb` (set by SceneShell) for all accent-dependent styles.
+
+## Cross-Space Mini Windows
+
+- **In Agent Space**: `SpaceMiniWindow variant="human-in-agent"` — bottom-right thumbnail of human portal
+- **In Human Portal**: Enhanced Agent Space preview card with miniature scene rendering
+
+## What You Must NOT Do
+
+- Add a new character state without corresponding CSS in globals.css
+- Use hardcoded colors instead of accent CSS variables
+- Put interactive UI in `scene-shell__plaque-layer` (must stay `pointer-events: none`)
+- Render `card_deck` inside `CharacterStage` bubbles — use `SceneAppDock`
+- Break grid area assignments or forget `dockActive` when showing dock

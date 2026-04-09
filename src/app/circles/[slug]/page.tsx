@@ -1,12 +1,14 @@
 'use client'
 
+import Image from 'next/image'
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'next/navigation'
+import { useTranslations } from 'next-intl'
 import Header from '@/components/Header'
 import { Card } from '@/components/ui/Card'
 
-interface App {
+interface LeaderboardApp {
   id: string
   name: string
   description: string
@@ -22,6 +24,13 @@ interface App {
     rating: number
     totalVisits: number
   }>
+  rank: number
+  latestMetrics?: {
+    totalUsers?: number
+    activeUsers?: number
+    rating?: number
+    totalVisits?: number
+  }
 }
 
 interface Circle {
@@ -36,9 +45,20 @@ interface Circle {
 export default function CirclePage() {
   const params = useParams()
   const slug = params.slug as string
+  const t = useTranslations('circleDetail')
+
+  const SORT_OPTIONS = useMemo(
+    () => [
+      { value: 'totalUsers', label: t('sortTotalUsers') },
+      { value: 'activeUsers', label: t('sortActive') },
+      { value: 'rating', label: t('sortRating') },
+      { value: 'totalVisits', label: t('sortVisits') },
+    ],
+    [t],
+  )
 
   const [circle, setCircle] = useState<Circle | null>(null)
-  const [leaderboard, setLeaderboard] = useState<any[]>([])
+  const [leaderboard, setLeaderboard] = useState<LeaderboardApp[]>([])
   const [sortBy, setSortBy] = useState('totalUsers')
   const [loading, setLoading] = useState(true)
 
@@ -58,14 +78,14 @@ export default function CirclePage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#FFFBF5]">
         <div className="data-stream">
-          <div className="text-orange-500 text-2xl">加载赛道数据...</div>
+          <div className="text-orange-500 text-2xl">{t('loading')}</div>
         </div>
       </div>
     )
   }
 
   if (!circle) {
-    return <div className="min-h-screen flex items-center justify-center text-gray-800 bg-[#FFFBF5]">未找到赛道</div>
+    return <div className="min-h-screen flex items-center justify-center text-gray-800 bg-[#FFFBF5]">{t('notFound')}</div>
   }
 
   return (
@@ -80,7 +100,7 @@ export default function CirclePage() {
 
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <Link href="/" className="inline-flex items-center gap-2 text-gray-400 hover:text-orange-500 transition-colors mb-8 text-sm">
-            <span>←</span> 返回首页
+            <span>←</span> {t('backHome')}
           </Link>
 
           <div className="flex items-center gap-8 mb-8">
@@ -100,21 +120,16 @@ export default function CirclePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <h2 className="text-2xl font-bold text-gray-800 font-heading">排行榜</h2>
+              <h2 className="text-2xl font-bold text-gray-800 font-heading">{t('leaderboard')}</h2>
               <Link
                 href={`/circles/${slug}/discussion`}
                 className="px-4 py-2 bg-orange-50 text-orange-600 border border-orange-200 text-sm font-semibold rounded-lg hover:bg-orange-100 transition-all"
               >
-                💬 进入讨论区
+                {t('enterDiscussion')}
               </Link>
             </div>
             <div className="flex gap-2">
-              {[
-                { value: 'totalUsers', label: '用户数' },
-                { value: 'activeUsers', label: '活跃' },
-                { value: 'rating', label: '评分' },
-                { value: 'totalVisits', label: '访问量' },
-              ].map(sort => (
+              {SORT_OPTIONS.map(sort => (
                 <button
                   key={sort.value}
                   onClick={() => setSortBy(sort.value)}
@@ -147,8 +162,10 @@ export default function CirclePage() {
                     {app.rank}
                   </div>
 
-                  <div className="w-16 h-16 bg-gradient-to-br from-orange-300 to-amber-400 rounded-xl flex items-center justify-center text-2xl shadow-sm">
-                    {app.logo ? <img src={app.logo} alt={app.name} className="w-full h-full object-cover rounded-xl" /> : '🤖'}
+                  <div className="relative w-16 h-16 bg-gradient-to-br from-orange-300 to-amber-400 rounded-xl flex items-center justify-center text-2xl shadow-sm overflow-hidden">
+                    {app.logo ? (
+                      <Image src={app.logo} alt={app.name} fill unoptimized className="object-cover rounded-xl" />
+                    ) : '🤖'}
                   </div>
 
                   <div className="flex-1 min-w-0">
@@ -163,25 +180,25 @@ export default function CirclePage() {
                       <div className="text-2xl font-bold" style={{ color: circle.color }}>
                         {app.latestMetrics?.totalUsers || 0}
                       </div>
-                      <div className="text-xs text-gray-400">用户</div>
+                      <div className="text-xs text-gray-400">{t('metricUsers')}</div>
                     </div>
                     <div>
                       <div className="text-2xl font-bold" style={{ color: circle.color }}>
                         {app.latestMetrics?.activeUsers || 0}
                       </div>
-                      <div className="text-xs text-gray-400">活跃</div>
+                      <div className="text-xs text-gray-400">{t('metricActive')}</div>
                     </div>
                     <div>
                       <div className="text-2xl font-bold" style={{ color: circle.color }}>
                         {app.latestMetrics?.rating?.toFixed(1) || '0.0'}
                       </div>
-                      <div className="text-xs text-gray-400">评分</div>
+                      <div className="text-xs text-gray-400">{t('metricRating')}</div>
                     </div>
                     <div>
                       <div className="text-2xl font-bold" style={{ color: circle.color }}>
                         {app.latestMetrics?.totalVisits || 0}
                       </div>
-                      <div className="text-xs text-gray-400">访问</div>
+                      <div className="text-xs text-gray-400">{t('metricVisits')}</div>
                     </div>
                   </div>
 
@@ -193,7 +210,7 @@ export default function CirclePage() {
 
           {leaderboard.length === 0 && (
             <div className="text-center py-20">
-              <div className="text-gray-400 text-lg">暂无 Agent</div>
+              <div className="text-gray-400 text-lg">{t('emptyAgents')}</div>
             </div>
           )}
         </div>

@@ -9,6 +9,7 @@
  * Architecture: docs/gm-orchestration-architecture.md §7
  */
 
+import { rootLogger } from '@/lib/logger'
 import { dispatchFC, type FCUserContext } from '@/lib/engine/fc-dispatcher'
 import type { GameSession, GMResponse, FCResult } from '@/lib/engine/types'
 
@@ -30,7 +31,7 @@ export async function executeFunctionCall(
     }
     return result
   } catch (err) {
-    console.error(`Function call ${fc.name} failed:`, err)
+    rootLogger.error({ err, functionName: fc.name }, 'function_call_failed')
     return { name: fc.name, status: 'failed', detail: String(err) }
   }
 }

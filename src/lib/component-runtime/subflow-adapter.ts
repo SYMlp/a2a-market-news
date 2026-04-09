@@ -12,7 +12,8 @@
  */
 
 import { NextResponse } from 'next/server'
-import { persistSession } from '@/lib/engine/session'
+import { rootLogger } from '@/lib/logger'
+import { persistSubFlowSession } from './subflow-persistence'
 import type { GameSession, SubFlowState, SubFlowType } from '@/lib/engine/types'
 import type { SubFlowHandler } from '@/lib/subflow/router'
 import type { Collect, ComponentSpec, MessageTemplate } from './types'
@@ -22,7 +23,7 @@ import { invokeEffect, EffectError, type EffectContext } from './handler-registr
 
 export function createSubFlowHandler(spec: ComponentSpec): SubFlowHandler {
   return {
-    type: spec.id as SubFlowType,
+    type: spec.id,
     handleMessage: (session, message, user) =>
       dispatchMessage(spec, session, message, user),
     handleConfirm: (session, args, user) =>
@@ -249,7 +250,7 @@ function showCard(
 ): NextResponse {
   subFlow.step = 'confirm'
   subFlow.extracted = extracted
-  persistSession(session)
+  persistSubFlowSession(session)
 
   return respond(
     session,
@@ -292,7 +293,7 @@ async function handleCollect(
 ): Promise<NextResponse> {
   const collect = spec.collect
   if (!collect) {
-    persistSession(session)
+    persistSubFlowSession(session)
     return respond(session, { pa: '请确认操作。', agent: 'No collect config.' })
   }
 
@@ -308,7 +309,7 @@ async function handleCollect(
     return collectRegexDriven(spec, session, subFlow, context, message)
   }
 
-  persistSession(session)
+  persistSubFlowSession(session)
   return respond(
     session,
     collect.emptyMessage ? dual(collect.emptyMessage) : { pa: '请提供信息。', agent: 'Need input.' },
@@ -402,14 +403,14 @@ async function collectEffectDriven(
 
     if (rule.goto) {
       subFlow.step = rule.goto
-      persistSession(session)
+      persistSubFlowSession(session)
       const msg = rule.message
         ? dual(rule.message)
         : { pa: '需要更多信息。', agent: `Waiting in ${rule.goto} step.` }
       return respond(session, msg)
     }
 
-    persistSession(session)
+    persistSubFlowSession(session)
     const followUp = String(evalVars.followUp ?? '能告诉我你的应用叫什么名字吗？')
     return respond(session, {
       pa: followUp,
@@ -417,7 +418,7 @@ async function collectEffectDriven(
     })
   }
 
-  persistSession(session)
+  persistSubFlowSession(session)
   return respond(session, {
     pa: String(evalVars.followUp ?? '能告诉我更多信息吗？'),
     agent: 'No transition matched. Need more info.',
@@ -456,7 +457,7 @@ async function handleAwaitingClientId(
       return runValidationGate(spec, session, subFlow, context, clientId, user)
     }
 
-    persistSession(session)
+    persistSubFlowSession(session)
     const msg = rule.message
       ? dual(rule.message)
       : { pa: '请提供 ClientId。', agent: 'Need clientId.' }
@@ -467,7 +468,7 @@ async function handleAwaitingClientId(
     return runValidationGate(spec, session, subFlow, context, clientId, user)
   }
 
-  persistSession(session)
+  persistSubFlowSession(session)
   return respond(session, {
     pa: '请告诉我你的 SecondMe 应用 ClientId。',
     agent: 'Still need clientId.',
@@ -497,7 +498,7 @@ async function runValidationGate(
   }
 
   if (!validation.valid) {
-    persistSession(session)
+    persistSubFlowSession(session)
     return respond(session, {
       pa: validation.reason || `ClientId「${clientId}」格式不对，确认一下？`,
       agent: `Validation failed for clientId="${clientId}": ${validation.reason ?? 'unknown'}`,
@@ -530,7 +531,7 @@ async function collectAppOriented(
   const apps = loadApps(session, spec)
 
   if (!apps.length) {
-    persistSession(session)
+    persistSubFlowSession(session)
     return respond(session, dual(collect.emptyMessage!))
   }
 
@@ -594,7 +595,7 @@ async function collectAppOriented(
   }
 
   // Follow-up
-  persistSession(session)
+  persistSubFlowSession(session)
 
   if (collect.followUpMessage) {
     const fm = collect.followUpMessage
@@ -655,7 +656,7 @@ async function collectRegexDriven(
     })
   }
 
-  persistSession(session)
+  persistSubFlowSession(session)
   return respond(
     session,
     collect.emptyMessage
@@ -716,7 +717,7 @@ async function executeConfirm(
         try {
           await invokeEffect(pe.effect, peArgs, effectCtx)
         } catch (err) {
-          console.error(`Post-effect ${pe.effect} failed:`, err)
+          rootLogger.error({ err, effect: pe.effect }, 'post_effect_failed')
         }
       }
     }
@@ -725,7 +726,7 @@ async function executeConfirm(
     if (confirm.onSuccess?.clearSubFlow !== false) {
       if (session.flags?.subFlow) {
         session.flags = { ...session.flags, subFlow: undefined }
-        persistSession(session)
+        persistSubFlowSession(session)
       }
     }
 
@@ -744,7 +745,7 @@ async function executeConfirm(
 
     return respond(session, successMsg, extra)
   } catch (error) {
-    console.error(`${spec.id} confirm failed:`, error)
+    rootLogger.error({ err: error, specId: spec.id }, 'subflow_confirm_failed')
 
     if (error instanceof EffectError) {
       return respondError(error.message, error.status)

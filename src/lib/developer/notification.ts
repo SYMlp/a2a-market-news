@@ -1,4 +1,4 @@
-import { prisma } from './prisma'
+import { prisma } from '@/lib/prisma'
 
 interface NotifyOptions {
   developerId: string
@@ -68,4 +68,20 @@ export async function notifyDeveloper(opts: NotifyOptions) {
       },
     })
   }
+}
+
+/**
+ * Marks all in-app notifications as read for the current developer.
+ */
+export async function markInAppNotificationsRead(developerId: string) {
+  return prisma.notificationLog.updateMany({
+    where: {
+      developerId,
+      channel: 'in_app',
+      status: 'sent',
+    },
+    data: {
+      status: 'read',
+    },
+  })
 }

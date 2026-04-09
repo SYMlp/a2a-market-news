@@ -140,7 +140,7 @@ export interface Scene {
 
 // ─── Session ──────────────────────────────────────
 
-export type SubFlowType = 'register' | 'app_settings' | 'profile' | 'app_lifecycle'
+export type SubFlowType = string
 
 export interface SubFlowState {
   type: SubFlowType
@@ -153,9 +153,8 @@ export interface SubFlowState {
 }
 
 export interface SceneScopedFlags {
-  experiencingApp?: { name: string; clientId: string }
-  hasExperienced?: boolean
   subFlow?: SubFlowState
+  [key: string]: unknown
 }
 
 export interface TransitionRecord {

@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server'
 import { getCurrentUser, callSecondMeAPI } from '@/lib/auth'
+import { reportApiError } from '@/lib/server-observability'
 
-export async function GET() {
+export async function GET(request: Request) {
   const user = await getCurrentUser()
 
   if (!user) {
@@ -12,7 +13,7 @@ export async function GET() {
     const data = await callSecondMeAPI('/api/secondme/user/info', user.accessToken)
     return NextResponse.json({ code: 0, data })
   } catch (error) {
-    console.error('Get user info error:', error)
+    reportApiError(request, error, 'get_user_info_error')
     return NextResponse.json({ code: 500, message: 'Internal server error' }, { status: 500 })
   }
 }

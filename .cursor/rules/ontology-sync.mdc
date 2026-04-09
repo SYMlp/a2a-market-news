@@ -1,0 +1,138 @@
+---
+globs: src/lib/engine/platform-ontology.json,src/lib/engine/operational-ontology.json,src/lib/engine/communication-protocol.json,specs/**/*.yaml,specs/*.yaml
+alwaysApply: false
+---
+# Ontology Sync Rule
+
+When modifying any ontology source file, BehaviorSpec, or scene definition, perform a cross-layer sync check to prevent dangling references and silent coverage gaps.
+
+Meta-schema reference: `docs/system-ontology-manifest.yaml` defines all entity types, edge types, and validation rules.
+
+## Authoritative Sources
+
+| Entity | Authoritative file | Instance path |
+|:---|:---|:---|
+| Scene | `platform-ontology.json` | `scenes[id]` |
+| NPC | `platform-ontology.json` | `scenes[id].npc` |
+| Capability | `platform-ontology.json` | `scenes[id].capabilities[]` + `capability_map` |
+| FunctionCall | `operational-ontology.json` | `functionCalls[name]` |
+| DataLoader | `operational-ontology.json` | `dataLoaders[route]` |
+| Precondition | `operational-ontology.json` | `preconditions[id]` |
+| MessageType | `communication-protocol.json` | `messageTypes[type]` |
+| BehaviorSpec | `specs/*.yaml` / `specs/behaviors/*.yaml` | file-level |
+| BehaviorPattern | `operational-ontology.json` | `functionCalls[name].behaviorPattern` (enum) |
+
+## Trigger → Update Matrix
+
+Each subsection describes a semantic change and the complete set of files that must be checked or updated. Read only the subsection matching your change.
+
+### Scene added or removed
+
+| # | File | Action |
+|:--|:---|:---|
+| 1 | `platform-ontology.json` | Add/remove `scenes[id]` entry (npc, capabilities, exits, behaviors) |
+| 2 | `platform-ontology.json` | Update `exits[]` on connected scenes (add/remove exit to this scene) |
+| 3 | `platform-ontology.json` | Update `capability_map` entries that route to this scene |
+| 4 | `operational-ontology.json` | Update `scene` field on FCs bound to this scene |
+| 5 | `communication-protocol.json` | Add/remove `npcDecisionProtocols` entry if NPC has unique decision rules |
+| 6 | `specs/scenes/{id}.yaml` | Create/remove scene spec file |
+| 7 | `specs/npcs/{key}.yaml` | Create/remove NPC spec file |
+
+### NPC added, removed, or reassigned
+
+| # | File | Action |
+|:--|:---|:---|
+| 1 | `platform-ontology.json` | Update `scenes[id].npc` (name, role) |
+| 2 | `communication-protocol.json` | Update `npcDecisionProtocols` if NPC has unique decision rules |
+| 3 | `specs/npcs/{key}.yaml` | Update NPC spec file |
+
+### Capability added or removed
+
+| # | File | Action |
+|:--|:---|:---|
+| 1 | `platform-ontology.json` | Update `scenes[id].capabilities[]` on the owning scene |
+| 2 | `platform-ontology.json` | Update `capability_map` (add/remove visitor-desire → scene mapping) |
+| 3 | `platform-ontology.json` | Update `scenes[id].behaviors{}` — add `null` entry for new uncovered capability, or remove entry for deleted capability |
+| 4 | `specs/` | If a behavior implements this capability, update its `availability.implements` |
+
+### FunctionCall added or removed
+
+| # | File | Action |
+|:--|:---|:---|
+| 1 | `operational-ontology.json` | Add/remove `functionCalls[name]` entry with label, scene, category, requires, produces, failHint, npcHint, sideEffects, **and `execution` config** (type + handler/specName/handlerKey) |
+| 2 | `src/lib/component-runtime/handler-registry.ts` | If `execution.type` is `handler`: implement and register the effect handler function |
+| 3 | `specs/` | If a BehaviorSpec references this FC via `resolution.mapsTo.fc`, update or remove that reference |
+
+### BehaviorSpec added or removed
+
+| # | File | Action |
+|:--|:---|:---|
+| 1 | `specs/*.yaml` or `specs/behaviors/*.yaml` | Create/remove spec file |
+| 2 | `platform-ontology.json` | Update `scenes[id].behaviors{}` — set value to spec ID (or back to `null` on removal) |
+| 3 | (cross-check) | Validate all inbound references — run R4, R5, R6, R7, R8 from the checklist below |
+
+### DataLoader added or removed
+
+| # | File | Action |
+|:--|:---|:---|
+| 1 | `operational-ontology.json` | Add/remove `dataLoaders[route]` entry |
+| 2 | `specs/` | If a BehaviorSpec references this loader via `presentation.data.dataLoader`, update or remove that reference |
+
+### Precondition added or removed
+
+| # | File | Action |
+|:--|:---|:---|
+| 1 | `operational-ontology.json` | Add/remove `preconditions[id]` entry |
+| 2 | `operational-ontology.json` | Update `functionCalls[name].requires` on FCs gated by this precondition |
+| 3 | `specs/` | If a BehaviorSpec lists this precondition in `availability.preconditions[]`, update or remove that reference |
+
+### MessageType added or removed
+
+| # | File | Action |
+|:--|:---|:---|
+| 1 | `communication-protocol.json` | Add/remove `messageTypes[type]` entry |
+| 2 | `src/lib/engine/ontology.ts` | If the new type requires serialization, update `serializeProtocolForNPC()` |
+
+## Cross-Validation Checklist
+
+After completing any ontology modification, verify the applicable rules below.
+
+### Error-level (must pass)
+
+| Rule | Constraint |
+|:---|:---|
+| R1 | Every Scene has exactly 1 NPC (`scenes[id].npc` is non-null, has name and role) |
+| R2 | Every Scene has ≥1 exit (`scenes[id].exits[]` is non-empty) |
+| R3 | Every FC's `scene` value is a valid Scene ID or `null` (global FC) |
+| R5 | Every BehaviorSpec `availability.implements` matches a key in `capability_map` |
+| R6 | Every BehaviorSpec `availability.preconditions[]` item matches a key in `preconditions` |
+| R7 | Every BehaviorSpec `resolution.mapsTo.fc` matches a key in `functionCalls` |
+| R8 | Every BehaviorSpec `presentation.data.dataLoader` matches a key in `dataLoaders` |
+| R10 | Every `exits_to` target in `scenes[id].exits[]` is a valid Scene ID |
+
+### Warning-level (should pass; BehaviorSpec system still under construction)
+
+| Rule | Constraint |
+|:---|:---|
+| R4 | Every non-null value in `scenes[id].behaviors{}` corresponds to an existing BehaviorSpec file under `specs/` |
+| R9 | Every Capability in `capability_map` has ≥1 BehaviorSpec with matching `availability.implements` |
+
+### How to validate
+
+Pick the rules relevant to your change:
+
+- Changed a **Scene** → check R1, R2, R10
+- Changed a **FunctionCall** → check R3
+- Changed a **BehaviorSpec** → check R4, R5, R6, R7, R8
+- Changed a **Capability** → check R9
+- Changed **exits** → check R10
+- Not sure → run all error-level rules
+
+## What You Must NOT Do
+
+- Add a scene without a corresponding `platform-ontology.json` entry (NPC will give wrong navigation advice)
+- Add a FC without registering it in `operational-ontology.json` (FC semantics invisible to NPC context enrichment)
+- Create a BehaviorSpec that references a non-existent Capability, Precondition, FC, or DataLoader (dangling forward reference)
+- Remove a Precondition, Capability, FC, or DataLoader still referenced by an existing BehaviorSpec (dangling backward reference)
+- Point `scenes[id].behaviors{}` to a non-existent BehaviorSpec ID (orphaned behavior slot)
+- Modify ontology JSON structure without updating `docs/system-ontology-manifest.yaml` if the change adds/removes an entity type or edge type

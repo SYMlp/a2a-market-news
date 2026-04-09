@@ -1,15 +1,13 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { getCurrentUser } from '@/lib/auth'
+import { NextRequest } from 'next/server'
+import { reportApiError } from '@/lib/server-observability'
+import { apiError, apiSuccess, AuthError, requireAuth } from '@/lib/api-utils'
 import { prisma } from '@/lib/prisma'
-import { executeDiscoverAction, logPAAction } from '@/lib/pa-engine'
-import { addPoints } from '@/lib/points'
+import { executeDiscoverAction, logPAAction } from '@/lib/pa-actions'
+import { addPoints } from '@/lib/gamification'
 
 export async function POST(request: NextRequest) {
   try {
-    const user = await getCurrentUser()
-    if (!user) {
-      return NextResponse.json({ error: '请先登录' }, { status: 401 })
-    }
+    const user = await requireAuth()
 
     const { circleSlug } = await request.json()
 
@@ -29,10 +27,7 @@ export async function POST(request: NextRequest) {
     })
 
     if (apps.length === 0) {
-      return NextResponse.json({
-        success: true,
-        data: { content: '暂时没有应用可推荐', picks: [] },
-      })
+      return apiSuccess({ content: '暂时没有应用可推荐', picks: [] })
     }
 
     const appList = apps.map(a => ({
@@ -49,23 +44,23 @@ export async function POST(request: NextRequest) {
       logPAAction(user.id, 'discover', circleSlug || 'all', 'discover', result.content, result.structured, 15),
     ])
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        content: result.content,
-        picks: result.structured?.picks || [],
-        apps: apps.map(a => ({
-          id: a.id,
-          name: a.name,
-          description: a.description,
-          circle: a.circle.name,
-          rating: a.metrics[0]?.rating || 0,
-        })),
-        points: points.newBalance,
-      },
+    return apiSuccess({
+      content: result.content,
+      picks: result.structured?.picks || [],
+      apps: apps.map(a => ({
+        id: a.id,
+        name: a.name,
+        description: a.description,
+        circle: a.circle.name,
+        rating: a.metrics[0]?.rating || 0,
+      })),
+      points: points.newBalance,
     })
   } catch (error) {
-    console.error('PA discover action failed:', error)
-    return NextResponse.json({ error: '发现失败' }, { status: 500 })
+    if (error instanceof AuthError) {
+      return error.response
+    }
+    reportApiError(request, error, 'pa_discover_action_failed')
+    return apiError('发现失败', 500)
   }
 }

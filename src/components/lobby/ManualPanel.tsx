@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
+import { useTranslations } from 'next-intl'
 import SpeechBubble from './SpeechBubble'
 
 export interface ChatMessage {
@@ -30,6 +31,7 @@ interface ManualPanelProps {
 export default function ManualPanel({
   messages, sceneLabel, agentName, agentEmoji, accent, options, onSend, processing,
 }: ManualPanelProps) {
+  const t = useTranslations('agentSpace')
   const [input, setInput] = useState('')
   const bottomRef = useRef<HTMLDivElement>(null)
 
@@ -124,12 +126,12 @@ export default function ManualPanel({
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="或者直接告诉我你想做什么..."
+          placeholder={t('manualPanel.freeInputPlaceholder')}
           disabled={processing}
           className="manual-panel__field"
         />
         <button type="submit" disabled={processing || !input.trim()} className="manual-panel__send">
-          发送
+          {t('manualPanel.send')}
         </button>
       </form>
     </div>

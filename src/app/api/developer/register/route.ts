@@ -1,6 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { getCurrentUser } from '@/lib/auth'
+import { NextRequest } from 'next/server'
+import { registerAsDeveloper } from '@/lib/developer/register'
+import { apiError, apiSuccess, AuthError, requireAuth } from '@/lib/api-utils'
+import { reportApiError } from '@/lib/server-observability'
 
 /**
  * POST /api/developer/register
@@ -8,46 +9,21 @@ import { getCurrentUser } from '@/lib/auth'
  */
 export async function POST(request: NextRequest) {
   try {
-    const user = await getCurrentUser()
-    if (!user) {
-      return NextResponse.json({ error: 'Login required' }, { status: 401 })
-    }
-
+    const user = await requireAuth()
     const body = await request.json()
-    const { developerName, callbackUrl, notifyPreference } = body
 
-    if (!developerName?.trim()) {
-      return NextResponse.json(
-        { error: 'developerName is required' },
-        { status: 400 }
-      )
+    const result = await registerAsDeveloper(user.id, body)
+
+    if (!result.ok) {
+      return apiError(result.message, result.status)
     }
 
-    const validPrefs = ['none', 'callback', 'in_app', 'both']
-    const pref = validPrefs.includes(notifyPreference) ? notifyPreference : 'in_app'
-
-    const updated = await prisma.user.update({
-      where: { id: user.id },
-      data: {
-        isDeveloper: true,
-        developerName: developerName.trim(),
-        callbackUrl: callbackUrl?.trim() || null,
-        notifyPreference: pref,
-      },
-    })
-
-    return NextResponse.json({
-      success: true,
-      data: {
-        id: updated.id,
-        isDeveloper: updated.isDeveloper,
-        developerName: updated.developerName,
-        callbackUrl: updated.callbackUrl,
-        notifyPreference: updated.notifyPreference,
-      },
-    })
+    return apiSuccess(result.data)
   } catch (error) {
-    console.error('Developer registration failed:', error)
-    return NextResponse.json({ error: 'Registration failed' }, { status: 500 })
+    if (error instanceof AuthError) {
+      return error.response
+    }
+    reportApiError(request, error, 'developer_registration_failed')
+    return apiError('Registration failed', 500)
   }
 }

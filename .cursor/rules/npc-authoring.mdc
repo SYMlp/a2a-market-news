@@ -1,0 +1,72 @@
+---
+globs: src/lib/npc/**,specs/npcs/**
+alwaysApply: false
+---
+# NPC Authoring Guide
+
+NPCs are scene hosts that respond to player messages within a defined scope. Each scene has exactly one active NPC.
+
+## NPC Spec Files
+
+NPC definitions live in `specs/npcs/*.yaml`. Each file defines one NPC's seed data, loaded by `src/lib/npc/npc-loader.ts` on first access.
+
+```yaml
+# specs/npcs/my-npc.yaml
+key: my-npc            # unique NPC identifier (must not change after deployment)
+name: 角色名
+emoji: "🎭"
+role: scene_host       # 'gm' | 'scene_host'
+sceneId: my-scene      # bound scene ID, null for global NPCs
+accent: "#ff6600"
+scope: [话题1, 话题2]   # topic keywords (documentation, not runtime gate)
+
+systemPrompt: |
+  你是「角色名」，...
+  （完整 system prompt）
+```
+
+**Required fields**: `key`, `name`, `emoji`, `role`, `accent`, `scope`, `systemPrompt`.
+
+**Loading priority**: `specs/npcs/*.yaml` → DB `NPC` table (owner binding, token) → template fallback.
+
+## Scope Rules (v7 — Ontology-Driven)
+
+NPC scope is enforced via the **platform ontology** rather than a runtime keyword gate.
+
+1. **Ontology provides the map** — `serializeForNPC(sceneId)` from `ontology.ts` is appended to the NPC's system prompt. It tells the NPC its capabilities, exits, other scenes' capabilities, and navigation rules.
+2. **NPC self-regulates** — with the full map, the NPC naturally knows what it handles and how to redirect visitors to the right scene via correct navigation paths.
+3. **Out-of-scope → guided redirect** — NPC tells the visitor "回大厅后可以去XX" rather than a hard "不在我职责范围" block.
+4. **No false positives on navigation** — the old keyword gate intercepted navigation intents ("去开发者空间") as out-of-scope. The ontology approach lets NPC distinguish between topic scope and navigation requests.
+
+### Platform Ontology
+
+The world model lives in `src/lib/engine/platform-ontology.json`. When adding a new NPC/scene, update this JSON so all NPC prompts have accurate topology information.
+
+### Legacy Scope Gate (disabled)
+
+`checkScopeAndRedirect()` in `scope.ts` is disabled as of v7. Code retained for rollback. The `scope[]` keywords in NPC spec YAML remain as documentation of NPC expertise but are not used for runtime gating.
+
+## Prompt Writing
+
+NPC system prompts are defined in the `systemPrompt` field of `specs/npcs/*.yaml`. Prompts must:
+
+- Define the NPC's personality clearly (name, role, tone)
+- Include scope boundaries ("You handle X and Y. For Z, suggest the user visit...")
+- Never let the NPC make promises outside its scene's capabilities
+- Use the visitor's name when provided (`{visitorName}`)
+
+## NPC-Scene Binding
+
+- One NPC per scene (enforced by `sceneId` in NPC spec)
+- NPC specs are loaded from `specs/npcs/*.yaml` by `src/lib/npc/npc-loader.ts`
+- NPC generates replies via `generateNPCReply()` in `src/lib/npc/engine.ts`
+
+## What You Must NOT Do
+
+- Create an NPC without a bound scene
+- Let NPC respond authoritatively on out-of-scope topics
+- Hardcode NPC data in TypeScript — all NPC specs go in `specs/npcs/*.yaml`
+- Change NPC key after it's been deployed (breaks session history)
+- Remove the platform ontology injection from NPC system prompts (NPC needs the map)
+- Add a new scene without updating `platform-ontology.json` (NPC will give wrong navigation advice)
+- Add an NPC with empty `scope[]` unless it's intentionally unrestricted (like the GM/navigator)

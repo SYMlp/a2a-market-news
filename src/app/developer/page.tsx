@@ -1,7 +1,8 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useTranslations } from 'next-intl'
 import Header from '@/components/Header'
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/Button'
@@ -48,13 +49,6 @@ interface DeveloperStats {
   unreadCount: number
 }
 
-const AGENT_TYPE_LABELS: Record<string, string> = {
-  human: '用户',
-  pa: 'PA',
-  openclaw: 'OpenClaw',
-  developer_pa: '开发者 PA',
-}
-
 function renderStars(rating: number) {
   const rounded = Math.round(rating)
   return '★'.repeat(rounded) + '☆'.repeat(5 - rounded)
@@ -62,6 +56,18 @@ function renderStars(rating: number) {
 
 export default function DeveloperDashboard() {
   const { user, loading: authLoading } = useAuth()
+  const t = useTranslations('developerDashboard')
+  const tc = useTranslations('common')
+  const tp = useTranslations('practiceNew')
+  const agentTypeLabels = useMemo(
+    () => ({
+      human: t('agentHuman'),
+      pa: t('agentPa'),
+      openclaw: 'OpenClaw',
+      developer_pa: t('agentDeveloperPa'),
+    }),
+    [t],
+  )
   const [stats, setStats] = useState<DeveloperStats | null>(null)
   const [apps, setApps] = useState<AppItem[]>([])
   const [practices, setPractices] = useState<PracticeItem[]>([])
@@ -84,10 +90,10 @@ export default function DeveloperDashboard() {
       .then(([statsData, appsData, practicesData]: unknown[]) => {
         const s = statsData as { success?: boolean; data?: DeveloperStats }
         const a = appsData as { success?: boolean; data?: AppItem[] }
-        const p = practicesData as { practices?: PracticeItem[] } | undefined
+        const p = practicesData as { success?: boolean; data?: PracticeItem[] } | undefined
         if (s.success) setStats(s.data ?? null)
         if (a.success) setApps(a.data ?? [])
-        if (p?.practices) setPractices(p.practices)
+        if (p?.success && p.data) setPractices(p.data)
         setLoading(false)
       })
       .catch(() => setLoading(false))
@@ -106,7 +112,7 @@ export default function DeveloperDashboard() {
           {loading || authLoading ? (
             <div className="text-center py-20">
               <div className="inline-block data-stream">
-                <div className="text-orange-500 text-xl">加载中...</div>
+                <div className="text-orange-500 text-xl">{tc('loading')}</div>
               </div>
             </div>
           ) : (
@@ -114,18 +120,18 @@ export default function DeveloperDashboard() {
               {/* Welcome */}
               <div className="mb-10">
                 <h1 className="text-3xl font-extrabold text-gray-800 font-heading mb-2">
-                  {user?.name ? `👋 ${user.name}，欢迎回来` : '👋 欢迎回来'}
+                  {user?.name ? t('welcomeBackNamed', { name: user.name }) : t('welcomeBack')}
                 </h1>
-                <p className="text-gray-400 text-sm">这是你的开发者控制台，管理应用并查看反馈。</p>
+                <p className="text-gray-400 text-sm">{t('subtitle')}</p>
               </div>
 
               {/* Stats Cards */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-12">
                 {[
-                  { label: '我的应用', value: stats?.totalApps ?? 0, icon: '📦', gradient: 'from-blue-400 to-blue-500' },
-                  { label: '总反馈', value: stats?.totalFeedbacks ?? 0, icon: '💬', gradient: 'from-purple-400 to-purple-500' },
-                  { label: '平均评分', value: (stats?.avgRating ?? 0).toFixed(1), icon: '⭐', gradient: 'from-amber-400 to-orange-500' },
-                  { label: '未读通知', value: stats?.unreadCount ?? 0, icon: '🔔', gradient: 'from-rose-400 to-pink-500' },
+                  { label: t('statMyApps'), value: stats?.totalApps ?? 0, icon: '📦', gradient: 'from-blue-400 to-blue-500' },
+                  { label: t('statTotalFeedbacks'), value: stats?.totalFeedbacks ?? 0, icon: '💬', gradient: 'from-purple-400 to-purple-500' },
+                  { label: t('statAvgRating'), value: (stats?.avgRating ?? 0).toFixed(1), icon: '⭐', gradient: 'from-amber-400 to-orange-500' },
+                  { label: t('statUnread'), value: stats?.unreadCount ?? 0, icon: '🔔', gradient: 'from-rose-400 to-pink-500' },
                 ].map((s, i) => (
                   <Card key={i} className="p-6 hover:shadow-lg transition-shadow">
                     <div className="flex items-center gap-3 mb-3">
@@ -141,7 +147,7 @@ export default function DeveloperDashboard() {
 
               {/* Apps Section */}
               <div className="mb-8 flex flex-wrap justify-between items-center gap-4">
-                <h2 className="text-2xl font-bold text-gray-800 font-heading">我的应用</h2>
+                <h2 className="text-2xl font-bold text-gray-800 font-heading">{t('myApps')}</h2>
                 <div className="flex items-center gap-3">
                   <label className="flex items-center gap-2 cursor-pointer text-sm text-gray-500">
                     <input
@@ -150,10 +156,10 @@ export default function DeveloperDashboard() {
                       onChange={e => setShowArchived(e.target.checked)}
                       className="rounded border-gray-300 text-orange-500 focus:ring-orange-400"
                     />
-                    显示已归档
+                    {t('showArchived')}
                   </label>
                   <Button asChild size="sm">
-                    <Link href="/register">+ 注册新应用</Link>
+                    <Link href="/register">{t('registerNewApp')}</Link>
                   </Button>
                 </div>
               </div>
@@ -161,10 +167,10 @@ export default function DeveloperDashboard() {
               {apps.length === 0 ? (
                 <Card className="p-16 text-center">
                   <div className="text-5xl mb-4">🚀</div>
-                  <p className="text-gray-500 text-lg mb-2">还没有注册应用</p>
-                  <p className="text-gray-300 text-sm mb-6">注册你的 A2A 应用，接收来自社区和 PA 的反馈</p>
+                  <p className="text-gray-500 text-lg mb-2">{t('emptyAppsTitle')}</p>
+                  <p className="text-gray-300 text-sm mb-6">{t('emptyAppsDesc')}</p>
                   <Button asChild>
-                    <Link href="/register">注册你的第一个应用</Link>
+                    <Link href="/register">{t('registerFirstApp')}</Link>
                   </Button>
                 </Card>
               ) : (
@@ -189,7 +195,7 @@ export default function DeveloperDashboard() {
                                   ? 'bg-gray-100 text-gray-500 border border-gray-200'
                                   : 'bg-amber-50 text-amber-600 border border-amber-200'
                               }`}>
-                                {app.status === 'active' ? '活跃' : app.status === 'archived' ? '已归档' : app.status === 'inactive' ? '暂停' : app.status}
+                                {app.status === 'active' ? t('statusActive') : app.status === 'archived' ? t('statusArchived') : app.status === 'inactive' ? t('statusInactive') : app.status}
                               </span>
                             </div>
                             <p className="text-gray-400 text-sm truncate">{app.description}</p>
@@ -199,7 +205,7 @@ export default function DeveloperDashboard() {
                           <div className="flex items-center gap-6 shrink-0">
                             <div className="text-center">
                               <div className="text-xl font-bold text-orange-500">{app._count.feedbacks}</div>
-                              <div className="text-xs text-gray-300">反馈</div>
+                              <div className="text-xs text-gray-300">{t('feedbacks')}</div>
                             </div>
                             <div className="text-center">
                               <div className="text-amber-500 text-sm tracking-wider">{renderStars(app.avgRating)}</div>
@@ -212,11 +218,11 @@ export default function DeveloperDashboard() {
                         {app.latestFeedback && (
                           <div className="bg-gray-50/80 rounded-lg p-4 mb-4 border border-gray-100">
                             <div className="flex items-center gap-2 mb-1.5">
-                              <span className="text-xs font-medium text-gray-500">最新反馈</span>
+                              <span className="text-xs font-medium text-gray-500">{t('latestFeedback')}</span>
                               <span className="text-xs text-gray-300">·</span>
                               <span className="text-xs text-gray-400">{app.latestFeedback.agentName}</span>
                               <span className="px-1.5 py-0.5 text-[10px] bg-white border border-gray-200 rounded text-gray-400">
-                                {AGENT_TYPE_LABELS[app.latestFeedback.agentType] ?? app.latestFeedback.agentType}
+                                {agentTypeLabels[app.latestFeedback.agentType as keyof typeof agentTypeLabels] ?? app.latestFeedback.agentType}
                               </span>
                               <span className="text-amber-400 text-xs ml-auto">
                                 {'★'.repeat(app.latestFeedback.overallRating)}
@@ -233,21 +239,21 @@ export default function DeveloperDashboard() {
                             className="px-4 py-2 border border-orange-200 text-orange-500 text-xs tracking-wide rounded-lg
                                        hover:bg-orange-50 transition-colors"
                           >
-                            查看反馈
+                            {t('viewFeedbacks')}
                           </Link>
                           <Link
                             href={`/developer/apps/${app.id}/settings`}
                             className="px-4 py-2 border border-gray-200 text-gray-500 text-xs tracking-wide rounded-lg
                                        hover:bg-gray-50 transition-colors"
                           >
-                            设置
+                            {t('settings')}
                           </Link>
                           <Link
                             href={`/app-pa/${app.id}`}
                             className="px-4 py-2 text-gray-400 text-xs tracking-wide rounded-lg
                                        hover:text-orange-500 transition-colors ml-auto"
                           >
-                            查看详情 →
+                            {t('viewDetails')}
                           </Link>
                         </div>
                       </div>
@@ -259,19 +265,19 @@ export default function DeveloperDashboard() {
               {/* My Practices Section */}
               <div className="mt-16">
                 <div className="mb-8 flex flex-wrap justify-between items-center gap-4">
-                  <h2 className="text-2xl font-bold text-gray-800 font-heading">我的实践</h2>
+                  <h2 className="text-2xl font-bold text-gray-800 font-heading">{t('myPractices')}</h2>
                   <Button asChild size="sm">
-                    <Link href="/practices/new">+ 发布实践</Link>
+                    <Link href="/practices/new">{t('publishPractice')}</Link>
                   </Button>
                 </div>
 
                 {practices.length === 0 ? (
                   <Card className="p-16 text-center">
                     <div className="text-5xl mb-4">📝</div>
-                    <p className="text-gray-500 text-lg mb-2">还没有发布实践</p>
-                    <p className="text-gray-300 text-sm mb-6">分享你的开发经验、最佳实践或使用技巧</p>
+                    <p className="text-gray-500 text-lg mb-2">{t('emptyPracticesTitle')}</p>
+                    <p className="text-gray-300 text-sm mb-6">{t('emptyPracticesDesc')}</p>
                     <Button asChild>
-                      <Link href="/practices/new">发布你的第一篇实践</Link>
+                      <Link href="/practices/new">{t('publishFirstPractice')}</Link>
                     </Button>
                   </Card>
                 ) : (
@@ -295,11 +301,11 @@ export default function DeveloperDashboard() {
                                     ? 'bg-purple-50 text-purple-600 border border-purple-200'
                                     : 'bg-emerald-50 text-emerald-600 border border-emerald-200'
                                 }`}>
-                                  {p.category === 'practice' ? '实践' : p.category === 'showcase' ? '展示' : '技巧'}
+                                  {p.category === 'practice' ? t('catPractice') : p.category === 'showcase' ? t('catShowcase') : t('catTip')}
                                 </span>
                                 {p.status === 'draft' && (
                                   <span className="px-2 py-0.5 text-xs rounded-full bg-amber-50 text-amber-600 border border-amber-200">
-                                    草稿
+                                    {tp('draft')}
                                   </span>
                                 )}
                               </div>
@@ -317,11 +323,11 @@ export default function DeveloperDashboard() {
                             <div className="flex items-center gap-6 shrink-0">
                               <div className="text-center">
                                 <div className="text-xl font-bold text-orange-500">{p.viewCount}</div>
-                                <div className="text-xs text-gray-300">浏览</div>
+                                <div className="text-xs text-gray-300">{t('views')}</div>
                               </div>
                               <div className="text-center">
                                 <div className="text-xl font-bold text-rose-400">{p.likeCount}</div>
-                                <div className="text-xs text-gray-300">点赞</div>
+                                <div className="text-xs text-gray-300">{t('likes')}</div>
                               </div>
                             </div>
                           </div>
@@ -330,7 +336,7 @@ export default function DeveloperDashboard() {
                     ))}
                     <div className="text-center pt-4">
                       <Link href="/practices" className="text-sm text-orange-500 hover:text-orange-600 transition-colors">
-                        查看所有实践 →
+                        {t('browseAllPractices')}
                       </Link>
                     </div>
                   </div>

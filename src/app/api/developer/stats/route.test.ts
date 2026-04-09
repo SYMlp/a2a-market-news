@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { NextRequest } from 'next/server'
 
 vi.mock('@/lib/prisma', () => ({
   prisma: {
@@ -18,18 +19,20 @@ import { GET } from './route'
 
 const mockGetUser = vi.mocked(getCurrentUser)
 
+const statsRequest = new NextRequest(new URL('http://localhost/api/developer/stats'))
+
 beforeEach(() => vi.clearAllMocks())
 
 describe('GET /api/developer/stats', () => {
   it('returns 401 when not logged in', async () => {
     mockGetUser.mockResolvedValue(null as never)
-    const res = await GET()
+    const res = await GET(statsRequest)
     expect(res.status).toBe(401)
   })
 
   it('returns 403 when not a developer', async () => {
     mockGetUser.mockResolvedValue({ id: 'u-1', isDeveloper: false } as never)
-    const res = await GET()
+    const res = await GET(statsRequest)
     expect(res.status).toBe(403)
   })
 
@@ -49,7 +52,7 @@ describe('GET /api/developer/stats', () => {
       clientId: 'c-1',
     } as never)
 
-    const res = await GET()
+    const res = await GET(statsRequest)
     const json = await res.json()
 
     expect(json.success).toBe(true)
@@ -76,7 +79,7 @@ describe('GET /api/developer/stats', () => {
     vi.mocked(prisma.notificationLog.count).mockResolvedValue(0 as never)
     vi.mocked(prisma.appFeedback.groupBy).mockResolvedValue([] as never)
 
-    const res = await GET()
+    const res = await GET(statsRequest)
     const json = await res.json()
 
     expect(json.data.avgRating).toBe(0)

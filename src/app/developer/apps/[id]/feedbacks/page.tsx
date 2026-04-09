@@ -2,8 +2,10 @@
 
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
+import { useLocale, useTranslations } from 'next-intl'
 import Header from '@/components/Header'
 import { Card } from '@/components/ui/Card'
+import { formatDateTime } from '@/lib/format-date'
 
 interface AppInfo {
   id: string
@@ -31,6 +33,8 @@ interface Feedback {
 export default function AppFeedbacksPage() {
   const params = useParams()
   const appId = params.id as string
+  const t = useTranslations('developerFeedbacks')
+  const locale = useLocale()
   const [appInfo, setAppInfo] = useState<AppInfo | null>(null)
   const [feedbacks, setFeedbacks] = useState<Feedback[]>([])
   const [total, setTotal] = useState(0)
@@ -76,20 +80,22 @@ export default function AppFeedbacksPage() {
 
   const renderStars = (n: number) => '★'.repeat(n) + '☆'.repeat(5 - n)
 
-  const recLabel: Record<string, string> = {
-    strongly_recommend: '强烈推荐',
-    recommend: '推荐',
-    neutral: '一般',
-    not_recommend: '不推荐',
-  }
+  const recLabel = (key: string) =>
+    ({
+      strongly_recommend: t('recStronglyRecommend'),
+      recommend: t('recRecommend'),
+      neutral: t('recNeutral'),
+      not_recommend: t('recNotRecommend'),
+    })[key] ?? key
 
-  const dimensionLabels: Record<string, string> = {
-    usability: '易用性',
-    creativity: '创意',
-    responsiveness: '响应速度',
-    fun: '趣味性',
-    reliability: '可靠性',
-  }
+  const dimensionLabel = (key: string) =>
+    ({
+      usability: t('dimUsability'),
+      creativity: t('dimCreativity'),
+      responsiveness: t('dimResponsiveness'),
+      fun: t('dimFun'),
+      reliability: t('dimReliability'),
+    })[key] ?? key
 
   return (
     <div className="min-h-screen">
@@ -100,22 +106,22 @@ export default function AppFeedbacksPage() {
       <main className="relative py-12">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="mb-8">
-            <h2 className="text-3xl font-extrabold text-gray-800 mb-2 font-heading">应用反馈</h2>
+            <h2 className="text-3xl font-extrabold text-gray-800 mb-2 font-heading">{t('title')}</h2>
             <div className="text-sm text-gray-500 mb-2">
-              {appInfo ? appInfo.name : '加载中...'}
+              {appInfo ? appInfo.name : t('loadingName')}
             </div>
-            <p className="text-gray-500">共 {total} 条评价</p>
+            <p className="text-gray-500">{t('totalReviews', { count: total })}</p>
           </div>
 
           {loading ? (
             <div className="text-center py-20">
               <div className="inline-block data-stream">
-                <div className="text-orange-500 text-xl">加载反馈中...</div>
+                <div className="text-orange-500 text-xl">{t('loadingFeedbacks')}</div>
               </div>
             </div>
           ) : feedbacks.length === 0 ? (
             <Card className="p-12 text-center">
-              <p className="text-gray-400">还没有收到反馈</p>
+              <p className="text-gray-400">{t('empty')}</p>
             </Card>
           ) : (
             <div className="space-y-4">
@@ -130,7 +136,7 @@ export default function AppFeedbacksPage() {
                         </span>
                       </div>
                       <div className="text-xs text-gray-300">
-                        {new Date(fb.createdAt).toLocaleString('zh-CN')}
+                        {formatDateTime(fb.createdAt, locale)}
                       </div>
                     </div>
                     <div className="text-right shrink-0">
@@ -150,7 +156,7 @@ export default function AppFeedbacksPage() {
                     <div className="flex flex-wrap gap-3 mb-3">
                       {Object.entries(fb.payload.dimensions).map(([key, val]) => (
                         <div key={key} className="flex items-center gap-2 px-3 py-1 bg-[#FFFBF5] border border-[#E8E0D8] rounded-lg">
-                          <span className="text-gray-400 text-xs">{dimensionLabels[key] || key}</span>
+                          <span className="text-gray-400 text-xs">{dimensionLabel(key)}</span>
                           <span className="text-orange-500 text-xs font-bold">{val}/5</span>
                         </div>
                       ))}
@@ -165,7 +171,7 @@ export default function AppFeedbacksPage() {
                     ))}
                     {fb.payload.recommendation && (
                       <span className="text-xs text-gray-400">
-                        {recLabel[fb.payload.recommendation] || fb.payload.recommendation}
+                        {recLabel(fb.payload.recommendation)}
                       </span>
                     )}
                   </div>
@@ -175,6 +181,7 @@ export default function AppFeedbacksPage() {
                     existingReply={fb.developerReply}
                     replyAt={fb.developerReplyAt}
                     onReplySubmitted={handleReplySubmitted}
+                    locale={locale}
                   />
                 </Card>
               ))}
@@ -188,17 +195,17 @@ export default function AppFeedbacksPage() {
                 disabled={page <= 1}
                 className="px-4 py-2 border border-[#E8E0D8] text-gray-500 text-sm rounded-lg hover:border-orange-200 transition-colors disabled:opacity-30"
               >
-                ← 上一页
+                {t('prevPage')}
               </button>
               <span className="px-4 py-2 text-gray-400 text-sm">
-                第 {page} / {Math.ceil(total / 10)} 页
+                {t('pageOf', { page, total: Math.ceil(total / 10) })}
               </span>
               <button
                 onClick={() => setPage(p => p + 1)}
                 disabled={page >= Math.ceil(total / 10)}
                 className="px-4 py-2 border border-[#E8E0D8] text-gray-500 text-sm rounded-lg hover:border-orange-200 transition-colors disabled:opacity-30"
               >
-                下一页 →
+                {t('nextPage')}
               </button>
             </div>
           )}
@@ -213,12 +220,16 @@ function ReplySection({
   existingReply,
   replyAt,
   onReplySubmitted,
+  locale,
 }: {
   feedbackId: string
   existingReply?: string | null
   replyAt?: string | null
   onReplySubmitted: (fbId: string, reply: string) => void
+  locale: string
 }) {
+  const t = useTranslations('developerFeedbacks')
+  const tc = useTranslations('common')
   const [editing, setEditing] = useState(false)
   const [reply, setReply] = useState(existingReply || '')
   const [submitting, setSubmitting] = useState(false)
@@ -228,17 +239,17 @@ function ReplySection({
     return (
       <div className="mt-3 p-4 bg-blue-50/50 border border-blue-100 rounded-xl">
         <div className="flex items-center gap-2 mb-2">
-          <span className="text-xs font-semibold text-blue-600">开发者回复</span>
+          <span className="text-xs font-semibold text-blue-600">{t('developerReply')}</span>
           {replyAt && (
             <span className="text-xs text-gray-300">
-              {new Date(replyAt).toLocaleString('zh-CN')}
+              {formatDateTime(replyAt, locale)}
             </span>
           )}
           <button
             onClick={() => { setEditing(true); setReply(existingReply) }}
             className="ml-auto text-xs text-gray-400 hover:text-blue-500 transition-colors"
           >
-            编辑
+            {t('edit')}
           </button>
         </div>
         <p className="text-gray-600 text-sm whitespace-pre-wrap">{existingReply}</p>
@@ -253,7 +264,7 @@ function ReplySection({
         className="mt-2 px-4 py-2 text-xs text-blue-500 border border-blue-200 rounded-lg
                    hover:bg-blue-50 transition-colors"
       >
-        回复
+        {t('reply')}
       </button>
     )
   }
@@ -275,10 +286,10 @@ function ReplySection({
         onReplySubmitted(feedbackId, reply.trim())
         setEditing(false)
       } else {
-        setError(data.error || '回复失败')
+        setError(data.error || t('replyFailed'))
       }
     } catch {
-      setError('网络错误')
+      setError(t('networkError'))
     } finally {
       setSubmitting(false)
     }
@@ -295,7 +306,7 @@ function ReplySection({
         rows={3}
         value={reply}
         onChange={e => setReply(e.target.value)}
-        placeholder="感谢反馈！我们会..."
+        placeholder={t('replyPlaceholder')}
         className="w-full bg-[#FFFBF5] border border-[#E8E0D8] text-gray-800 px-4 py-3 rounded-xl text-sm
                    focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100
                    transition-all resize-none placeholder:text-gray-300"
@@ -307,13 +318,13 @@ function ReplySection({
           className="px-5 py-2 bg-gradient-to-r from-blue-500 to-indigo-500 text-white text-xs font-semibold
                      rounded-lg hover:shadow-md transition-all disabled:opacity-40"
         >
-          {submitting ? '提交中...' : existingReply ? '更新回复' : '发送回复'}
+          {submitting ? t('submitting') : existingReply ? t('updateReply') : t('sendReply')}
         </button>
         <button
           onClick={() => { setEditing(false); setReply(existingReply || '') }}
           className="px-4 py-2 text-gray-400 text-xs hover:text-gray-600 transition-colors"
         >
-          取消
+          {tc('cancel')}
         </button>
       </div>
     </div>

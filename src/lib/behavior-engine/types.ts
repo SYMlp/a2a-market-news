@@ -8,7 +8,7 @@
  * presentation, resolution. Each section is a first-class peer.
  */
 
-import type { DualText, GameSession } from '../engine/types'
+import type { DualText } from '../engine/types'
 
 // ─── Resolution Type ─────────────────────────────
 

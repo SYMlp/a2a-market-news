@@ -1,5 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { reportApiError } from '@/lib/server-observability'
+import { apiError, apiSuccess, buildPagination } from '@/lib/api-utils'
 
 /**
  * POST /api/app-pa/:id/posts
@@ -20,10 +22,7 @@ export async function POST(
     } = body
 
     if (!content) {
-      return NextResponse.json(
-        { error: '内容不能为空' },
-        { status: 400 }
-      )
+      return apiError('内容不能为空', 400)
     }
 
     // 验证应用 PA 是否存在
@@ -33,10 +32,7 @@ export async function POST(
     })
 
     if (!appRecord) {
-      return NextResponse.json(
-        { error: '应用 PA 不存在' },
-        { status: 404 }
-      )
+      return apiError('应用 PA 不存在', 404)
     }
 
     // 如果指定了目标圈子，查找圈子 ID
@@ -70,16 +66,10 @@ export async function POST(
       },
     })
 
-    return NextResponse.json({
-      success: true,
-      data: post,
-    })
+    return apiSuccess(post)
   } catch (error) {
-    console.error('发布动态失败:', error)
-    return NextResponse.json(
-      { error: '发布失败' },
-      { status: 500 }
-    )
+    reportApiError(request, error, 'publish_app_pa_post_failed')
+    return apiError('发布失败', 500)
   }
 }
 
@@ -144,23 +134,12 @@ export async function GET(
       }),
     ])
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        posts,
-        pagination: {
-          page,
-          limit,
-          total,
-          totalPages: Math.ceil(total / limit),
-        },
-      },
+    return apiSuccess({
+      posts,
+      pagination: buildPagination(page, limit, total),
     })
   } catch (error) {
-    console.error('获取动态列表失败:', error)
-    return NextResponse.json(
-      { error: '获取失败' },
-      { status: 500 }
-    )
+    reportApiError(request, error, 'get_app_pa_posts_failed')
+    return apiError('获取失败', 500)
   }
 }

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { exchangeCodeForToken, callSecondMeAPI } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 import { cookies } from 'next/headers'
+import { reportApiError } from '@/lib/server-observability'
+import { rootLogger } from '@/lib/logger'
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
@@ -36,14 +38,14 @@ export async function GET(request: NextRequest) {
       const shadesData = await callSecondMeAPI('/api/secondme/user/shades', tokens.access_token)
       shades = shadesData.shades
     } catch (e) {
-      console.log('Failed to fetch shades:', e)
+      rootLogger.warn({ err: e }, 'failed_to_fetch_shades')
     }
 
     try {
       const softMemoryData = await callSecondMeAPI('/api/secondme/user/softmemory', tokens.access_token)
       softMemory = softMemoryData.list
     } catch (e) {
-      console.log('Failed to fetch softMemory:', e)
+      rootLogger.warn({ err: e }, 'failed_to_fetch_soft_memory')
     }
 
     // 计算 Token 过期时间
@@ -102,7 +104,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.redirect(new URL('/lobby', request.url))
   } catch (error) {
-    console.error('OAuth callback error:', error)
+    reportApiError(request, error, 'oauth_callback_error')
     return NextResponse.redirect(new URL('/?error=auth_failed', request.url))
   }
 }

@@ -1,0 +1,176 @@
+---
+globs: src/lib/engine/event-logger.ts   , scripts/check-logs*.js
+alwaysApply: false
+---
+# PA Behavior Audit — Log-Driven Optimization Cycle
+
+When analyzing PA behavior from game logs, follow this structured pipeline. Each phase builds on the previous one — do not skip phases.
+
+## Phase 0: Version Context
+
+Before starting analysis, establish which engine version the logs belong to.
+
+```sql
+-- Check version distribution
+SELECT engine_version, COUNT(*) FROM game_session_logs GROUP BY engine_version;
+```
+
+- Analyze only the **latest version** unless doing before/after comparison.
+- If comparing versions, state the comparison explicitly ("v1 had X, v2 shows Y").
+
+## Phase 1: Data Collection
+
+### 1.1 Session-Level Overview
+
+Query `game_session_logs` to build the population picture:
+
+| Metric                    | What to look for                                                         |
+| :------------------------ | :----------------------------------------------------------------------- |
+| `totalTurns` distribution | Sessions with 0-1 turns = fragmentation; 10+ turns = possible loop       |
+| `loopsDetected > 0`       | Guard already fired — investigate what triggered it                      |
+| `errorsOccurred > 0`      | API failures or logic errors                                             |
+| `scenesVisited`           | Single-scene sessions = PA never moved; same two scenes = bounce pattern |
+| Session duration          | < 5 seconds = initialization waste; > 5 minutes in auto = suspicious     |
+| `engineVersion`           | Filter to target version; compare across versions                        |
+
+### 1.2 Turn-Level Reconstruction
+
+For each suspicious session, query `game_turn_logs` ordered by `createdAt` and reconstruct the **full conversation flow** as a timeline table:
+
+```
+Turn | Scene | Action | PA Said (summary) | NPC Reply (summary) | Outcome | Transition | PA Goal | Return Reason
+```
+
+- **PA Goal** (`pa_goal`): what the PA was trying to do at this turn (from `currentGoal.purpose`)
+- **Return Reason** (`return_reason`): why the PA returned to lobby — `npc_redirect` | `pa_initiative` | `goal_completed` | `stuck` | `navigator_exhausted`
+
+These two columns are available from engine v4+. They reveal *intent*, not just *behavior*.
+
+This table is the primary analysis artifact. All subsequent analysis works from it.
+
+### 1.3 Cross-Session Patterns
+
+Look across multiple sessions for the same user/PA:
+
+- Does the PA always choose the same path?
+- Does the PA always fall back to the same message?
+- Are sessions getting shorter over time (user frustration)?
+
+## Phase 2: Pattern Detection Checklist
+
+Run through each pattern detector. Mark as ✅ OK or ❌ FOUND:
+
+| #    | Pattern                    | Detection Signal                                                                        | Severity |
+| :--- | :------------------------- | :-------------------------------------------------------------------------------------- | :------- |
+| P1   | **Scene Bounce Loop**      | A→B→A→B in `scenesVisited` or transition logs                                           | Critical |
+| P2   | **PA Content Repetition**  | Same `inputContent` appearing 2+ times across turns                                     | High     |
+| P3   | **NPC Content Repetition** | Same `npcReply` appearing 3+ times (within or across scenes)                            | High     |
+| P4   | **Session Fragmentation**  | Multiple sessions < 3 turns within 5 minutes for same user                              | Medium   |
+| P5   | **Guard Failure**          | Loop exists but `loopDetected = false` on all turns                                     | High     |
+| P6   | **Missing Exit Path**      | PA never triggers `leave` action; session only ends by TTL                              | Medium   |
+| P7   | **Fallback Bias**          | PA `inputContent` matches a known fallback string exactly                               | High     |
+| P8   | **Classifier Mismatch**    | `actionMatched` doesn't align with PA's stated intent in `inputContent`                 | Medium   |
+| P9   | **FC Execution Failure**   | `functionCallStatus = 'failed'` or `'skipped'`                                          | Medium   |
+| P10  | **Dead-End Scene**         | PA enters a scene, gets told "nothing here", has no useful action                       | Medium   |
+| P11  | **Navigator Exhaustion**   | `endReason = 'navigator_exhausted'`; PA couldn't find useful scene in 3 attempts        | High     |
+| P12  | **Scope Redirect Cascade** | Multiple `return_reason = 'npc_redirect'` in same session; PA keeps hitting scope walls | High     |
+| P13  | **Path Cycle**             | `loopDetected = true` with path cycle pattern (3+ scene sequence repeating)             | Critical |
+| P14  | **Goalless Wandering**     | `pa_goal` is null across 5+ turns; PA has no purpose driving navigation                 | Medium   |
+| P15  | **Same-Action Dead Loop**  | Same `actionMatched` (e.g. `GM.assignMission`) fires 3+ times in same scene; NPC text varies but action is identical | Critical |
+
+## Phase 3: Root Cause Tracing
+
+For each detected pattern, trace through the system stack:
+
+```
+Symptom → Which layer?
+├─ PA Prompt Layer     (src/app/api/gm/pa-respond/route.ts, src/lib/pa/prompts.ts)
+│   └─ Missing context? Biased fallback? No journey memory?
+├─ AI Classifier Layer (src/lib/engine/ai-classifier.ts)
+│   └─ Misclassification? Cache hit on stale data? Timeout → keyword fallback?
+├─ Game Loop Layer     (src/lib/engine/game-loop.ts, scene definitions)
+│   └─ Missing action? Precondition blocking? No exit path?
+├─ NPC Layer           (src/lib/npc/engine.ts, src/lib/npc/prompts.ts)
+│   └─ Out-of-scope response? Missing data awareness? Repetitive template?
+├─ Guard Layer         (src/lib/engine/conversation-guard.ts)
+│   └─ Threshold too high? Scope too narrow? Reset too aggressive? Path cycle missed?
+├─ Scope Layer         (src/lib/npc/scope.ts)
+│   └─ Runtime gate too strict? Keywords missing from NPC scope? Redirect message unhelpful?
+├─ Navigator Layer     (src/lib/engine/session-context.ts → buildNavigatorContext)
+│   └─ Goal-scope matching too weak? Exhaustion threshold too low? Recommendation not specific enough?
+└─ Session Layer       (src/lib/engine/session.ts, session-context.ts)
+    └─ No journey memory? Scene-scoped state lost? No end mechanism?
+```
+
+**Key principle**: Fix the root cause, not the symptom. If PA keeps bouncing lobby↔news, the fix is NOT "block transitions after N times" — it's "give PA the context to make a different choice".
+
+## Phase 4: Fix Design
+
+### Defense-in-Depth Principle
+
+Every fix should create a new defense layer, not just patch one spot:
+
+```
+Layer 1: Information (PA gets context to avoid the mistake)
+Layer 2: Diversity  (Fallbacks randomized, prompts varied)
+Layer 3: Detection  (Guard detects the pattern if Layer 1-2 fail)
+Layer 4: Circuit Breaker (Session ends gracefully if Layer 3 fires)
+```
+
+### Fix Categorization
+
+| Fix Type              | Example                      | Verify By                                                    |
+| :-------------------- | :--------------------------- | :----------------------------------------------------------- |
+| **Context injection** | Journey summary in PA prompt | PA makes different choices in same situation                 |
+| **Prompt debiasing**  | Randomized fallbacks         | No single fallback appears > 30%                             |
+| **Guard expansion**   | Cross-scene loop detection   | `loopDetected = true` on bounce patterns                     |
+| **Exit path**         | `leave_platform` action      | Sessions end with `endReason = 'pa_leave'`                   |
+| **Scope tuning**      | Add keywords to NPC scope    | Fewer `return_reason = 'npc_redirect'` for legitimate topics |
+| **Navigator upgrade** | Better goal-scope matching   | PA reaches useful scene in fewer attempts                    |
+| **Scene content**     | NPC adapts to empty-state    | NPC doesn't repeat same "no apps" message 3x                 |
+
+### Implementation Order
+
+1. Context fixes first (reduce the problem at source)
+2. Guard fixes second (catch what context can't prevent)
+3. Exit paths last (graceful degradation)
+
+## Phase 5: Verification
+
+After deploying fixes, run a new session and compare:
+
+### Metrics to Compare (version N vs N+1)
+
+| Metric                                   | Healthy Direction                                  |
+| :--------------------------------------- | :------------------------------------------------- |
+| Avg turns per session                    | Stable or increasing (more engagement, not loops)  |
+| Unique scenes visited                    | Increasing (PA explores more)                      |
+| Loop detection events                    | Decreasing (fewer loops to detect)                 |
+| Sessions ending by `pa_leave`            | Increasing (PA choosing to leave > timeout)        |
+| Distinct PA messages                     | Increasing (less repetition)                       |
+| Session fragmentation                    | Decreasing (fewer abandoned sessions)              |
+| Sessions ending by `navigator_exhausted` | Low and decreasing (navigator is solving problems) |
+| Scope redirects per session              | Low (NPC scope keywords covering real topics)      |
+| PA goals present                         | Increasing (PA arrives with purpose)               |
+| Return reasons distributed               | Not dominated by one category                      |
+
+### Verification Script
+
+Use `node scripts/check-logs.js [version]` to pull versioned data. If the script doesn't support version filtering, add it.
+
+## Anti-Patterns — What NOT to Do
+
+1. **Don't suppress symptoms**: Blocking a transition doesn't fix why PA wanted it.
+2. **Don't over-guard**: If guard fires on every session, the threshold is too low or the root cause is unfixed.
+3. **Don't add more prompts without context**: More instructions to PA without journey memory just increases noise.
+4. **Don't analyze logs without the conversation flow table**: Summary stats hide the narrative.
+5. **Don't skip Phase 0**: Analyzing pre-fix logs after deploying fixes wastes time.
+
+## Data Lifecycle
+
+| Stage                 | Action                                                                     |
+| :-------------------- | :------------------------------------------------------------------------- |
+| Pre-fix sessions      | Tagged as previous `engineVersion`, kept for comparison                    |
+| Post-fix verification | New `engineVersion`, analyzed against previous                             |
+| Confirmed improvement | Old version data can be archived (not deleted) after 2 optimization cycles |
+| Regression detected   | Diff the two versions' conversation flows to find what broke               |

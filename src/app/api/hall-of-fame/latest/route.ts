@@ -1,28 +1,14 @@
-import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { NextRequest } from 'next/server'
+import { reportApiError } from '@/lib/server-observability'
+import { apiError, apiSuccess } from '@/lib/api-utils'
+import { getLatestHallOfFame } from '@/lib/gamification'
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const latestEntry = await prisma.hallOfFameEntry.findFirst({
-      orderBy: { weekKey: 'desc' },
-      select: { weekKey: true },
-    })
-
-    if (!latestEntry) {
-      return NextResponse.json({ success: true, data: null, message: 'No hall of fame entries yet' })
-    }
-
-    const entries = await prisma.hallOfFameEntry.findMany({
-      where: { weekKey: latestEntry.weekKey },
-      orderBy: [{ category: 'asc' }, { rank: 'asc' }],
-    })
-
-    return NextResponse.json({
-      success: true,
-      data: { weekKey: latestEntry.weekKey, entries },
-    })
+    const result = await getLatestHallOfFame()
+    return apiSuccess(result)
   } catch (error) {
-    console.error('Failed to fetch latest hall of fame:', error)
-    return NextResponse.json({ error: 'Failed to fetch latest hall of fame' }, { status: 500 })
+    reportApiError(request, error, 'failed_to_fetch_latest_hall_of_fame')
+    return apiError('Failed to fetch latest hall of fame', 500)
   }
 }

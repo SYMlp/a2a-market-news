@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { resolveUserFromToken } from '@/lib/mcp-auth'
 import { prisma } from '@/lib/prisma'
-import { executeReviewAction, executeVoteAction } from '@/lib/pa-engine'
-import { addPoints, incrementDailyTask } from '@/lib/points'
+import { executeReviewAction, executeVoteAction } from '@/lib/pa-actions'
+import { addPoints, incrementDailyTask } from '@/lib/gamification'
 import {
   getOrCreateSession,
   processMessageWithAI,
@@ -10,6 +10,7 @@ import {
 } from '@/lib/gm/engine'
 import { getComponentSpecMcpTools, resolveSpecForTool } from '@/lib/component-runtime/mcp-export'
 import { createSubFlowHandler } from '@/lib/component-runtime/subflow-adapter'
+import { reportApiError } from '@/lib/server-observability'
 
 // ─── Tool Definitions ───────────────────────────
 
@@ -376,7 +377,7 @@ export async function POST(request: NextRequest) {
 
       return jsonRpcError(body.id, -32603, 'Tool handler not found')
     } catch (e) {
-      console.error(`MCP tools/call error (${name}):`, e)
+      reportApiError(request, e, 'mcp_tools_call_error', { toolName: name })
       return jsonRpcError(body.id, -32603, `Tool execution failed: ${(e as Error).message}`)
     }
   }

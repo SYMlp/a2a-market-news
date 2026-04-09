@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { getCurrentUser } from '@/lib/auth'
-import { callSecondMeStream } from '@/lib/pa-engine'
+import { NextRequest } from 'next/server'
+import { apiError, apiSuccess, AuthError, requireAuth } from '@/lib/api-utils'
+import { callSecondMeStream } from '@/lib/pa-actions'
 import { parseJSONLoose } from '@/lib/json-utils'
 import { MODEL_FOR } from '@/lib/model-config'
+import { reportApiError } from '@/lib/server-observability'
 
 type FormType = 'register' | 'review' | 'profile'
 type Confidence = 'high' | 'medium' | 'low'
@@ -76,10 +77,7 @@ function inferConfidence(user: { shades: unknown; softMemory: unknown }): Confid
 
 export async function POST(request: NextRequest) {
   try {
-    const user = await getCurrentUser()
-    if (!user) {
-      return NextResponse.json({ error: 'Login required' }, { status: 401 })
-    }
+    const user = await requireAuth()
 
     const body = await request.json()
     const { formType, context } = body as {
@@ -88,10 +86,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (!formType || !['register', 'review', 'profile'].includes(formType)) {
-      return NextResponse.json(
-        { error: 'Invalid formType. Must be: register, review, or profile' },
-        { status: 400 }
-      )
+      return apiError('Invalid formType. Must be: register, review, or profile', 400)
     }
 
     const prompt = buildPrompt(formType, context, {
@@ -125,16 +120,15 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({
-      success: true,
+    return apiSuccess({
       suggestions,
       paMessage: `PA ${user.name || ''} 为你准备了一些建议`,
     })
   } catch (error) {
-    console.error('PA suggest-fill failed:', error)
-    return NextResponse.json(
-      { error: 'Failed to generate suggestions' },
-      { status: 500 }
-    )
+    if (error instanceof AuthError) {
+      return error.response
+    }
+    reportApiError(request, error, 'pa_suggest_fill_failed')
+    return apiError('Failed to generate suggestions', 500)
   }
 }

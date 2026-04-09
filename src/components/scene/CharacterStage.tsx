@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useTranslations } from 'next-intl'
 import SpriteCharacter from './SpriteCharacter'
 import type { CharacterState } from './SpriteCharacter'
 
@@ -19,6 +20,7 @@ interface CharacterStageProps {
 const BUBBLE_TRUNCATE = 200
 
 function BubbleText({ text }: { text: string }) {
+  const t = useTranslations('agentSpace')
   const [expanded, setExpanded] = useState(false)
   const needsTruncate = text.length > BUBBLE_TRUNCATE
 
@@ -28,7 +30,7 @@ function BubbleText({ text }: { text: string }) {
         {text}
         {needsTruncate && (
           <button type="button" className="char-stage__bubble-toggle" onClick={() => setExpanded(false)}>
-            收起
+            {t('characterStage.collapse')}
           </button>
         )}
       </div>
@@ -39,7 +41,7 @@ function BubbleText({ text }: { text: string }) {
     <div className="char-stage__bubble-text">
       {text.slice(0, BUBBLE_TRUNCATE)}...
       <button type="button" className="char-stage__bubble-toggle" onClick={() => setExpanded(true)}>
-        展开全部
+        {t('characterStage.expandAll')}
       </button>
     </div>
   )
@@ -56,6 +58,7 @@ export default function CharacterStage({
   paState,
   npcState = 'idle',
 }: CharacterStageProps) {
+  const t = useTranslations('agentSpace.characterStage')
   return (
     <div className="char-stage">
       {/* NPC side (left) */}
@@ -64,7 +67,7 @@ export default function CharacterStage({
           {npcState === 'thinking' && (
             <div className="char-stage__thinking">
               <div className="char-stage__thinking-dots"><i /><i /><i /></div>
-              <span className="char-stage__thinking-label">思考中</span>
+              <span className="char-stage__thinking-label">{t('characterStage.thinking')}</span>
             </div>
           )}
           <SpriteCharacter
@@ -93,7 +96,7 @@ export default function CharacterStage({
           {paState === 'thinking' && (
             <div className="char-stage__thinking">
               <div className="char-stage__thinking-dots"><i /><i /><i /></div>
-              <span className="char-stage__thinking-label">思考中</span>
+              <span className="char-stage__thinking-label">{t('characterStage.thinking')}</span>
             </div>
           )}
           <SpriteCharacter

@@ -1,4 +1,4 @@
-import type { DualText, SceneAction, TurnOutcome, FCResult } from '@/lib/engine/types'
+import type { DualText, TurnOutcome, FCResult } from '@/lib/engine/types'
 
 // ─── NPC Reply Result ────────────────────────────
 

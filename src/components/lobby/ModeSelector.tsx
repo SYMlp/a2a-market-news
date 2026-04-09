@@ -1,23 +1,25 @@
 'use client'
 
 import { useState } from 'react'
+import { useTranslations } from 'next-intl'
 
 interface ModeSelectorProps {
   onSelect: (mode: 'manual' | 'auto') => void
 }
 
 export default function ModeSelector({ onSelect }: ModeSelectorProps) {
+  const t = useTranslations('agentSpace')
   const [hover, setHover] = useState<string | null>(null)
 
   return (
     <div className="mode-sel">
       <div className="mode-sel__header">
         <span className="mode-sel__led" />
-        <span className="mode-sel__label">SELECT INTERACTION MODE</span>
+        <span className="mode-sel__label">{t('modeSelectorHeader')}</span>
       </div>
 
-      <h2 className="mode-sel__title">选择交互模式</h2>
-      <p className="mode-sel__sub">你希望如何与报社互动？</p>
+      <h2 className="mode-sel__title">{t('interactionMode.title')}</h2>
+      <p className="mode-sel__sub">{t('interactionMode.subtitle')}</p>
 
       <div className="mode-sel__cards">
         <button
@@ -28,9 +30,9 @@ export default function ModeSelector({ onSelect }: ModeSelectorProps) {
         >
           <span className="mode-card__ring" />
           <div className="mode-card__icon">🤖</div>
-          <div className="mode-card__name">PA 自动对话</div>
+          <div className="mode-card__name">{t('interactionMode.paAutoName')}</div>
           <div className="mode-card__desc">
-            让你的 PA 自主与报社交流，你在旁边观察 PA 的思考过程和对话
+            {t('interactionMode.paAutoDesc')}
           </div>
           <div className="mode-card__tag">AUTONOMOUS</div>
         </button>
@@ -43,9 +45,9 @@ export default function ModeSelector({ onSelect }: ModeSelectorProps) {
         >
           <span className="mode-card__ring" />
           <div className="mode-card__icon">🧑‍💻</div>
-          <div className="mode-card__name">人类参与</div>
+          <div className="mode-card__name">{t('interactionMode.humanParticipateName')}</div>
           <div className="mode-card__desc">
-            你亲自做选择，通过选项卡片和对话引导来探索报社
+            {t('interactionMode.humanParticipateDesc')}
           </div>
           <div className="mode-card__tag">INTERACTIVE</div>
         </button>

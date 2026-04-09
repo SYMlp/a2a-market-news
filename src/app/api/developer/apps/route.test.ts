@@ -106,7 +106,7 @@ describe('POST /api/developer/apps', () => {
     const json = await res.json()
 
     expect(res.status).toBe(400)
-    expect(json.error).toContain('Missing required fields')
+    expect(json.error).toMatch(/参数校验失败/)
   })
 
   it('returns 404 when circle not found', async () => {
@@ -164,16 +164,19 @@ describe('POST /api/developer/apps', () => {
     })
   })
 
-  it('sets clientId to null when not provided', async () => {
+  it('generates a clientId when not provided', async () => {
     mockGetUser.mockResolvedValue({ id: 'u-1', isDeveloper: true } as never)
     mockCircleFind.mockResolvedValue({ id: 'c-1' } as never)
+    mockAppFindUnique.mockResolvedValue(null as never)
     mockAppCreate.mockResolvedValue({ id: 'app-new' } as never)
     mockMetricsCreate.mockResolvedValue({} as never)
 
     await POST(req('POST', { name: 'App', description: 'desc', circleType: 'internet' }))
 
     expect(mockAppCreate).toHaveBeenCalledWith({
-      data: expect.objectContaining({ clientId: null }),
+      data: expect.objectContaining({
+        clientId: expect.stringMatching(/^app-[a-f0-9]{8}$/),
+      }),
       include: { circle: true },
     })
   })

@@ -1,18 +1,14 @@
-import { NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { NextRequest } from 'next/server'
+import { reportApiError } from '@/lib/server-observability'
+import { apiError, apiSuccess } from '@/lib/api-utils'
+import { listAchievementDefs } from '@/lib/gamification'
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const defs = await prisma.achievementDef.findMany({
-      orderBy: { sortOrder: 'asc' },
-      include: {
-        _count: { select: { unlocks: true } },
-      },
-    })
-
-    return NextResponse.json({ success: true, data: defs })
+    const defs = await listAchievementDefs()
+    return apiSuccess(defs)
   } catch (error) {
-    console.error('Failed to fetch achievements:', error)
-    return NextResponse.json({ error: 'Failed to fetch achievements' }, { status: 500 })
+    reportApiError(request, error, 'failed_to_fetch_achievements')
+    return apiError('Failed to fetch achievements', 500)
   }
 }

@@ -1,4 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
+import { apiError, apiSuccess } from '@/lib/api-utils'
+import { reportApiError } from '@/lib/server-observability'
 import { prisma } from '@/lib/prisma'
 import { validateAgentToken } from '@/lib/agent-auth'
 
@@ -25,7 +27,7 @@ export async function GET(
     })
 
     if (!app) {
-      return NextResponse.json({ error: 'App not found' }, { status: 404 })
+      return apiError('App not found', 404)
     }
 
     const ratingAgg = await prisma.appFeedback.aggregate({
@@ -46,26 +48,23 @@ export async function GET(
       },
     })
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        id: app.id,
-        name: app.name,
-        description: app.description,
-        website: app.website,
-        logo: app.logo,
-        clientId: app.clientId,
-        circle: app.circle,
-        persona: app.persona,
-        featured: app.featured,
-        feedbackCount: ratingAgg._count,
-        avgRating: Math.round((ratingAgg._avg.overallRating ?? 0) * 10) / 10,
-        recentFeedbacks,
-        createdAt: app.createdAt,
-      },
+    return apiSuccess({
+      id: app.id,
+      name: app.name,
+      description: app.description,
+      website: app.website,
+      logo: app.logo,
+      clientId: app.clientId,
+      circle: app.circle,
+      persona: app.persona,
+      featured: app.featured,
+      feedbackCount: ratingAgg._count,
+      avgRating: Math.round((ratingAgg._avg.overallRating ?? 0) * 10) / 10,
+      recentFeedbacks,
+      createdAt: app.createdAt,
     })
   } catch (error) {
-    console.error('Agent app detail failed:', error)
-    return NextResponse.json({ error: 'Query failed' }, { status: 500 })
+    reportApiError(request, error, 'agent_app_detail_failed')
+    return apiError('Query failed', 500)
   }
 }

@@ -1,5 +1,6 @@
 {
   "platform": "A2A 智选日报",
+  "hubScene": "lobby",
   "scenes": {
     "lobby": {
       "label": "大厅",

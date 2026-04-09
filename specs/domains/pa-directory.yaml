@@ -1,0 +1,26 @@
+# DomainSpec: pa-directory
+# PA visitor directory + detail — multi-model aggregation (badges, achievements, feedbacks, hall of fame).
+#
+# List/get delegate to registered HTTP services (`paDirectoryList` / `paDirectoryGet`) that call
+# `src/lib/pa-directory/index.ts`. This is the second DomainSpec domain, validating the
+# `operations.*.service` escape hatch for domains that are not plain Prisma CRUD.
+#
+# Nested resource `/api/pa-directory/[agentId]/questions` remains hand-written (create + list by visitor).
+#
+# Architecture: docs/domain-spec-architecture.md §7.1
+
+id: pa-directory
+model: pAVisitor
+description: "PA 名录与详情（聚合查询，service 委托）"
+
+operations:
+  list:
+    auth: public
+    pagination:
+      pageSize: 50
+    service: paDirectoryList
+
+  get:
+    auth: public
+    service: paDirectoryGet
+    paramKey: agentId

@@ -1,0 +1,129 @@
+---
+globs: src/lib/scenes/**,specs/scenes/**
+alwaysApply: false
+---
+# Scene Plugin Guide
+
+Scenes are the content layer of the engine. Each scene is defined as a YAML spec file and auto-discovered by the scene-loader.
+
+## Adding a New Scene
+
+1. Create `specs/scenes/<scene-id>.yaml` conforming to `specs/scenespec.schema.json`
+2. Add visual config in `src/lib/scene-visuals/configs.json`
+3. Update `src/lib/engine/platform-ontology.json` with NPC, capabilities, exits, behaviors
+4. Create `specs/npcs/<npc-key>.yaml` for the scene's NPC (see `npc-authoring.mdc`)
+
+No manual import or registration needed — the scene-loader auto-discovers YAML files in `specs/scenes/`.
+
+## SceneSpec YAML Format
+
+```yaml
+id: my-scene                              # unique, lowercase, kebab-case
+theme:
+  accent: "#ff6600"
+  icon: "🎯"
+  label: 场景名
+
+opening:
+  first:
+    pa: "欢迎来到场景名！..."
+    agent: "Welcome to my-scene..."
+  return:                                  # optional, falls back to first
+    pa: "又回来了！..."
+    agent: "Back at my-scene..."
+
+dataLoader: null                           # optional API path (e.g. /api/gm/recommend)
+
+actions:
+  - id: do_something
+    outcome: stay                          # 'stay' | 'move'
+    label:
+      pa: 做点什么
+      agent: Do something
+    actIntent: do_something                # intent tag for AI classifier
+    response:                              # optional NPC fallback
+      pa: 好的，正在做...
+      agent: Doing something...
+    functionCall:
+      name: GM.doSomething
+      args: {}
+    # Optional fields: triggers, precondition, params, transition
+
+  - id: back_lobby                         # required for non-lobby scenes
+    outcome: move
+    label:
+      pa: 回大厅
+      agent: Return to lobby
+    actIntent: leave
+    functionCall:
+      name: GM.enterSpace
+      args: { space: lobby }
+    transition:
+      type: enter_space
+      target: lobby
+
+fallback:
+  response:
+    pa: "没太听清——..."
+    agent: "Intent unclear..."
+```
+
+All fields map 1:1 from the `Scene` TypeScript interface. Validated against `specs/scenespec.schema.json` by the scene-loader at startup.
+
+## SceneAction Requirements
+
+**Required fields:**
+
+- `id` — unique within the scene
+- `outcome` — either `stay` or `move`
+- `label` — DualText (used by UI buttons, NPC prompts, session context)
+- `actIntent` — intent tag for AI classifier (primary matching signal)
+- `functionCall` — `{ name: string, args: {} }`
+
+**Required for `outcome: move`:**
+
+- `transition` — `{ type: enter_space, target: <target-scene-id> }`
+
+**Optional:**
+
+- `triggers` — keyword array for fallback matching when AI classifier is unavailable
+- `response` — DualText NPC fallback response when NPC AI is unavailable
+- `precondition` — `{ check: <expression>, failMessage: DualText }` (see precondition DSL)
+- `params`
+
+### Precondition Expressions
+
+Preconditions use a small expression DSL evaluated by `precondition-eval.ts`:
+
+```yaml
+precondition:
+  check: "session.flags.hasExperienced == true"
+  failMessage:
+    pa: "你还没体验过应用呢！"
+    agent: "Cannot report: no app experienced."
+```
+
+Supported syntax: `session.flags.<key>` / `session.data.<key>`, operators `==`, `!=`, `exists`, `!exists`, combinators `&&`, `||`, `!`.
+
+## Three Flexibility Strategies
+
+| Strategy             | Matching              | Response            | Execution      | When to use                                        |
+| :------------------- | :-------------------- | :------------------ | :------------- | :------------------------------------------------- |
+| Full template        | `triggers[]` keywords | `response` template | `functionCall` | Critical paths needing guaranteed offline behavior |
+| Intent tag (default) | `actIntent` via AI    | NPC AI generates    | `functionCall` | Standard business actions                          |
+| Free chat            | No action matched     | NPC free response   | None           | Exploration, chitchat                              |
+
+When AI classifier is unavailable and no `triggers` are defined, the system gracefully degrades to free chat: NPC responds freely and guides the user toward available actions.
+
+## Visual Config
+
+Add an entry in `src/lib/scene-visuals/configs.json` with matching scene id. Required fields: `accent`, `accentRgb`, `agentName`, `agentEmoji`, `npcSkin`, `label`, `icon`, `npcGreeting`, `bgParticleCount`, `transitionIn`, `transitionOut`.
+
+## Common Mistakes
+
+- Forgetting to add `back_lobby` action (every non-lobby scene needs one)
+- Using plain strings instead of DualText objects (`{ pa: ..., agent: ... }`)
+- Missing `actIntent` on an action (AI classifier cannot match without it)
+- Forgetting to add visual config in `configs.json`
+- Forgetting to update `platform-ontology.json` (NPC will give wrong navigation advice)
+- Forgetting to create a matching NPC spec in `specs/npcs/`

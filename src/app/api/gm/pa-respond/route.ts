@@ -1,14 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getCurrentUser } from '@/lib/auth'
-import { callSecondMeStream } from '@/lib/pa-engine'
+import { apiError, AuthError, requireAuth } from '@/lib/api-utils'
+import { callSecondMeStream } from '@/lib/pa-actions'
 import { MODEL_FOR } from '@/lib/model-config'
 import { loadPrompt, loadActPrompt } from '@/lib/prompt-loader'
-import { getSession, persistSession } from '@/lib/engine/session'
+import { getSession } from '@/lib/engine/session'
+import { persistSessionState } from '@/lib/engine/session-context'
 import { recordPaMessage, getPaHistory } from '@/lib/engine/conversation-guard'
 import { getCurrentGoal, setCurrentGoal } from '@/lib/engine/session-context'
 import { serializeForPA, getSceneLabel, toEnvelope } from '@/lib/engine/ontology'
 import { buildBehaviorCognition } from '@/lib/behavior-engine'
 import type { PAGoal } from '@/lib/engine/session-context'
+import { reportApiError } from '@/lib/server-observability'
+import { getLoggerForRequest } from '@/lib/logger'
 
 function formatShades(shades: unknown): string {
   if (Array.isArray(shades) && shades.length > 0) return `你的兴趣包括：${shades.join('、')}。`
@@ -78,11 +81,10 @@ const PA_FALLBACKS = [
  * Supports both auto mode and advisor mode via the `humanAdvice` parameter.
  */
 export async function POST(request: NextRequest) {
+  const log = getLoggerForRequest(request)
   try {
-    const user = await getCurrentUser()
-    if (!user) {
-      return NextResponse.json({ error: '请先登录' }, { status: 401 })
-    }
+    log.debug({ route: 'api/gm/pa-respond' }, 'handler_enter')
+    const user = await requireAuth()
 
     const { gmMessage, humanAdvice, validIntents = [], sceneId, sessionId } = (await request.json()) as {
       gmMessage: string
@@ -93,7 +95,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (!gmMessage) {
-      return NextResponse.json({ error: '缺少 gmMessage' }, { status: 400 })
+      return apiError('缺少 gmMessage', 400)
     }
 
     const sceneName = getSceneLabel(sceneId || 'lobby')
@@ -135,11 +137,11 @@ export async function POST(request: NextRequest) {
         { message: chatPrompt, model: paModel },
       )
       if (!paResponse?.trim()) {
-        console.warn('PA chat/stream returned empty response, using fallback')
+        log.warn('pa_chat_stream_empty_response_using_fallback')
         paResponse = paFallback
       }
     } catch (e) {
-      console.warn('PA chat/stream error:', e instanceof Error ? e.message : e)
+      log.warn({ err: e }, 'pa_chat_stream_error')
       paResponse = paFallback
     }
 
@@ -156,7 +158,7 @@ export async function POST(request: NextRequest) {
         }
         setCurrentGoal(session, newGoal)
       }
-      persistSession(session)
+      persistSessionState(session)
       paResponse = paResponse.replace(/\n?\[GOAL:\s*.+?\]\s*$/, '').trim()
     }
 
@@ -193,7 +195,7 @@ export async function POST(request: NextRequest) {
         _lastPaIntent: intent || undefined,
         _lastPaConfidence: confidence || undefined,
       }
-      persistSession(session)
+      persistSessionState(session)
     }
 
     const newGoal = session ? getCurrentGoal(session) : null
@@ -212,7 +214,10 @@ export async function POST(request: NextRequest) {
       confidence,
     })
   } catch (error) {
-    console.error('GM pa-respond error:', error)
-    return NextResponse.json({ error: 'PA 响应失败' }, { status: 500 })
+    if (error instanceof AuthError) {
+      return error.response
+    }
+    reportApiError(request, error, 'gm_pa_respond_error')
+    return apiError('PA 响应失败', 500)
   }
 }

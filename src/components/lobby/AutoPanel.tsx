@@ -1,6 +1,7 @@
 'use client'
 
 import { useRef, useEffect } from 'react'
+import { useTranslations } from 'next-intl'
 import SpeechBubble from './SpeechBubble'
 import type { ChatMessage } from './ManualPanel'
 
@@ -20,8 +21,9 @@ interface AutoPanelProps {
 
 export default function AutoPanel({
   messages, sceneLabel, agentName, agentEmoji, paName, accent,
-  processing, autoStep, paused, onPauseToggle, onBubbleComplete,
+  autoStep, paused, onPauseToggle, onBubbleComplete,
 }: AutoPanelProps) {
+  const t = useTranslations('agentSpace')
   const bottomRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -36,7 +38,7 @@ export default function AutoPanel({
       <div className="auto-panel__head">
         <span>{agentEmoji} {sceneLabel}</span>
         <button className={`auto-panel__pause ${paused ? 'auto-panel__pause--on' : ''}`} onClick={onPauseToggle}>
-          {paused ? '▶ 继续' : '⏸ 暂停'}
+          {paused ? t('autoPanel.resume') : t('autoPanel.pause')}
         </button>
       </div>
 
@@ -51,9 +53,9 @@ export default function AutoPanel({
           {autoStep === 'pa_thinking' && (
             <div className="thinking-overlay">
               <div className="thinking-overlay__pulse" />
-              <div className="thinking-overlay__label">思考中...</div>
+              <div className="thinking-overlay__label">{t('autoPanel.thinking')}</div>
               {lastMsg?.role === 'agent' && (
-                <div className="thinking-overlay__detail">分析 GM 消息</div>
+                <div className="thinking-overlay__detail">{t('autoPanel.analyzingGm')}</div>
               )}
             </div>
           )}
@@ -91,7 +93,7 @@ export default function AutoPanel({
               <div className="auto-msg__loader">
                 <i /><i /><i />
               </div>
-              <span>{autoStep === 'pa_thinking' ? 'PA 思考中...' : '发送到 GM...'}</span>
+              <span>{autoStep === 'pa_thinking' ? t('autoPanel.paThinking') : t('autoPanel.sendingToGm')}</span>
             </div>
           )}
           <div ref={bottomRef} />

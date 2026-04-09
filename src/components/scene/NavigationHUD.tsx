@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
 import { SCENE_CONFIG } from '@/lib/scene-visuals'
 
 const SCENE_ORDER = ['lobby', 'news', 'developer'] as const
@@ -23,6 +24,14 @@ export default function NavigationHUD({
   onModeToggle,
   canGoBack,
 }: NavigationHUDProps) {
+  const t = useTranslations('agentSpace.navigation')
+  const ts = useTranslations('agentSpace')
+  const sceneLabel = (id: string) => {
+    if (id === 'lobby') return ts('scenes.lobby.label')
+    if (id === 'news') return ts('scenes.news.label')
+    if (id === 'developer') return ts('scenes.developer.label')
+    return (SCENE_CONFIG[id] || SCENE_CONFIG.lobby).label
+  }
   return (
     <nav className="nav-hud">
       <div className="nav-hud__scenes">
@@ -36,7 +45,7 @@ export default function NavigationHUD({
               onClick={() => !active && onNavigate(id)}
             >
               <span className="nav-hud__scene-icon">{cfg.icon}</span>
-              <span>{cfg.label}</span>
+              <span>{sceneLabel(id)}</span>
             </button>
           )
         })}
@@ -50,9 +59,9 @@ export default function NavigationHUD({
           target="_blank"
           rel="noopener noreferrer"
           className="nav-hud__portal"
-          title="打开报社门户 — 切换到人类视角"
+          title={t('portalTitle')}
         >
-          🌐 <span>人类视角</span>
+          🌐 <span>{t('humanView')}</span>
         </a>
 
         <button
@@ -60,14 +69,14 @@ export default function NavigationHUD({
           onClick={onBack}
           disabled={!canGoBack}
         >
-          ← 返回
+          ← {t('back')}
         </button>
 
         {mode && (
           <button className="nav-hud__mode" onClick={onModeToggle}>
             <span className="nav-hud__mode-dot" />
             <span className="nav-hud__mode-label">
-              {mode === 'auto' ? '自动模式' : mode === 'advisor' ? '顾问模式' : '手动模式'}
+              {mode === 'auto' ? t('modeAuto') : mode === 'advisor' ? t('modeAdvisor') : t('modeManual')}
             </span>
           </button>
         )}

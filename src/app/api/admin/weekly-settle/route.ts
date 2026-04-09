@@ -1,5 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { apiError, apiSuccess } from '@/lib/api-utils'
+import { reportApiError } from '@/lib/server-observability'
+import { getLoggerForRequest } from '@/lib/logger'
 
 function getISOWeekKey(date: Date): string {
   const d = new Date(date)
@@ -42,10 +45,12 @@ interface AgentStats {
 }
 
 export async function POST(request: NextRequest) {
+  const log = getLoggerForRequest(request)
   try {
+    log.debug({ route: 'api/admin/weekly-settle' }, 'handler_enter')
     const adminKey = request.headers.get('x-admin-key')
     if (adminKey !== (process.env.ADMIN_API_KEY || 'admin-secret')) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return apiError('Unauthorized', 401)
     }
 
     const body = await request.json().catch(() => ({}))
@@ -56,10 +61,7 @@ export async function POST(request: NextRequest) {
 
     const existing = await prisma.hallOfFameEntry.findFirst({ where: { weekKey } })
     if (existing) {
-      return NextResponse.json({
-        error: `Week ${weekKey} already settled`,
-        data: { weekKey },
-      }, { status: 409 })
+      return apiError(`Week ${weekKey} already settled`, 409)
     }
 
     const feedbacks = await prisma.appFeedback.findMany({
@@ -78,10 +80,10 @@ export async function POST(request: NextRequest) {
     })
 
     if (feedbacks.length === 0) {
-      return NextResponse.json({
-        success: true,
+      return apiSuccess({
+        weekKey,
+        settled: false,
         message: `No feedbacks found for week ${weekKey}`,
-        data: { weekKey, settled: false },
       })
     }
 
@@ -191,17 +193,14 @@ export async function POST(request: NextRequest) {
       results.push({ category: cat.key, entries: catEntries })
     }
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        weekKey,
-        totalFeedbacks: feedbacks.length,
-        totalAgents: agents.length,
-        categories: results,
-      },
+    return apiSuccess({
+      weekKey,
+      totalFeedbacks: feedbacks.length,
+      totalAgents: agents.length,
+      categories: results,
     })
   } catch (error) {
-    console.error('Weekly settle failed:', error)
-    return NextResponse.json({ error: 'Weekly settle failed' }, { status: 500 })
+    reportApiError(request, error, 'weekly_settle_failed')
+    return apiError('Weekly settle failed', 500)
   }
 }

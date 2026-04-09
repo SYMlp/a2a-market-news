@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
+import { useTranslations } from 'next-intl'
 import type { ComponentSpec, FieldDef } from '@/lib/component-runtime/types'
 
 export type SpecFormCardStatus = 'pending' | 'executing' | 'done'
@@ -78,8 +79,9 @@ export default function SpecFormCard({
   onConfirm,
   onCancel,
 }: SpecFormCardProps) {
+  const t = useTranslations('agentSpace')
   const display = spec.state?.display
-  const fields = spec.state?.fields ?? []
+  const fields = useMemo(() => spec.state?.fields ?? [], [spec.state?.fields])
   const editable = status === 'pending'
 
   const [formValues, setFormValues] = useState<Record<string, string>>(() => {
@@ -130,7 +132,7 @@ export default function SpecFormCard({
     display?.confirmLabel ??
     (display?.confirmLabelPrefix
       ? `${display.confirmLabelPrefix}${getStatusLabel(spec, formValues)}`
-      : '确认')
+      : t('specForm.confirm'))
   const hint = display?.hint
 
   const isConfirmDisabled = (): boolean => {
@@ -173,12 +175,12 @@ export default function SpecFormCard({
             {header}
             {status === 'done' && (
               <span className="text-green-400 ml-2 font-sans">
-                {spec.id === 'register' ? '✓ 已录入' : '✓ 已更新'}
+                {spec.id === 'register' ? t('specForm.recorded') : t('specForm.updated')}
               </span>
             )}
             {status === 'executing' && (
               <span className="text-amber-300 ml-2 font-sans">
-                {spec.id === 'register' ? '录入中...' : '更新中...'}
+                {spec.id === 'register' ? t('specForm.recording') : t('specForm.updating')}
               </span>
             )}
           </code>

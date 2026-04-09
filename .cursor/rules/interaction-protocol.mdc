@@ -1,0 +1,122 @@
+---
+globs: src/lib/engine/**  ,  src/lib/npc/**    ,src/lib/pa/**   , src/app/api/gm/**
+alwaysApply: false
+---
+# Interaction Protocol — Dialogue Chain Architecture
+
+> Architecture reference: docs/game-loop-architecture.md §8
+
+## Core Concept: Dialogue Chain
+
+Every turn cycle is a pipeline of stages. The chain tail (Intent → GM → NPC) is shared
+by all modes. Only the chain head (Input + Formulation) varies per mode.
+
+```text
+[Stage 0: Input] → [Stage 1: Formulate] → [Stage 2: Intent] → [Stage 3: GM] → [Stage 4: NPC]
+ ↑ configurable      ↑ configurable         ↑ shared            ↑ shared        ↑ shared
+```
+
+**Blocking rule**: system waits for the first `blocking` participant in the chain.
+Everything after flows automatically.
+
+## Roles
+
+| Role                  | Identity                    | Responsibility                                    | Does NOT                                |
+| :-------------------- | :-------------------------- | :------------------------------------------------ | :-------------------------------------- |
+| **Human**             | Real user behind the screen | Give advice to PA, or directly select actions     | Speak to NPC directly (in advisor mode) |
+| **PA** (Player Agent) | User's SecondMe persona     | Formulate responses, express intent in own style  | Directly switch scenes                  |
+| **NPC** (Scene Host)  | Scene-bound AI host         | Respond within scope, guide visitors              | Execute scene transitions               |
+| **GM** (Game Master)  | Engine orchestrator         | Match actions, execute transitions, activate NPCs | Participate in dialogue content         |
+
+## Mode Configurations
+
+### Advisor Mode (default)
+
+```text
+Stage 0: Human (blocking) — types advice in text input
+Stage 1: PA (auto) — formulates response from advice + NPC context (chat/stream, Sonnet)
+Stage 2: Intent extraction (act/stream, Flash)
+Stage 3: GM engine (AI classifier act/stream Flash → keyword fallback)
+Stage 4: NPC response (chat/stream, Sonnet)
+```
+
+### Auto Mode
+
+```text
+Stage 0: skip
+Stage 1: PA (auto) — responds to NPC message alone (chat/stream, Flash)
+Stage 2: Intent extraction (act/stream, Flash)
+Stage 3: GM engine (AI classifier act/stream Flash → keyword fallback)
+Stage 4: NPC response (chat/stream, Sonnet)
+```
+
+### Manual-Direct Mode
+
+```text
+Stage 0: Human (blocking) — selects action button
+Stage 1: skip — text goes directly to GM
+Stage 2: skip — action already known from button
+Stage 3: GM engine
+Stage 4: NPC response (chat/stream, Sonnet)
+```
+
+> Model selection is centralized in `src/lib/model-config.ts`.
+> Full rationale: `docs/model-selection.md`.
+
+## Transition Protocol
+
+1. PA expresses intent (text matches a `move` action's triggers)
+2. GM engine matches action, produces `TurnOutcomeMove`
+3. NPC delivers farewell message (from action.response)
+4. Frontend plays transition animation (`SceneTransitionEngine`)
+5. GM activates new scene (`enterSceneApi`)
+6. New NPC delivers opening message
+
+## DualText Convention
+
+All text in the system uses `DualText { pa: string; agent: string }`:
+
+- `pa` — natural Chinese text for player display
+- `agent` — structured English text for API/machine consumers
+
+Never collapse DualText to a plain string.
+
+## Channel Model (Communication Protocol)
+
+Messages carry a `channel` that controls visibility:
+
+| Channel   | Visible to            | Examples                                             |
+| :-------- | :-------------------- | :--------------------------------------------------- |
+| `public`  | Human UI + all agents | PA speech, NPC replies                               |
+| `private` | Receiving agent only  | FC results, session context, intent, scopeAssessment |
+| `system`  | Engine internal only  | Turn meta, guard decisions, state transitions        |
+
+**Stage channel mapping**:
+
+- **Stage 0** (Human input): `private` — advice from human to PA, not visible to NPC
+- **Stage 1** (PA formulation): output is `public` speech + `private` intent/goal metadata
+- **Stage 2** (Intent extraction): `system` — classifier result is engine-internal
+- **Stage 3** (GM engine): FC execution results are `private` (injected into NPC context)
+- **Stage 4** (NPC response): output is `public` reply + `private` scopeAssessment metadata
+
+At the API boundary, `DualText` is wrapped into `MessageEnvelope` via `toEnvelope()`. Frontend reads `message.pa` as before; metadata is available for logging and agent context.
+
+## Safety Invariants
+
+- **Retry limit**: 3 consecutive errors → auto-pause with user notification
+- **API timeout**: 15 seconds via `fetchWithTimeout`
+- **Intent mapping**: extracted intent → trigger keyword ensures GM matching works
+- **Valid intents**: derived from current scene's `actIntent` fields
+- **Blocking semantics**: never auto-advance past a blocking participant
+- **NPC scope enforcement**: ontology-driven (v7) — `serializeForNPC` + `serializeProtocolForNPC` inject world map and decision protocol into NPC prompt; NPC self-regulates scope via context
+- **Navigator exhaustion**: PA returning to lobby 3+ times without successful navigation → session ends with `navigator_exhausted`; farewell message delivered, no further interaction
+- **Transition loop guards**: A↔B ping-pong and path cycles (length >= 3) detected by `recordTransitionAndCheck`; auto mode → session ends; manual mode → override message
+
+## What You Must NOT Do
+
+- Let PA directly call `handleSceneTransition` (must go through GM)
+- Let NPC execute transitions (NPC can only suggest/respond)
+- Skip the farewell message during transitions
+- Remove the retry limit from auto-mode
+- Use raw PA text when a high-confidence intent mapping exists
+- Bypass the chain order (e.g. human input skipping PA formulation in advisor mode)

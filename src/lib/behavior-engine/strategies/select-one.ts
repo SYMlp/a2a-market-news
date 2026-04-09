@@ -81,11 +81,13 @@ export const selectOneStrategy: ResolutionStrategy = {
   },
 
   deactivate(
-    _spec: BehaviorSpec,
+    spec: BehaviorSpec,
     session: GameSession,
   ): void {
+    void spec
     if (session.flags) {
-      const { activeBehavior: _, ...rest } = session.flags
+      const rest = { ...session.flags }
+      delete rest.activeBehavior
       session.flags = rest
     }
   },

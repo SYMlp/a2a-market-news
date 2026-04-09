@@ -1,27 +1,24 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { getCurrentUser } from '@/lib/auth'
-import { getPointsHistory } from '@/lib/points'
+import { NextRequest } from 'next/server'
+import { getPointsHistory } from '@/lib/gamification'
+import { apiError, apiListPage, AuthError, buildPagination, requireAuth } from '@/lib/api-utils'
+import { reportApiError } from '@/lib/server-observability'
 
 export async function GET(request: NextRequest) {
   try {
-    const user = await getCurrentUser()
-    if (!user) {
-      return NextResponse.json({ error: '请先登录' }, { status: 401 })
-    }
+    const user = await requireAuth()
 
     const { searchParams } = new URL(request.url)
-    const page = Math.max(1, parseInt(searchParams.get('page') ?? '1'))
-    const limit = Math.min(50, Math.max(1, parseInt(searchParams.get('limit') ?? '20')))
+    const page = Math.max(1, parseInt(searchParams.get('page') ?? '1', 10))
+    const limit = Math.min(50, Math.max(1, parseInt(searchParams.get('limit') ?? '20', 10)))
 
     const { transactions, total } = await getPointsHistory(user.id, page, limit)
 
-    return NextResponse.json({
-      success: true,
-      data: transactions,
-      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
-    })
+    return apiListPage(transactions, buildPagination(page, limit, total))
   } catch (error) {
-    console.error('Points history query failed:', error)
-    return NextResponse.json({ error: '查询失败' }, { status: 500 })
+    if (error instanceof AuthError) {
+      return error.response
+    }
+    reportApiError(request, error, 'points_history_query_failed')
+    return apiError('查询失败', 500)
   }
 }

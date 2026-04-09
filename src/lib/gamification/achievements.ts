@@ -1,4 +1,4 @@
-import { prisma } from './prisma'
+import { prisma } from '../prisma'
 
 interface AchievementCheckResult {
   newUnlocks: Array<{
@@ -19,6 +19,7 @@ export async function processAchievements(
   agentType: string,
   targetClientId: string
 ): Promise<AchievementCheckResult> {
+  void targetClientId
   const newUnlocks: AchievementCheckResult['newUnlocks'] = []
 
   await prisma.pAVisitor.upsert({

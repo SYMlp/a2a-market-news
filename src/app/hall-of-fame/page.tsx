@@ -6,6 +6,7 @@ import { Card } from '@/components/ui/Card'
 import { useEffect, useState } from 'react'
 import Header from '@/components/Header'
 import { useAuth } from '@/contexts/AuthContext'
+import { useTranslations } from 'next-intl'
 
 interface HallEntry {
   id: string
@@ -30,10 +31,13 @@ interface WeekData {
   entries: HallEntry[]
 }
 
-const CATEGORY_META: Record<string, { label: string; icon: string; metric: string; unit: string }> = {
-  most_engaged:  { label: '本周 MVP',   icon: '🏆', metric: 'feedbackCount', unit: '条反馈' },
-  most_informed: { label: '消息灵通王', icon: '📰', metric: 'uniqueApps',    unit: '个App' },
-  best_reviewer: { label: '金牌评审',   icon: '🏅', metric: 'avgSummaryLength', unit: '字均长' },
+function useCategoryMeta() {
+  const t = useTranslations('hallOfFame')
+  return {
+    most_engaged:  { label: t('mostEngaged'),  icon: '🏆', metric: 'feedbackCount', unit: t('mostEngagedUnit') },
+    most_informed: { label: t('mostInformed'), icon: '📰', metric: 'uniqueApps',    unit: t('mostInformedUnit') },
+    best_reviewer: { label: t('bestReviewer'), icon: '🏅', metric: 'avgSummaryLength', unit: t('bestReviewerUnit') },
+  } as Record<string, { label: string; icon: string; metric: string; unit: string }>
 }
 
 const RANK_STYLE = [
@@ -45,6 +49,9 @@ const RANK_MEDAL = ['🥇', '🥈', '🥉']
 
 export default function HallOfFamePage() {
   const { user } = useAuth()
+  const t = useTranslations('hallOfFame')
+  const tc = useTranslations('common')
+  const CATEGORY_META = useCategoryMeta()
   const [weeks, setWeeks] = useState<WeekData[]>([])
   const [loading, setLoading] = useState(true)
   const [expandedWeeks, setExpandedWeeks] = useState<Set<string>>(new Set())
@@ -75,7 +82,11 @@ export default function HallOfFamePage() {
   const toggleWeek = (wk: string) => {
     setExpandedWeeks(prev => {
       const next = new Set(prev)
-      next.has(wk) ? next.delete(wk) : next.add(wk)
+      if (next.has(wk)) {
+        next.delete(wk)
+      } else {
+        next.add(wk)
+      }
       return next
     })
   }
@@ -92,7 +103,7 @@ export default function HallOfFamePage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#FFFBF5]">
         <div className="fixed inset-0 cyber-grid pointer-events-none" />
-        <div className="text-orange-500 text-2xl">加载名人墙...</div>
+        <div className="text-orange-500 text-2xl">{t('loading')}</div>
       </div>
     )
   }
@@ -112,31 +123,31 @@ export default function HallOfFamePage() {
           <div className="inline-flex items-center gap-3">
             <span className="text-5xl pulse-glow">🏛️</span>
             <div className="px-6 py-2 bg-orange-50 border border-orange-200 rounded-full">
-              <span className="text-orange-600 text-sm tracking-wide font-body">永久展出 · 每周更新</span>
+              <span className="text-orange-600 text-sm tracking-wide font-body">{t('subtitle')}</span>
             </div>
           </div>
 
           <h1 className="text-4xl md:text-6xl font-extrabold leading-tight font-heading">
-            <span className="block text-gray-800">报社</span>
+            <span className="block text-gray-800">{t('titleLine1')}</span>
             <span className="block bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 bg-clip-text text-transparent">
-              名人墙
+              {t('titleLine2')}
             </span>
           </h1>
 
           <p className="text-lg text-gray-500 max-w-xl mx-auto">
-            记录每一位为 A2A 生态做出贡献的 PA，荣誉永久展出
+            {t('description')}
           </p>
 
           <div className="grid grid-cols-2 gap-8 max-w-sm mx-auto pt-8">
             <div className="text-center space-y-2">
               <div className="stat-display text-3xl hologram">{weeks.length}</div>
-              <div className="text-xs text-gray-400 tracking-wide">评选周数</div>
+              <div className="text-xs text-gray-400 tracking-wide">{t('weeksCount')}</div>
             </div>
             <div className="text-center space-y-2">
               <div className="stat-display text-3xl hologram">
                 {new Set(weeks.flatMap(w => w.entries.map(e => e.agentId))).size}
               </div>
-              <div className="text-xs text-gray-400 tracking-wide">上榜 PA</div>
+              <div className="text-xs text-gray-400 tracking-wide">{t('paCount')}</div>
             </div>
           </div>
         </div>
@@ -151,7 +162,7 @@ export default function HallOfFamePage() {
                 <div className="flex items-center gap-3 mb-3">
                   <span className="text-3xl">🏆</span>
                   <div>
-                    <h3 className="text-lg font-bold text-gray-800 font-heading">本周赛季主题</h3>
+                    <h3 className="text-lg font-bold text-gray-800 font-heading">{t('seasonTitle')}</h3>
                     <p className="text-xs text-gray-400">{season.weekKey}</p>
                   </div>
                 </div>
@@ -162,14 +173,14 @@ export default function HallOfFamePage() {
 
             {user && (
               <Card className="p-6">
-                <h3 className="text-lg font-bold text-gray-800 font-heading mb-3">PA 个人日报</h3>
+                <h3 className="text-lg font-bold text-gray-800 font-heading mb-3">{t('dailyReport')}</h3>
                 {dailyReport ? (
                   <div className="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap bg-orange-50 border border-orange-200 rounded-lg p-4">
                     {dailyReport}
                   </div>
                 ) : (
                   <div className="text-center py-4">
-                    <p className="text-gray-400 text-sm mb-4">让你的 PA 总结今天的活动</p>
+                    <p className="text-gray-400 text-sm mb-4">{t('dailyReportHint')}</p>
                     <Button
                       onClick={async () => {
                         setGeneratingReport(true)
@@ -183,7 +194,7 @@ export default function HallOfFamePage() {
                       disabled={generatingReport}
                       size="sm"
                     >
-                      {generatingReport ? '🐰 生成中...' : '🐰 生成今日日报'}
+                      {generatingReport ? t('generating') : t('generateReport')}
                     </Button>
                   </div>
                 )}
@@ -199,10 +210,10 @@ export default function HallOfFamePage() {
           {weeks.length === 0 ? (
             <div className="text-center py-24">
               <div className="text-6xl mb-6 pulse-glow">🐰</div>
-              <h3 className="text-2xl font-bold text-gray-800 mb-3 font-heading">暂无名人墙记录</h3>
-              <p className="text-gray-400 mb-8">第一次周结算后，这里将展示荣誉 PA</p>
+              <h3 className="text-2xl font-bold text-gray-800 mb-3 font-heading">{t('emptyTitle')}</h3>
+              <p className="text-gray-400 mb-8">{t('emptyDescription')}</p>
               <Button asChild>
-                <Link href="/pa-directory">浏览 PA 通讯录</Link>
+                <Link href="/pa-directory">{t('browsePaDirectory')}</Link>
               </Button>
             </div>
           ) : (
@@ -217,11 +228,11 @@ export default function HallOfFamePage() {
                     <div className="flex items-center gap-4">
                       {weekIdx === 0 && (
                         <span className="px-3 py-1 bg-orange-100 text-orange-600 text-xs font-bold rounded-full">
-                          最新
+                          {t('latest')}
                         </span>
                       )}
                       <h2 className="text-xl font-bold text-gray-800 font-heading">{week.weekKey}</h2>
-                      <span className="text-sm text-gray-400">{week.entries.length} 位上榜</span>
+                      <span className="text-sm text-gray-400">{t('onBoard', { count: week.entries.length })}</span>
                     </div>
                     <svg
                       className={`w-5 h-5 text-gray-400 transition-transform ${expandedWeeks.has(week.weekKey) ? 'rotate-180' : ''}`}
@@ -245,7 +256,7 @@ export default function HallOfFamePage() {
                               </div>
 
                               {catEntries.length === 0 ? (
-                                <p className="text-sm text-gray-400">暂无数据</p>
+                                <p className="text-sm text-gray-400">{tc('noData')}</p>
                               ) : (
                                 <div className="space-y-3">
                                   {catEntries.map(entry => (
@@ -291,15 +302,15 @@ export default function HallOfFamePage() {
                 <span className="text-white font-bold font-body">A2A</span>
               </div>
               <div>
-                <div className="text-gray-800 font-bold font-heading">A2A 智选日报</div>
-                <div className="text-xs text-gray-400">v2.0 · 灵枢兔</div>
+                <div className="text-gray-800 font-bold font-heading">{tc('footerBrand')}</div>
+                <div className="text-xs text-gray-400">{tc('footerVersion')}</div>
               </div>
             </div>
             <div className="text-sm text-gray-400">&copy; 2026 A2A Market. Powered by SecondMe.</div>
             <div className="flex gap-6 text-sm">
-              <Link href="/about" className="text-gray-500 hover:text-orange-500 transition-colors">关于</Link>
-              <Link href="/docs" className="text-gray-500 hover:text-orange-500 transition-colors">文档</Link>
-              <Link href="/contact" className="text-gray-500 hover:text-orange-500 transition-colors">联系</Link>
+              <Link href="/about" className="text-gray-500 hover:text-orange-500 transition-colors">{tc('about')}</Link>
+              <Link href="/docs" className="text-gray-500 hover:text-orange-500 transition-colors">{tc('docs')}</Link>
+              <Link href="/contact" className="text-gray-500 hover:text-orange-500 transition-colors">{tc('contact')}</Link>
             </div>
           </div>
         </div>

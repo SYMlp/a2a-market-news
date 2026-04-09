@@ -1,0 +1,68 @@
+# DomainSpec: practices
+# Developer practice sharing — CRUD with pagination, likes, author filtering.
+#
+# This is the first DomainSpec PoC, proving that Human Space domains
+# can be declared in YAML and driven by a shared runtime (domain-runtime/).
+#
+# Architecture: docs/domain-spec-architecture.md
+
+id: practices
+model: developerPractice
+description: "开发者实践分享"
+
+include:
+  author:
+    select:
+      id: true
+      name: true
+      avatarUrl: true
+
+operations:
+  list:
+    auth: public
+    pagination:
+      pageSize: 12
+    filters:
+      category:
+        type: enum
+        values: [practice, showcase, tip]
+      tags:
+        type: array_contains
+      authorId:
+        type: exact
+    visibility:
+      default:
+        status: published
+      ownerOverride:
+        field: authorId
+        match: viewerUserId
+    orderBy:
+      createdAt: desc
+
+  create:
+    auth: developer
+    schema: practicePostSchema
+    defaults:
+      authorId: "{userId}"
+      status: published
+
+  get:
+    auth: public
+    visibility:
+      filter:
+        status: published
+    sideEffects:
+      - type: increment
+        field: viewCount
+
+  like:
+    type: action
+    auth: authenticated
+    visibility:
+      filter:
+        status: published
+    effect:
+      type: increment
+      field: likeCount
+    response:
+      fields: [likeCount]

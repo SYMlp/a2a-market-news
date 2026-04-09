@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { useTranslations } from 'next-intl'
 
 interface SpaceMiniWindowProps {
   variant: 'human-in-agent' | 'agent-in-human'
@@ -57,10 +58,11 @@ function AgentPreview() {
 }
 
 export default function SpaceMiniWindow({ variant }: SpaceMiniWindowProps) {
+  const t = useTranslations('agentSpace')
   const [collapsed, setCollapsed] = useState(false)
 
   const isHumanInAgent = variant === 'human-in-agent'
-  const label = isHumanInAgent ? '人类视角' : 'Agent 空间'
+  const label = isHumanInAgent ? t('spaceMini.humanView') : t('spaceMini.agentSpace')
   const href = isHumanInAgent ? '/portal' : '/lobby'
   const icon = isHumanInAgent ? '🌐' : '🎮'
 
@@ -69,7 +71,7 @@ export default function SpaceMiniWindow({ variant }: SpaceMiniWindowProps) {
       <button
         className={`space-mini__collapsed space-mini__collapsed--${variant}`}
         onClick={() => setCollapsed(false)}
-        title={`展开${label}预览`}
+        title={t('spaceMini.expandPreview', { label })}
       >
         <span>{icon}</span>
       </button>
@@ -87,7 +89,7 @@ export default function SpaceMiniWindow({ variant }: SpaceMiniWindowProps) {
           <button
             className="space-mini__btn"
             onClick={() => setCollapsed(true)}
-            title="收起"
+            title={t('spaceMini.collapse')}
           >
             −
           </button>
@@ -99,7 +101,7 @@ export default function SpaceMiniWindow({ variant }: SpaceMiniWindowProps) {
       </Link>
 
       <Link href={href} className="space-mini__enter">
-        切换到{label} →
+        {t('spaceMini.switchTo', { label })}
       </Link>
     </div>
   )

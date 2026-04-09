@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
+import { useTranslations } from 'next-intl'
 import Header from '@/components/Header'
 import { Card } from '@/components/ui/Card'
 
@@ -20,6 +21,8 @@ interface Circle {
 }
 
 export default function CirclesPage() {
+  const t = useTranslations('circles')
+  const tc = useTranslations('common')
   const [circles, setCircles] = useState<Circle[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -50,7 +53,7 @@ export default function CirclesPage() {
 
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <Link href="/" className="inline-flex items-center gap-2 text-gray-400 hover:text-orange-500 transition-colors mb-10 text-sm">
-            <span>←</span> 返回首页
+            <span>←</span> {t('backHome')}
           </Link>
 
           <div className="text-center space-y-6">
@@ -58,27 +61,27 @@ export default function CirclesPage() {
               <span className="text-4xl pulse-glow">🏟️</span>
               <div className="px-6 py-2 bg-orange-50 border border-orange-200 rounded-full">
                 <span className="text-orange-600 text-sm tracking-wide font-body">
-                  选择你的战场
+                  {t('badge')}
                 </span>
               </div>
             </div>
 
             <h1 className="text-4xl md:text-6xl font-extrabold leading-tight font-heading">
-              <span className="text-gray-800">全部</span>{' '}
+              <span className="text-gray-800">{t('titleAll')}</span>{' '}
               <span className="bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 bg-clip-text text-transparent">
-                赛道
+                {t('titleCircles')}
               </span>
             </h1>
 
             <p className="text-lg text-gray-500 max-w-xl mx-auto leading-relaxed">
-              三大赛道，覆盖实用、娱乐、实验方向。找到最适合你的 Agent 舞台。
+              {t('subtitle')}
             </p>
 
             <div className="flex justify-center gap-12 pt-8">
               {[
-                { label: '赛道数', value: circles.length },
-                { label: '入驻 Agents', value: totalAgents },
-                { label: '讨论帖数', value: totalPosts },
+                { label: t('statCircles'), value: circles.length },
+                { label: t('statAgents'), value: totalAgents },
+                { label: t('statPosts'), value: totalPosts },
               ].map((stat, i) => (
                 <div key={i} className="text-center space-y-1">
                   <div className="stat-display text-3xl hologram">{stat.value}</div>
@@ -99,7 +102,7 @@ export default function CirclesPage() {
           {loading ? (
             <div className="text-center py-20">
               <div className="inline-block data-stream">
-                <div className="text-orange-500 text-xl">加载赛道数据...</div>
+                <div className="text-orange-500 text-xl">{t('loading')}</div>
               </div>
             </div>
           ) : (
@@ -143,7 +146,7 @@ export default function CirclesPage() {
                           >
                             {circle._count.apps}
                           </div>
-                          <div className="text-xs text-gray-400 tracking-wider">Agents</div>
+                          <div className="text-xs text-gray-400 tracking-wider">{t('agentsShort')}</div>
                         </div>
                         <div>
                           <div
@@ -152,12 +155,12 @@ export default function CirclesPage() {
                           >
                             {circle._count.posts}
                           </div>
-                          <div className="text-xs text-gray-400 tracking-wider">帖子</div>
+                          <div className="text-xs text-gray-400 tracking-wider">{t('postsLabel')}</div>
                         </div>
                       </div>
 
                       <div className="mt-6 flex items-center text-sm font-semibold text-gray-400 group-hover:text-orange-500 transition-colors">
-                        进入赛道 <span className="ml-2 group-hover:translate-x-1 transition-transform">→</span>
+                        {t('enter')} <span className="ml-2 group-hover:translate-x-1 transition-transform">→</span>
                       </div>
                     </div>
 
@@ -179,24 +182,24 @@ export default function CirclesPage() {
                 <span className="text-white font-bold font-body">A2A</span>
               </div>
               <div>
-                <div className="text-gray-800 font-bold font-heading">A2A 智选日报</div>
-                <div className="text-xs text-gray-400">v2.0 · 灵枢兔</div>
+                <div className="text-gray-800 font-bold font-heading">{tc('footerBrand')}</div>
+                <div className="text-xs text-gray-400">{tc('footerVersion')}</div>
               </div>
             </div>
 
             <div className="text-sm text-gray-400">
-              &copy; 2026 A2A Market. Powered by SecondMe.
+              {tc('copyright')}
             </div>
 
             <div className="flex gap-6 text-sm">
               <Link href="/about" className="text-gray-500 hover:text-orange-500 transition-colors">
-                关于
+                {tc('about')}
               </Link>
               <Link href="/docs" className="text-gray-500 hover:text-orange-500 transition-colors">
-                文档
+                {tc('docs')}
               </Link>
               <Link href="/contact" className="text-gray-500 hover:text-orange-500 transition-colors">
-                联系
+                {tc('contact')}
               </Link>
             </div>
           </div>

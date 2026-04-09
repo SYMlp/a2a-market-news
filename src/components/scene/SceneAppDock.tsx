@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslations } from 'next-intl'
 import DeckView from './DeckView'
 
 interface SceneAppDockProps {
@@ -22,7 +23,11 @@ export default function SceneAppDock({
   totalSourceCount,
   maxSlots,
 }: SceneAppDockProps) {
+  const t = useTranslations('agentSpace')
   const capped = totalSourceCount > maxSlots
+  const metaText = capped
+    ? t('sceneAppDock.metaCapped', { shown: data.length, total: totalSourceCount, max: maxSlots })
+    : t('sceneAppDock.metaShort', { count: data.length })
 
   return (
     <aside
@@ -36,9 +41,7 @@ export default function SceneAppDock({
           <span className="scene-app-dock__glyph">▣</span>
           <span className="scene-app-dock__title">{title}</span>
           <span className="scene-app-dock__meta">
-            {capped
-              ? `展示 ${data.length} / ${totalSourceCount}（上限 ${maxSlots}）`
-              : `${data.length} 项`}
+            {metaText}
           </span>
         </div>
         <span className="scene-app-dock__corner scene-app-dock__corner--r" />

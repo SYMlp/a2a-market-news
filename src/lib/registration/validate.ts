@@ -1,3 +1,5 @@
+import { rootLogger } from '@/lib/logger'
+
 export interface ValidationResult {
   valid: boolean
   appInfo?: { name: string; description: string; circleName: string }
@@ -70,7 +72,7 @@ export async function validateSecondMeApp(
       clearTimeout(timer)
     }
   } catch (error) {
-    console.error('SecondMe clientId validation error:', error)
+    rootLogger.error({ err: error }, 'secondme_clientid_validation_error')
     return {
       valid: true,
       appInfo: { name: '', description: '', circleName: '' },

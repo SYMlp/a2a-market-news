@@ -1,6 +1,9 @@
-import { prisma } from './prisma'
-import { parseJSONLoose } from './json-utils'
-import { MODEL_FOR, FALLBACK_FOR, type ModelId } from './model-config'
+import { prisma } from '../prisma'
+import { rootLogger } from '@/lib/logger'
+
+const paEngineLog = rootLogger.child({ component: 'pa-engine' })
+import { parseJSONLoose } from '../json-utils'
+import { MODEL_FOR, FALLBACK_FOR, type ModelId } from '../model-config'
 
 export interface PAActionResult {
   content: string
@@ -76,8 +79,13 @@ export async function callSecondMeStream(
     return await callSecondMeStreamOnce(endpoint, accessToken, body)
   } catch (error) {
     if (fallbackModel && isRetryableError(error)) {
-      console.warn(
-        `[pa-engine] ${model} failed (${error instanceof Error ? error.message : 'timeout'}), falling back to ${fallbackModel}`
+      paEngineLog.warn(
+        {
+          model,
+          fallbackModel,
+          err: error instanceof Error ? error.message : String(error),
+        },
+        'stream call failed; using fallback model',
       )
       return await callSecondMeStreamOnce(endpoint, accessToken, {
         ...body,
@@ -166,7 +174,7 @@ export async function executeReviewAction(
   app: { name: string; description: string; circleName: string },
   pa: { name: string; shades: unknown; softMemory: unknown }
 ): Promise<PAActionResult> {
-  const { buildReviewRatingPrompt, buildReviewTextPrompt } = await import('./pa')
+  const { buildReviewRatingPrompt, buildReviewTextPrompt } = await import('../pa')
 
   const ratingPrompt = buildReviewRatingPrompt(app, pa)
   let structured: Record<string, unknown>
@@ -203,7 +211,7 @@ export async function executeVoteAction(
   app: { name: string; description: string },
   pa: { name: string; shades: unknown }
 ): Promise<PAActionResult> {
-  const { buildVotePrompt } = await import('./pa')
+  const { buildVotePrompt } = await import('../pa')
 
   const prompt = buildVotePrompt(app, pa)
   let content = ''
@@ -230,7 +238,7 @@ export async function executeDiscussAction(
   context: { topic: string; existingComments: string[]; appName?: string },
   pa: { name: string; shades: unknown }
 ): Promise<PAActionResult> {
-  const { buildDiscussPrompt } = await import('./pa')
+  const { buildDiscussPrompt } = await import('../pa')
 
   const prompt = buildDiscussPrompt(context, pa)
   let content: string
@@ -253,7 +261,7 @@ export async function executeDiscoverAction(
   apps: Array<{ name: string; description: string; rating: number }>,
   pa: { name: string; shades: unknown }
 ): Promise<PAActionResult> {
-  const { buildDiscoverPrompt } = await import('./pa')
+  const { buildDiscoverPrompt } = await import('../pa')
 
   const prompt = buildDiscoverPrompt(apps, pa)
   let content: string
@@ -279,7 +287,7 @@ export async function executeDailyReportAction(
   activities: { reviews: number; votes: number; discussions: number; apps: string[] },
   pa: { name: string; shades: unknown }
 ): Promise<PAActionResult> {
-  const { buildDailyReportPrompt } = await import('./pa')
+  const { buildDailyReportPrompt } = await import('../pa')
 
   const prompt = buildDailyReportPrompt(activities, pa)
   let content: string

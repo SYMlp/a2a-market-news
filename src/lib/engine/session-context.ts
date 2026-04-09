@@ -13,24 +13,33 @@ import type {
   SceneAction,
   ActionConstraint,
   FCResult,
-  SceneScopedFlags,
   ReturnContext,
   SceneAchievement,
 } from './types'
-import { describeFCForNPC, getOntology, getOperationalOntology, getSceneLabel } from './ontology'
+import { buildSessionStateLines, describeFCForNPC, getHubSceneId, getOntology, getOperationalOntology, getSceneLabel } from './ontology'
 import { buildBehaviorCognition } from '../behavior-engine'
 import { persistSession } from './session'
 import { evaluate, PreconditionSyntaxError } from './precondition-eval'
 
-const SCENE_SCOPED_KEYS: (keyof SceneScopedFlags)[] = [
-  'experiencingApp',
-  'hasExperienced',
-  'subFlow',
-]
+/**
+ * Single entry point for syncing mutated `GameSession` into the in-memory session store.
+ * Engine layers (game loop, guards, etc.) must use this instead of importing `persistSession`
+ * from `./session` so persistence triggers stay centralized here.
+ */
+export function persistSessionState(session: GameSession): void {
+  persistSession(session)
+}
+
+const FRAMEWORK_SCOPED_KEYS = ['subFlow']
+
+function getSceneScopedKeys(): string[] {
+  const appKeys = getOperationalOntology().sceneScopedFlags ?? []
+  return [...FRAMEWORK_SCOPED_KEYS, ...appKeys]
+}
 
 export function clearSceneScopedFlags(session: GameSession): void {
   if (!session.flags) return
-  for (const key of SCENE_SCOPED_KEYS) {
+  for (const key of getSceneScopedKeys()) {
     delete session.flags[key]
   }
 }
@@ -79,11 +88,10 @@ export function buildSessionContextForClassifier(
   const constraints = buildActionConstraints(actions, session)
   const parts: string[] = []
 
-  const stateLines: string[] = []
-  const app = session.flags?.experiencingApp as { name: string } | undefined
-  stateLines.push(`- 正在体验的应用：${app ? app.name : '无'}`)
-  stateLines.push(`- 已完成体验：${session.flags?.hasExperienced ? '是' : '否'}`)
-  parts.push(`当前会话状态：\n${stateLines.join('\n')}`)
+  const stateLines = buildSessionStateLines(session)
+  if (stateLines.length > 0) {
+    parts.push(`当前会话状态：\n${stateLines.join('\n')}`)
+  }
 
   const constraintLines = constraints.map(c => {
     if (c.available) return `- [${c.actionId}] 可用`
@@ -110,15 +118,7 @@ export function buildSessionContextForNPC(
   const available = constraints.filter(c => c.available)
   const gated = constraints.filter(c => !c.available)
 
-  const stateLines: string[] = []
-  const app = session.flags?.experiencingApp as { name: string } | undefined
-  if (app) {
-    stateLines.push(`- 访客正在体验「${app.name}」`)
-  } else if (session.flags?.hasExperienced) {
-    stateLines.push('- 访客已体验过应用，可以提交报告')
-  } else {
-    stateLines.push('- 访客尚未体验过任何应用')
-  }
+  const stateLines = buildSessionStateLines(session)
 
   if (available.length > 0) {
     const labels = available.map(c => {
@@ -216,23 +216,27 @@ export function computeReturnContext(
   attemptedTransition: { from: string; to: string } | null,
   fcResult?: FCResult,
 ): string | undefined {
-  if (!attemptedTransition || attemptedTransition.to !== 'lobby') return undefined
+  if (!attemptedTransition || attemptedTransition.to !== getHubSceneId()) return undefined
 
+  const ontology = getOntology()
   const fromScene = attemptedTransition.from
-  const npcName = getOntology().scenes[fromScene]?.npc ?? '未知'
+  const npcName = ontology.scenes[fromScene]?.npc ?? '未知'
+
+  // Topology-aware: pick a sibling exit the PA hasn't visited yet
+  const hubExits = ontology.scenes[getHubSceneId()]?.exits ?? []
+  const visited = (session.flags?.visitedScenes ?? []) as string[]
+  const recommendation = hubExits.find(s => s !== fromScene && !visited.includes(s))
+    ?? hubExits.find(s => s !== fromScene)
 
   let rcReason: ReturnContext['reason']
-  let recommendation: string | undefined
   let summary: string
   let returnReason: string
 
   if (session.data?.hasApps === false) {
     rcReason = 'no_data'
-    recommendation = fromScene === 'developer' ? 'news' : 'developer'
-    const hint = fromScene === 'developer'
-      ? `${npcName}建议先去日报栏逛逛`
-      : `${npcName}建议去开发者空间注册`
-    summary = `目前没有应用入驻，${hint}`
+    const recLabel = recommendation ? getSceneLabel(recommendation) : ''
+    const hint = recLabel ? `${npcName}建议去${recLabel}看看` : ''
+    summary = hint ? `目前没有应用入驻，${hint}` : '目前没有应用入驻'
     returnReason = 'no_data'
   } else if (fcResult?.status === 'executed' && !isNavigationFC(fcResult.name)) {
     rcReason = 'task_complete'
@@ -247,18 +251,17 @@ export function computeReturnContext(
   setReturnContext(session, { fromScene, npcName, reason: rcReason, recommendation, summary })
 
   if (!getCurrentGoal(session) && recommendation) {
-    const goalLabels: Record<string, string> = {
-      developer: `去${getSceneLabel('developer')}推荐应用给日报`,
-      news: `去${getSceneLabel('news')}看看热门应用`,
-    }
+    const recScene = ontology.scenes[recommendation]
+    const firstCapability = recScene?.capabilities?.[0]
+    const recLabel = getSceneLabel(recommendation)
     setCurrentGoal(session, {
-      purpose: goalLabels[recommendation] || `去${getSceneLabel(recommendation)}`,
+      purpose: firstCapability ? `去${recLabel}${firstCapability}` : `去${recLabel}`,
       derivedFrom: summary.slice(0, 80),
       sceneId: fromScene,
     })
   }
 
-  persistSession(session)
+  persistSessionState(session)
   return returnReason
 }
 

@@ -1,11 +1,13 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useTranslations } from 'next-intl'
 import Header from '@/components/Header'
 import { useAuth } from '@/contexts/AuthContext'
 import { Card } from '@/components/ui/Card'
 import Link from 'next/link'
 import { Button } from '@/components/ui/Button'
+import { formatTimeAgo } from '@/lib/format-time-ago'
 
 interface Achievement {
   key: string
@@ -57,27 +59,27 @@ const ACTIVITY_COLORS: Record<ActivityItem['type'], string> = {
   session_end: 'bg-gray-100 border-gray-300',
 }
 
-const ACTION_TYPE_LABELS: Record<string, { label: string; icon: string }> = {
-  review: { label: '体验报告', icon: '📝' },
-  vote: { label: '投票', icon: '🗳️' },
-  discuss: { label: '讨论', icon: '💬' },
-  discover: { label: '发现', icon: '🔍' },
+const ACTION_TYPE_ICONS: Record<string, string> = {
+  review: '📝',
+  vote: '🗳️',
+  discuss: '💬',
+  discover: '🔍',
 }
 
-function timeAgo(dateStr: string) {
-  const diff = Date.now() - new Date(dateStr).getTime()
-  const minutes = Math.floor(diff / 60000)
-  if (minutes < 1) return '刚刚'
-  if (minutes < 60) return `${minutes}分钟前`
-  const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `${hours}小时前`
-  const days = Math.floor(hours / 24)
-  if (days < 30) return `${days}天前`
-  return `${Math.floor(days / 30)}月前`
+function actionTypeLabel(type: string, t: (k: string) => string) {
+  if (type === 'review') return t('actionReview')
+  if (type === 'vote') return t('actionVote')
+  if (type === 'discuss') return t('actionDiscuss')
+  if (type === 'discover') return t('actionDiscover')
+  return type
 }
 
 export default function PAActivityPage() {
   const { user, loading: authLoading } = useAuth()
+  const t = useTranslations('paActivity')
+  const tt = useTranslations('time')
+  const tc = useTranslations('common')
+  const tn = useTranslations('nav')
   const [data, setData] = useState<PAActivityData | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -99,7 +101,7 @@ export default function PAActivityPage() {
         <Header activeNav="pa-activity" />
         <div className="text-center py-20">
           <div className="inline-block data-stream">
-            <div className="text-orange-500 text-xl">加载中...</div>
+            <div className="text-orange-500 text-xl">{t('loading')}</div>
           </div>
         </div>
       </div>
@@ -113,10 +115,10 @@ export default function PAActivityPage() {
         <Header activeNav="pa-activity" />
         <div className="text-center py-24">
           <div className="text-6xl mb-6">🔒</div>
-          <h3 className="text-2xl font-bold text-gray-800 mb-3 font-heading">请先登录</h3>
-          <p className="text-gray-400 mb-6">登录后查看你的 PA 活动记录</p>
+          <h3 className="text-2xl font-bold text-gray-800 mb-3 font-heading">{t('loginTitle')}</h3>
+          <p className="text-gray-400 mb-6">{t('loginPrompt')}</p>
           <Button asChild>
-            <Link href="/api/auth/login">登录</Link>
+            <Link href="/api/auth/login">{tc('login')}</Link>
           </Button>
         </div>
       </div>
@@ -138,20 +140,20 @@ export default function PAActivityPage() {
           {/* Title */}
           <div className="mb-10">
             <h1 className="text-3xl font-extrabold text-gray-800 font-heading mb-2">
-              PA 动态
+              {t('title')}
             </h1>
             <p className="text-gray-400 text-sm">
-              你的 PA 在报社中的活动记录和成就
+              {t('subtitle')}
             </p>
           </div>
 
           {/* Stats Cards */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-12">
             {[
-              { label: '访问次数', value: stats?.totalSessions ?? 0, icon: '🚪', gradient: 'from-blue-400 to-blue-500' },
-              { label: '探索场景', value: stats?.scenesExplored.length ?? 0, icon: '🗺️', gradient: 'from-emerald-400 to-teal-500' },
-              { label: '执行操作', value: stats?.totalActions ?? 0, icon: '⚡', gradient: 'from-amber-400 to-orange-500' },
-              { label: '体验报告', value: stats?.totalReviews ?? 0, icon: '📝', gradient: 'from-purple-400 to-violet-500' },
+              { label: t('statVisits'), value: stats?.totalSessions ?? 0, icon: '🚪', gradient: 'from-blue-400 to-blue-500' },
+              { label: t('statScenes'), value: stats?.scenesExplored.length ?? 0, icon: '🗺️', gradient: 'from-emerald-400 to-teal-500' },
+              { label: t('statActions'), value: stats?.totalActions ?? 0, icon: '⚡', gradient: 'from-amber-400 to-orange-500' },
+              { label: t('statReviews'), value: stats?.totalReviews ?? 0, icon: '📝', gradient: 'from-purple-400 to-violet-500' },
             ].map((s, i) => (
               <Card key={i} className="p-6 hover:shadow-lg transition-shadow">
                 <div className="flex items-center gap-3 mb-3">
@@ -170,12 +172,12 @@ export default function PAActivityPage() {
             <div className="lg:col-span-1 space-y-8">
               {/* Achievement Badges */}
               <Card className="p-6">
-                <h2 className="text-lg font-bold text-gray-800 mb-4 font-heading">成就墙</h2>
+                <h2 className="text-lg font-bold text-gray-800 mb-4 font-heading">{t('achievementWall')}</h2>
                 {achievements.length === 0 ? (
                   <div className="text-center py-8">
                     <div className="text-4xl mb-3">🏅</div>
-                    <p className="text-sm text-gray-400">尚未解锁任何成就</p>
-                    <p className="text-xs text-gray-300 mt-1">在报社中探索和互动来解锁成就</p>
+                    <p className="text-sm text-gray-400">{t('noAchievements')}</p>
+                    <p className="text-xs text-gray-300 mt-1">{t('noAchievementsHint')}</p>
                   </div>
                 ) : (
                   <div className="grid grid-cols-3 gap-3">
@@ -183,7 +185,7 @@ export default function PAActivityPage() {
                       <div
                         key={`${ach.key}-${i}`}
                         className={`flex flex-col items-center p-3 rounded-xl border bg-gradient-to-br ${TIER_COLORS[ach.tier] || TIER_COLORS.bronze}`}
-                        title={`${ach.name} — ${ach.description}\n${timeAgo(ach.unlockedAt)}`}
+                        title={`${ach.name} — ${ach.description}\n${formatTimeAgo(ach.unlockedAt, tt)}`}
                       >
                         <span className="text-2xl mb-1">{ach.icon}</span>
                         <span className="text-xs font-semibold text-gray-700 text-center leading-tight">
@@ -197,13 +199,16 @@ export default function PAActivityPage() {
 
               {/* Action Breakdown */}
               <Card className="p-6">
-                <h2 className="text-lg font-bold text-gray-800 mb-4 font-heading">行为统计</h2>
+                <h2 className="text-lg font-bold text-gray-800 mb-4 font-heading">{t('actionStats')}</h2>
                 {Object.keys(actionBreakdown).length === 0 ? (
-                  <p className="text-sm text-gray-400">暂无活动记录</p>
+                  <p className="text-sm text-gray-400">{t('noActions')}</p>
                 ) : (
                   <div className="space-y-3">
                     {Object.entries(actionBreakdown).map(([type, count]) => {
-                      const meta = ACTION_TYPE_LABELS[type] ?? { label: type, icon: '📊' }
+                      const meta = {
+                        label: actionTypeLabel(type, t),
+                        icon: ACTION_TYPE_ICONS[type] ?? '📊',
+                      }
                       const maxCount = Math.max(...Object.values(actionBreakdown), 1)
                       const pct = Math.round((count / maxCount) * 100)
                       return (
@@ -231,14 +236,14 @@ export default function PAActivityPage() {
             {/* Right Column: Activity Timeline */}
             <div className="lg:col-span-2">
               <Card className="p-6">
-                <h2 className="text-lg font-bold text-gray-800 mb-4 font-heading">活动时间线</h2>
+                <h2 className="text-lg font-bold text-gray-800 mb-4 font-heading">{t('timeline')}</h2>
                 {recentActivity.length === 0 ? (
                   <div className="text-center py-12">
                     <div className="text-4xl mb-3">📭</div>
-                    <p className="text-sm text-gray-400">还没有任何活动记录</p>
-                    <p className="text-xs text-gray-300 mt-1">进入报社的 Agent Space 开始探索吧</p>
+                    <p className="text-sm text-gray-400">{t('noTimeline')}</p>
+                    <p className="text-xs text-gray-300 mt-1">{t('noTimelineHint')}</p>
                     <Button asChild size="sm" className="mt-4">
-                      <Link href="/portal">前往门户</Link>
+                      <Link href="/portal">{t('goPortal')}</Link>
                     </Button>
                   </div>
                 ) : (
@@ -256,7 +261,7 @@ export default function PAActivityPage() {
                           </div>
                           <div className="flex-1 pb-2">
                             <p className="text-sm text-gray-700">{item.detail}</p>
-                            <p className="text-xs text-gray-400 mt-0.5">{timeAgo(item.timestamp)}</p>
+                            <p className="text-xs text-gray-400 mt-0.5">{formatTimeAgo(item.timestamp, tt)}</p>
                           </div>
                         </div>
                       ))}
@@ -278,14 +283,14 @@ export default function PAActivityPage() {
                 <span className="text-white font-bold font-body">A2A</span>
               </div>
               <div>
-                <div className="text-gray-800 font-bold font-heading">A2A 智选报社</div>
-                <div className="text-xs text-gray-400">v2.0</div>
+                <div className="text-gray-800 font-bold font-heading">{tc('brandName')}</div>
+                <div className="text-xs text-gray-400">{tc('footerVersion')}</div>
               </div>
             </div>
-            <div className="text-sm text-gray-400">&copy; 2026 A2A Market. Powered by SecondMe.</div>
+            <div className="text-sm text-gray-400">{tc('copyright')}</div>
             <div className="flex gap-6 text-sm">
-              <Link href="/about" className="text-gray-500 hover:text-orange-500 transition-colors">关于</Link>
-              <Link href="/portal" className="text-gray-500 hover:text-orange-500 transition-colors">门户</Link>
+              <Link href="/about" className="text-gray-500 hover:text-orange-500 transition-colors">{tc('about')}</Link>
+              <Link href="/portal" className="text-gray-500 hover:text-orange-500 transition-colors">{tn('portal')}</Link>
             </div>
           </div>
         </div>

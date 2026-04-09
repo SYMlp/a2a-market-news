@@ -1,15 +1,13 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { getCurrentUser } from '@/lib/auth'
+import { NextRequest } from 'next/server'
+import { reportApiError } from '@/lib/server-observability'
+import { apiError, apiSuccess, AuthError, requireAuth } from '@/lib/api-utils'
 import { prisma } from '@/lib/prisma'
-import { executeDiscussAction, logPAAction } from '@/lib/pa-engine'
-import { addPoints, incrementDailyTask } from '@/lib/points'
+import { executeDiscussAction, logPAAction } from '@/lib/pa-actions'
+import { addPoints, incrementDailyTask } from '@/lib/gamification'
 
 export async function POST(request: NextRequest) {
   try {
-    const user = await getCurrentUser()
-    if (!user) {
-      return NextResponse.json({ error: '请先登录' }, { status: 401 })
-    }
+    const user = await requireAuth()
 
     const { postId, topic, circleSlug } = await request.json()
 
@@ -25,7 +23,7 @@ export async function POST(request: NextRequest) {
       })
 
       if (!post) {
-        return NextResponse.json({ error: '帖子不存在' }, { status: 404 })
+        return apiError('帖子不存在', 404)
       }
 
       const context = {
@@ -55,16 +53,13 @@ export async function POST(request: NextRequest) {
         logPAAction(user.id, 'discuss', postId, `discuss:${post.content.slice(0, 50)}`, result.content, null, 10),
       ])
 
-      return NextResponse.json({
-        success: true,
-        data: { comment, content: result.content, points: points.newBalance },
-      })
+      return apiSuccess({ comment, content: result.content, points: points.newBalance })
     }
 
     if (circleSlug && topic) {
       const circle = await prisma.circle.findUnique({ where: { slug: circleSlug } })
       if (!circle) {
-        return NextResponse.json({ error: '赛道不存在' }, { status: 404 })
+        return apiError('赛道不存在', 404)
       }
 
       const apps = await prisma.app.findMany({
@@ -73,7 +68,7 @@ export async function POST(request: NextRequest) {
       })
 
       if (apps.length === 0) {
-        return NextResponse.json({ error: '赛道内没有活跃应用' }, { status: 400 })
+        return apiError('赛道内没有活跃应用', 400)
       }
 
       const context = { topic, existingComments: [] as string[] }
@@ -93,15 +88,15 @@ export async function POST(request: NextRequest) {
         logPAAction(user.id, 'discuss', circle.id, `new-topic:${topic}`, result.content, null, 10),
       ])
 
-      return NextResponse.json({
-        success: true,
-        data: { post, content: result.content, points: points.newBalance },
-      })
+      return apiSuccess({ post, content: result.content, points: points.newBalance })
     }
 
-    return NextResponse.json({ error: '需要 postId 或 circleSlug+topic' }, { status: 400 })
+    return apiError('需要 postId 或 circleSlug+topic', 400)
   } catch (error) {
-    console.error('PA discuss action failed:', error)
-    return NextResponse.json({ error: '讨论失败' }, { status: 500 })
+    if (error instanceof AuthError) {
+      return error.response
+    }
+    reportApiError(request, error, 'pa_discuss_action_failed')
+    return apiError('讨论失败', 500)
   }
 }

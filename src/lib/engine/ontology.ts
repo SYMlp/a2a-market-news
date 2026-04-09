@@ -33,6 +33,7 @@ interface SceneEntry {
 
 interface Ontology {
   platform: string
+  hubScene?: string
   scenes: Record<string, SceneEntry>
   topology_rules: string[]
   capability_map: Record<string, string>
@@ -44,6 +45,7 @@ export interface FCExecutionConfig {
   specName?: string
   detail?: string
   handlerKey?: string
+  contextBuilder?: string
 }
 
 export interface FCRegistryEntry {
@@ -69,10 +71,22 @@ export interface PreconditionEntry {
   unlocks: string
 }
 
+export interface SessionStateDisplayItem {
+  flag: string
+  label: string
+  format?: string
+  emptyText?: string
+  type?: string
+  trueText?: string
+  falseText?: string
+}
+
 export interface OperationalOntology {
   functionCalls: Record<string, FCRegistryEntry>
   dataLoaders: Record<string, DataLoaderEntry>
   preconditions: Record<string, PreconditionEntry>
+  sessionStateDisplay?: SessionStateDisplayItem[]
+  sceneScopedFlags?: string[]
 }
 
 export interface MessageTypeEntry {
@@ -89,9 +103,33 @@ export interface NPCDecisionProtocol {
   responseRules: string[]
 }
 
+export interface ClassifierConfig {
+  actionTagStay: string
+  actionTagMove: string
+  promptTemplate: string
+  rules: string[]
+}
+
+export interface GuardDualText {
+  pa: string
+  agent: string
+}
+
+export interface GuardMessages {
+  conversationLoop: {
+    atHub: GuardDualText
+    atScene: GuardDualText
+  }
+  actionRepeat: GuardDualText
+  transitionPingPong: GuardDualText
+  pathCycle: GuardDualText
+}
+
 export interface CommunicationProtocol {
   messageTypes: Record<string, MessageTypeEntry>
   npcDecisionProtocols: Record<string, NPCDecisionProtocol>
+  guardMessages: GuardMessages
+  classifierConfig: ClassifierConfig
   paOutputProtocol: Record<string, unknown>
 }
 
@@ -113,6 +151,34 @@ export function getCommunicationProtocol(): CommunicationProtocol {
 
 export function getSceneLabel(sceneId: string): string {
   return ontology.scenes[sceneId]?.label ?? sceneId
+}
+
+export function getHubSceneId(): string {
+  return ontology.hubScene ?? 'lobby'
+}
+
+/**
+ * Build display lines for session state flags from `sessionStateDisplay` config.
+ * @param activeOnly When true, only includes flags with truthy values (for PA view).
+ */
+export function buildSessionStateLines(session: GameSession, activeOnly = false): string[] {
+  const displayConfig = operationalOntology.sessionStateDisplay ?? []
+  const lines: string[] = []
+  for (const item of displayConfig) {
+    const value = session.flags?.[item.flag]
+    if (item.type === 'boolean') {
+      if (activeOnly && !value) continue
+      lines.push(`- ${item.label}：${value ? item.trueText : item.falseText}`)
+    } else if (value) {
+      const display = item.format
+        ? (value as Record<string, string>)[item.format] ?? String(value)
+        : String(value)
+      lines.push(`- ${item.label}：${display}`)
+    } else if (!activeOnly) {
+      lines.push(`- ${item.label}：${item.emptyText ?? '无'}`)
+    }
+  }
+  return lines
 }
 
 /**
@@ -190,7 +256,7 @@ export function serializeForNPC(sceneId: string): string {
   for (const rule of ontology.topology_rules) {
     parts.push(`- ${rule}`)
   }
-  if (!scene.exits.includes('lobby') && sceneId !== 'lobby') {
+  if (!scene.exits.includes(getHubSceneId()) && sceneId !== getHubSceneId()) {
     parts.push(`- 访客想去其他场景时，引导他"回大厅"。不要说"去XX"，要说"回大厅后可以去XX"。`)
   }
 
@@ -217,7 +283,7 @@ export function serializeProtocolForNPC(sceneId: string): string {
   const scene = ontology.scenes[sceneId]
   if (!scene) return ''
 
-  const roleKey = sceneId === 'lobby' ? 'navigator' : 'scene_host'
+  const roleKey = sceneId === getHubSceneId() ? 'navigator' : 'scene_host'
   const protocol = communicationProtocol.npcDecisionProtocols[roleKey]
   if (!protocol) return ''
 
@@ -297,23 +363,15 @@ export function serializeForPA(session: GameSession): string {
     parts.push(`⚠ 你在当前场景已经待了 ${sceneTurns} 轮了。如果这里的事都做完了，考虑回大厅去其他场景看看。`)
   }
 
-  const experiencingApp = session.flags?.experiencingApp as { name: string } | undefined
-  const hasExperienced = !!session.flags?.hasExperienced
+  const stateDisplayLines = buildSessionStateLines(session, true)
   const subFlow = session.flags?.subFlow as { type: string } | undefined
-
-  if (experiencingApp || subFlow) {
+  if (subFlow) {
+    stateDisplayLines.push(`- 正在进行「${subFlow.type}」流程，请继续完成当前步骤`)
+  }
+  if (stateDisplayLines.length > 0) {
     parts.push('')
     parts.push('== 当前状态 ==')
-    if (experiencingApp) {
-      parts.push(`- 你正在体验「${experiencingApp.name}」— 体验已开始，下一步应该是提交体验报告`)
-    }
-    if (subFlow) {
-      parts.push(`- 你正在进行「${subFlow.type}」流程，请继续完成当前步骤`)
-    }
-  } else if (hasExperienced) {
-    parts.push('')
-    parts.push('== 当前状态 ==')
-    parts.push('- 你已完成应用体验，可以提交体验报告')
+    parts.push(...stateDisplayLines)
   }
 
   const achievements = (session.flags?.achievements ?? []) as SceneAchievement[]

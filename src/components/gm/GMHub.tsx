@@ -1,14 +1,14 @@
 'use client'
 
+import Image from 'next/image'
 import { useState, useRef, useEffect, useCallback } from 'react'
+import { useTranslations } from 'next-intl'
 import { useAuth } from '@/contexts/AuthContext'
 import SpaceHeader from './SpaceHeader'
 import FunctionCallCard from './FunctionCallCard'
 import { Card } from '@/components/ui/Card'
 
 /* ─── Types (mirroring server types for client use) ─── */
-
-interface DualText { pa: string; agent: string }
 
 interface ChatMessage {
   id: string
@@ -55,7 +55,16 @@ function GMAvatar() {
 
 function PAAvatar({ user }: { user: { name?: string | null; avatarUrl?: string | null } }) {
   if (user.avatarUrl) {
-    return <img src={user.avatarUrl} alt="" className="w-9 h-9 rounded-xl object-cover ring-1 ring-blue-200 shrink-0" />
+    return (
+      <Image
+        src={user.avatarUrl}
+        alt=""
+        width={36}
+        height={36}
+        unoptimized
+        className="w-9 h-9 rounded-xl object-cover ring-1 ring-blue-200 shrink-0"
+      />
+    )
   }
   return (
     <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-400 to-indigo-500 flex items-center justify-center shadow-sm shrink-0">
@@ -67,6 +76,7 @@ function PAAvatar({ user }: { user: { name?: string | null; avatarUrl?: string |
 /* ─── Main Component ─── */
 
 export default function GMHub() {
+  const t = useTranslations('agentSpace')
   const { user } = useAuth()
   const [mode, setMode] = useState<Mode | null>(null)
   const [phase, setPhase] = useState<Phase>('mode_select')
@@ -119,49 +129,14 @@ export default function GMHub() {
       setMessages(prev => [...prev, {
         id: `gm-err-${Date.now()}`,
         role: 'gm',
-        content: '连接 GM 失败，请刷新重试。',
+        content: t('gmHub.errConnect'),
       }])
       setPhase('conversation')
     }
-  }, [mode])
-
-  /* ─── Start after mode selection ─── */
-  const handleModeSelect = useCallback(async (m: Mode) => {
-    setMode(m)
-    setPhase('conversation')
-    await enterSceneApi('lobby')
-
-    if (m === 'auto') {
-      autoRespond()
-    }
-  }, [enterSceneApi]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  /* ─── PA auto response ─── */
-  const autoRespond = async () => {
-    setProcessing(true)
-    try {
-      const lastGm = messages.findLast(m => m.role === 'gm')
-      const gmText = lastGm?.content || ''
-      const res = await fetch('/api/gm/pa-respond', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          gmMessage: gmText,
-          validIntents: ['discover', 'developer', 'exit'],
-        }),
-      })
-      const data = await res.json()
-      if (data.success && data.paResponse) {
-        const paMsg: ChatMessage = { id: `pa-auto-${Date.now()}`, role: 'pa', content: data.paResponse }
-        setMessages(prev => [...prev, paMsg])
-        await sendToEngine(data.paResponse)
-      }
-    } catch { /* fallback: user can type manually */ }
-    finally { setProcessing(false) }
-  }
+  }, [mode, t])
 
   /* ─── Send message to GM engine ─── */
-  const sendToEngine = async (text: string) => {
+  const sendToEngine = useCallback(async (text: string) => {
     setProcessing(true)
     try {
       const res = await fetch('/api/gm/process', {
@@ -197,14 +172,49 @@ export default function GMHub() {
       setMessages(prev => [...prev, {
         id: `gm-err-${Date.now()}`,
         role: 'gm',
-        content: '信号不太好，再说一遍？',
+        content: t('gmHub.errSignal'),
       }])
       setPhase('conversation')
     } finally {
       setProcessing(false)
       setTimeout(() => inputRef.current?.focus(), 100)
     }
-  }
+  }, [enterSceneApi, scene, sessionId, t])
+
+  /* ─── PA auto response ─── */
+  const autoRespond = useCallback(async () => {
+    setProcessing(true)
+    try {
+      const lastGm = messages.findLast(m => m.role === 'gm')
+      const gmText = lastGm?.content || ''
+      const res = await fetch('/api/gm/pa-respond', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          gmMessage: gmText,
+          validIntents: ['discover', 'developer', 'exit'],
+        }),
+      })
+      const data = await res.json()
+      if (data.success && data.paResponse) {
+        const paMsg: ChatMessage = { id: `pa-auto-${Date.now()}`, role: 'pa', content: data.paResponse }
+        setMessages(prev => [...prev, paMsg])
+        await sendToEngine(data.paResponse)
+      }
+    } catch { /* fallback: user can type manually */ }
+    finally { setProcessing(false) }
+  }, [messages, sendToEngine])
+
+  /* ─── Start after mode selection ─── */
+  const handleModeSelect = useCallback(async (m: Mode) => {
+    setMode(m)
+    setPhase('conversation')
+    await enterSceneApi('lobby')
+
+    if (m === 'auto') {
+      await autoRespond()
+    }
+  }, [autoRespond, enterSceneApi])
 
   /* ─── Manual send ─── */
   const handleSend = async () => {
@@ -219,7 +229,18 @@ export default function GMHub() {
   }
 
   if (!user) return null
-  const theme = SCENE_THEMES[scene] || SCENE_THEMES.lobby
+  const baseTheme = SCENE_THEMES[scene] || SCENE_THEMES.lobby
+  const theme = {
+    ...baseTheme,
+    label:
+      scene === 'lobby'
+        ? t('scenes.lobby.label')
+        : scene === 'news'
+          ? t('scenes.news.label')
+          : scene === 'developer'
+            ? t('scenes.developer.label')
+            : baseTheme.label,
+  }
 
   /* ─── Mode Selection ─── */
   if (phase === 'mode_select') {
@@ -227,13 +248,13 @@ export default function GMHub() {
       <Card className="overflow-hidden">
         <div className="px-6 py-8 text-center space-y-6">
           <div className="space-y-2">
-            <p className="text-2xl font-heading font-bold text-gray-800">A2A 智选日报</p>
-            <p className="text-sm text-gray-400">选择你的对话模式，GM 灵枢兔在等你</p>
+            <p className="text-2xl font-heading font-bold text-gray-800">{t('gmHub.modeSelectTitle')}</p>
+            <p className="text-sm text-gray-400">{t('gmHub.modeSelectSubtitle')}</p>
           </div>
 
           <div className="text-center">
             <span className="inline-block px-3 py-1 bg-gray-100 text-gray-400 text-[11px] rounded-full">
-              A2A 协议 · PA ↔ GM 通信
+              {t('gmHub.protocolBadge')}
             </span>
           </div>
 
@@ -243,16 +264,16 @@ export default function GMHub() {
               className="p-5 rounded-xl border-2 border-[#E8E0D8] hover:border-blue-300 hover:bg-blue-50/50 transition-all text-left group"
             >
               <div className="text-2xl mb-2">🎮</div>
-              <div className="text-sm font-bold text-gray-800 group-hover:text-blue-600">手动模式</div>
-              <div className="text-xs text-gray-400 mt-1">你来操控 PA 对话</div>
+              <div className="text-sm font-bold text-gray-800 group-hover:text-blue-600">{t('gmHub.manualModeTitle')}</div>
+              <div className="text-xs text-gray-400 mt-1">{t('gmHub.manualModeDesc')}</div>
             </button>
             <button
               onClick={() => handleModeSelect('auto')}
               className="p-5 rounded-xl border-2 border-[#E8E0D8] hover:border-purple-300 hover:bg-purple-50/50 transition-all text-left group"
             >
               <div className="text-2xl mb-2">🤖</div>
-              <div className="text-sm font-bold text-gray-800 group-hover:text-purple-600">自动模式</div>
-              <div className="text-xs text-gray-400 mt-1">让 PA 自由发挥</div>
+              <div className="text-sm font-bold text-gray-800 group-hover:text-purple-600">{t('gmHub.autoModeTitle')}</div>
+              <div className="text-xs text-gray-400 mt-1">{t('gmHub.autoModeDesc')}</div>
             </button>
           </div>
         </div>
@@ -274,7 +295,7 @@ export default function GMHub() {
         <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/80 backdrop-blur-sm">
           <div className="text-center space-y-3 animate-pulse">
             <div className="text-4xl">{theme.icon}</div>
-            <p className="text-sm font-semibold text-gray-500">进入{theme.label}...</p>
+            <p className="text-sm font-semibold text-gray-500">{t('gmHub.enteringScene', { scene: theme.label })}</p>
           </div>
         </div>
       )}
@@ -283,7 +304,7 @@ export default function GMHub() {
       <div className="flex-1 overflow-y-auto px-4 py-5 space-y-4" style={{ maxHeight: 400 }}>
         <div className="text-center">
           <span className="inline-block px-3 py-1 bg-gray-100 text-gray-400 text-[11px] rounded-full">
-            {mode === 'auto' ? '🤖 PA 自动模式' : '🎮 手动模式'} · {theme.label}
+            {mode === 'auto' ? t('gmHub.modeBadgeAuto') : t('gmHub.modeBadgeManual')} · {theme.label}
           </span>
         </div>
 
@@ -292,7 +313,7 @@ export default function GMHub() {
             {msg.role === 'gm' ? <GMAvatar /> : <PAAvatar user={user} />}
             <div className={`max-w-[80%] min-w-0 flex flex-col ${msg.role === 'pa' ? 'items-end' : 'items-start'}`}>
               <p className={`text-[11px] mb-1 font-semibold ${msg.role === 'gm' ? 'text-orange-400' : 'text-blue-400'}`}>
-                {msg.role === 'gm' ? 'GM 灵枢兔' : `${user.name || 'PA'}`}
+                {msg.role === 'gm' ? t('gmHub.gmDisplayName') : `${user.name || 'PA'}`}
               </p>
               <div className={`inline-block px-4 py-3 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap ${
                 msg.role === 'gm'
@@ -308,7 +329,7 @@ export default function GMHub() {
                   {msg.apps.map(app => (
                     <div key={app.id} className="flex items-center gap-3 px-3 py-2.5 bg-white border border-[#E8E0D8] rounded-xl text-xs hover:border-blue-200 transition-colors cursor-pointer"
                       onClick={() => {
-                        setInput(`想体验一下「${app.name}」`)
+                        setInput(t('gmHub.tryAppTemplate', { name: app.name }))
                         inputRef.current?.focus()
                       }}
                     >
@@ -365,7 +386,7 @@ export default function GMHub() {
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) handleSend() }}
-            placeholder="跟 GM 说点什么..."
+            placeholder={t('gmHub.placeholder')}
             disabled={processing}
             className="flex-1 px-4 py-2.5 bg-[#FFFBF5] border border-[#E8E0D8] rounded-xl text-sm text-gray-800
               focus:border-orange-400 focus:ring-2 focus:ring-orange-100 focus:outline-none transition-all
@@ -377,7 +398,7 @@ export default function GMHub() {
             className="px-5 py-2.5 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-xl text-sm font-semibold
               hover:shadow-lg hover:shadow-blue-200/50 transition-all disabled:opacity-30 disabled:cursor-not-allowed shrink-0"
           >
-            发送
+            {t('gmHub.send')}
           </button>
         </div>
       </div>

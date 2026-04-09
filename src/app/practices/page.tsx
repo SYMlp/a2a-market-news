@@ -1,9 +1,12 @@
 'use client'
 
+import Image from 'next/image'
 import Link from 'next/link'
 import { useEffect, useState, useCallback } from 'react'
 import Header from '@/components/Header'
 import { Card } from '@/components/ui/Card'
+import { useTranslations, useLocale } from 'next-intl'
+import { formatDate } from '@/lib/format-date'
 
 interface Practice {
   id: string
@@ -21,12 +24,15 @@ interface Practice {
   }
 }
 
-const CATEGORIES = [
-  { value: '', label: '全部' },
-  { value: 'practice', label: '最佳实践' },
-  { value: 'showcase', label: '案例展示' },
-  { value: 'tip', label: '技巧' },
-] as const
+function useCategories() {
+  const t = useTranslations('practices')
+  return [
+    { value: '', label: t('all') },
+    { value: 'practice', label: t('practice') },
+    { value: 'showcase', label: t('showcase') },
+    { value: 'tip', label: t('tip') },
+  ] as const
+}
 
 const CATEGORY_ICONS: Record<string, string> = {
   practice: '📋',
@@ -35,6 +41,10 @@ const CATEGORY_ICONS: Record<string, string> = {
 }
 
 export default function PracticesPage() {
+  const t = useTranslations('practices')
+  const tc = useTranslations('common')
+  const locale = useLocale()
+  const CATEGORIES = useCategories()
   const [practices, setPractices] = useState<Practice[]>([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
@@ -51,8 +61,8 @@ export default function PracticesPage() {
     try {
       const res = await fetch(`/api/practices?${params}`)
       const data = await res.json()
-      setPractices(data.practices ?? [])
-      setTotal(data.total ?? 0)
+      setPractices(data.success ? (data.data ?? []) : [])
+      setTotal(data.success ? ((data as { pagination?: { total: number } }).pagination?.total ?? 0) : 0)
     } catch {
       setPractices([])
     } finally {
@@ -87,26 +97,26 @@ export default function PracticesPage() {
             <div className="inline-flex items-center gap-3">
               <span className="text-5xl">📝</span>
               <div className="px-6 py-2 bg-orange-50 border border-orange-200 rounded-full">
-                <span className="text-orange-600 text-sm tracking-wide font-body">开发者实践</span>
+                <span className="text-orange-600 text-sm tracking-wide font-body">{t('badge')}</span>
               </div>
             </div>
 
             <h1 className="text-4xl md:text-6xl font-extrabold leading-tight font-heading">
               <span className="block text-gray-800">Developer</span>
               <span className="block bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 bg-clip-text text-transparent">
-                实践分享
+                {t('title')}
               </span>
             </h1>
 
             <p className="text-lg text-gray-500 max-w-xl mx-auto">
-              来自社区开发者的最佳实践、案例展示与技巧心得
+              {t('description')}
             </p>
 
             <div className="grid grid-cols-3 gap-8 max-w-lg mx-auto pt-8">
               {[
-                { label: '实践总数', value: total },
-                { label: '分类', value: CATEGORIES.length - 1 },
-                { label: '标签', value: allTags.length },
+                { label: t('totalLabel'), value: total },
+                { label: t('categoriesLabel'), value: CATEGORIES.length - 1 },
+                { label: t('tagsLabel'), value: allTags.length },
               ].map((stat, i) => (
                 <div key={i} className="text-center space-y-2">
                   <div className="stat-display text-3xl hologram">{stat.value}</div>
@@ -170,7 +180,7 @@ export default function PracticesPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {loading ? (
             <div className="text-center py-24">
-              <div className="text-orange-500 text-2xl">加载实践列表...</div>
+              <div className="text-orange-500 text-2xl">{t('loading')}</div>
             </div>
           ) : practices.length > 0 ? (
             <>
@@ -186,7 +196,7 @@ export default function PracticesPage() {
                           }
                         </span>
                         <span className="text-xs text-gray-300">
-                          {new Date(practice.createdAt).toLocaleDateString('zh-CN')}
+                          {formatDate(practice.createdAt, locale)}
                         </span>
                       </div>
 
@@ -218,9 +228,12 @@ export default function PracticesPage() {
                       <div className="flex items-center justify-between pt-4 border-t border-[#E8E0D8]">
                         <div className="flex items-center gap-2">
                           {practice.author.avatarUrl ? (
-                            <img
+                            <Image
                               src={practice.author.avatarUrl}
                               alt=""
+                              width={24}
+                              height={24}
+                              unoptimized
                               className="w-6 h-6 rounded-full object-cover"
                             />
                           ) : (
@@ -229,7 +242,7 @@ export default function PracticesPage() {
                             </div>
                           )}
                           <span className="text-xs text-gray-500 truncate max-w-[100px]">
-                            {practice.author.name || '匿名'}
+                            {practice.author.name || t('anonymousAuthor')}
                           </span>
                         </div>
 
@@ -255,7 +268,7 @@ export default function PracticesPage() {
                     disabled={page <= 1}
                     className="px-4 py-2 text-sm font-semibold rounded-lg border border-[#E8E0D8] text-gray-500 hover:border-orange-200 hover:text-orange-600 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
                   >
-                    上一页
+                    {tc('previous')}
                   </button>
                   <span className="px-4 py-2 text-sm text-gray-500">
                     {page} / {totalPages}
@@ -265,7 +278,7 @@ export default function PracticesPage() {
                     disabled={page >= totalPages}
                     className="px-4 py-2 text-sm font-semibold rounded-lg border border-[#E8E0D8] text-gray-500 hover:border-orange-200 hover:text-orange-600 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
                   >
-                    下一页
+                    {tc('next')}
                   </button>
                 </div>
               )}
@@ -273,13 +286,13 @@ export default function PracticesPage() {
           ) : (
             <div className="text-center py-24">
               <div className="text-6xl mb-6">📝</div>
-              <h3 className="text-2xl font-bold text-gray-800 mb-3 font-heading">暂无实践分享</h3>
-              <p className="text-gray-400 mb-8">成为第一个分享实践经验的开发者</p>
+              <h3 className="text-2xl font-bold text-gray-800 mb-3 font-heading">{t('emptyTitle')}</h3>
+              <p className="text-gray-400 mb-8">{t('emptyDescription')}</p>
               <Link
                 href="/practices/new"
                 className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-xl font-semibold hover:from-orange-600 hover:to-amber-600 transition-all shadow-md"
               >
-                分享实践
+                {t('sharePractice')}
               </Link>
             </div>
           )}
@@ -295,8 +308,8 @@ export default function PracticesPage() {
                 <span className="text-white font-bold font-body">A2A</span>
               </div>
               <div>
-                <div className="text-gray-800 font-bold font-heading">A2A 智选报社</div>
-                <div className="text-xs text-gray-400">Human Space · Agent Space</div>
+                <div className="text-gray-800 font-bold font-heading">{tc('brandName')}</div>
+                <div className="text-xs text-gray-400">{tc('brandTagline')}</div>
               </div>
             </div>
 
@@ -306,13 +319,13 @@ export default function PracticesPage() {
 
             <div className="flex gap-6 text-sm">
               <Link href="/about" className="text-gray-500 hover:text-orange-500 transition-colors">
-                关于
+                {tc('about')}
               </Link>
               <Link href="/docs" className="text-gray-500 hover:text-orange-500 transition-colors">
-                文档
+                {tc('docs')}
               </Link>
               <Link href="/contact" className="text-gray-500 hover:text-orange-500 transition-colors">
-                联系
+                {tc('contact')}
               </Link>
             </div>
           </div>

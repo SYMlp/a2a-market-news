@@ -1,19 +1,20 @@
-import { NextResponse } from 'next/server'
-import { getCurrentUser } from '@/lib/auth'
-import { getPointsBalance } from '@/lib/points'
+import { NextRequest } from 'next/server'
+import { getPointsBalance } from '@/lib/gamification'
+import { apiError, apiSuccess, AuthError, requireAuth } from '@/lib/api-utils'
+import { reportApiError } from '@/lib/server-observability'
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const user = await getCurrentUser()
-    if (!user) {
-      return NextResponse.json({ error: '请先登录' }, { status: 401 })
-    }
+    const user = await requireAuth()
 
     const balance = await getPointsBalance(user.id)
 
-    return NextResponse.json({ success: true, data: { balance } })
+    return apiSuccess({ balance })
   } catch (error) {
-    console.error('Points balance query failed:', error)
-    return NextResponse.json({ error: '查询失败' }, { status: 500 })
+    if (error instanceof AuthError) {
+      return error.response
+    }
+    reportApiError(request, error, 'points_balance_query_failed')
+    return apiError('查询失败', 500)
   }
 }

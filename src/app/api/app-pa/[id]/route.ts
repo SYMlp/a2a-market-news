@@ -1,5 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { reportApiError } from '@/lib/server-observability'
+import { apiError, apiSuccess } from '@/lib/api-utils'
 
 /**
  * GET /api/app-pa/:id
@@ -40,22 +42,13 @@ export async function GET(
     })
 
     if (!app) {
-      return NextResponse.json(
-        { error: '应用 PA 不存在' },
-        { status: 404 }
-      )
+      return apiError('应用 PA 不存在', 404)
     }
 
-    return NextResponse.json({
-      success: true,
-      data: app,
-    })
+    return apiSuccess(app)
   } catch (error) {
-    console.error('获取应用 PA 失败:', error)
-    return NextResponse.json(
-      { error: '获取失败' },
-      { status: 500 }
-    )
+    reportApiError(request, error, 'get_app_pa_failed')
+    return apiError('获取失败', 500)
   }
 }
 
@@ -88,10 +81,7 @@ export async function PUT(
     })
 
     if (!existing) {
-      return NextResponse.json(
-        { error: '应用 PA 不存在' },
-        { status: 404 }
-      )
+      return apiError('应用 PA 不存在', 404)
     }
 
     const app = await prisma.app.update({
@@ -112,15 +102,9 @@ export async function PUT(
       },
     })
 
-    return NextResponse.json({
-      success: true,
-      data: app,
-    })
+    return apiSuccess(app)
   } catch (error) {
-    console.error('更新应用 PA 失败:', error)
-    return NextResponse.json(
-      { error: '更新失败' },
-      { status: 500 }
-    )
+    reportApiError(request, error, 'update_app_pa_failed')
+    return apiError('更新失败', 500)
   }
 }

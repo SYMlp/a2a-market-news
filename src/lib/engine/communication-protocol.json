@@ -66,6 +66,41 @@
       ]
     }
   },
+  "guardMessages": {
+    "conversationLoop": {
+      "atHub": {
+        "pa": "看起来我们聊了好几轮同样的话题了。要不换个方向？你可以去{exitLabels}。",
+        "agent": "[GUARD] Conversation loop detected. Circuit breaker activated."
+      },
+      "atScene": {
+        "pa": "我们好像兜圈子了！要不先回{hubLabel}换个话题？直接说\"回{hubLabel}\"就行。",
+        "agent": "[GUARD] Conversation loop detected. Circuit breaker activated."
+      }
+    },
+    "actionRepeat": {
+      "pa": "我们好像重复同样的操作好几次了，换个方向吧！你可以试试别的操作，或者回{hubLabel}看看其他场景。",
+      "agent": "[GUARD] Same action \"{actionId}\" repeated {count} times in scene \"{sceneId}\". Circuit breaker activated."
+    },
+    "transitionPingPong": {
+      "pa": "我们已经在「{loopA}」和「{loopB}」之间来回跑了好几趟了。这次换个方向——你还没去过的地方或许有惊喜，也可以先离开下次再来。",
+      "agent": "[GUARD] Cross-scene A↔B loop detected: {loopA} ↔ {loopB} repeated {count} times. Breaking loop."
+    },
+    "pathCycle": {
+      "pa": "你已经走了同样的路线了（{cycleLabels}），要不换个新方向？也可以直接离开，下次再来。",
+      "agent": "[GUARD] Path cycle detected: {cycleLabels}. Breaking loop."
+    }
+  },
+  "classifierConfig": {
+    "actionTagStay": "留在场景",
+    "actionTagMove": "离开场景",
+    "promptTemplate": "根据用户在「{sceneLabel}」场景的发言判断意图，选择一个操作。\n\n可用操作：\n{actions}\n\n平台其他场景：\n{otherScenes}{sessionContext}\n\n分类规则：\n{rules}\n\n严格返回 JSON，不要添加任何其他文字：\n{\"actionId\":\"<操作id或空字符串>\",\"confidence\":<0.0到1.0>}",
+    "rules": [
+      "意图明确匹配某个操作 → 返回该操作 id",
+      "意图涉及其他场景的功能 → 归类为离开场景的操作（通常是 back_lobby）",
+      "不可用的操作不应被匹配，即使用户意图明确指向它 → actionId 为空字符串",
+      "闲聊或意图不明 → actionId 为空字符串"
+    ]
+  },
   "paOutputProtocol": {
     "publicSpeech": "1-2 句自然语言回复（channel: public）",
     "goalTag": "[GOAL: 具体行动]（channel: private, 提取后从 public speech 中移除）",

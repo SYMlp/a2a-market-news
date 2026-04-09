@@ -1,4 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
+import { apiError, apiPaginated } from '@/lib/api-utils'
+import { reportApiError } from '@/lib/server-observability'
 import { prisma } from '@/lib/prisma'
 import { validateAgentToken } from '@/lib/agent-auth'
 
@@ -65,13 +67,9 @@ export async function GET(request: NextRequest) {
       results = results.filter(a => (ratingMap.get(a.id) ?? 0) >= threshold)
     }
 
-    return NextResponse.json({
-      success: true,
-      data: results,
-      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
-    })
+    return apiPaginated(results, total, page, limit)
   } catch (error) {
-    console.error('Agent browse apps failed:', error)
-    return NextResponse.json({ error: 'Query failed' }, { status: 500 })
+    reportApiError(request, error, 'agent_browse_apps_failed')
+    return apiError('Query failed', 500)
   }
 }

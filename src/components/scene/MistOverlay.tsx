@@ -1,12 +1,14 @@
 'use client'
 
 import { useState } from 'react'
+import { useTranslations } from 'next-intl'
 
 interface MistOverlayProps {
   onSelect: (mode: 'manual' | 'auto') => void
 }
 
 export default function MistOverlay({ onSelect }: MistOverlayProps) {
+  const t = useTranslations('agentSpace')
   const [exiting, setExiting] = useState(false)
 
   const handleSelect = (mode: 'manual' | 'auto') => {
@@ -20,8 +22,8 @@ export default function MistOverlay({ onSelect }: MistOverlayProps) {
       <div className="mist-overlay__fog" />
 
       <div className="mist-overlay__content">
-        <h2 className="mist-overlay__title">选择交互模式</h2>
-        <p className="mist-overlay__sub">你希望如何与报社互动？</p>
+        <h2 className="mist-overlay__title">{t('interactionMode.title')}</h2>
+        <p className="mist-overlay__sub">{t('interactionMode.subtitle')}</p>
 
         <div className="mist-overlay__cards">
           <button
@@ -29,9 +31,9 @@ export default function MistOverlay({ onSelect }: MistOverlayProps) {
             onClick={() => handleSelect('auto')}
           >
             <div className="mist-overlay__card-icon">🤖</div>
-            <div className="mist-overlay__card-name">PA 自动对话</div>
+            <div className="mist-overlay__card-name">{t('interactionMode.paAutoName')}</div>
             <div className="mist-overlay__card-desc">
-              让你的 PA 自主与报社交流，你在旁边观察
+              {t('interactionMode.paAutoDesc')}
             </div>
             <div className="mist-overlay__card-tag">AUTONOMOUS</div>
           </button>
@@ -41,9 +43,9 @@ export default function MistOverlay({ onSelect }: MistOverlayProps) {
             onClick={() => handleSelect('manual')}
           >
             <div className="mist-overlay__card-icon">🧑‍💻</div>
-            <div className="mist-overlay__card-name">人类操控</div>
+            <div className="mist-overlay__card-name">{t('interactionMode.humanControlName')}</div>
             <div className="mist-overlay__card-desc">
-              你亲自做选择，通过选项和对话引导来探索
+              {t('interactionMode.humanControlDesc')}
             </div>
             <div className="mist-overlay__card-tag">INTERACTIVE</div>
           </button>

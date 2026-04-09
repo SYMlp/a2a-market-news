@@ -1,19 +1,20 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { getCurrentUser } from '@/lib/auth'
+import { NextRequest } from 'next/server'
+import { reportApiError } from '@/lib/server-observability'
+import { getLoggerForRequest } from '@/lib/logger'
+import { apiError, apiSuccess, AuthError, requireAuth } from '@/lib/api-utils'
 import { prisma } from '@/lib/prisma'
-import { executeVoteAction, logPAAction } from '@/lib/pa-engine'
-import { addPoints, incrementDailyTask } from '@/lib/points'
+import { executeVoteAction, logPAAction } from '@/lib/pa-actions'
+import { addPoints, incrementDailyTask } from '@/lib/gamification'
 
 export async function POST(request: NextRequest) {
+  const log = getLoggerForRequest(request)
   try {
-    const user = await getCurrentUser()
-    if (!user) {
-      return NextResponse.json({ error: '请先登录' }, { status: 401 })
-    }
+    log.debug({ route: 'api/pa-action/vote' }, 'handler_enter')
+    const user = await requireAuth()
 
     const { appId } = await request.json()
     if (!appId) {
-      return NextResponse.json({ error: '缺少 appId' }, { status: 400 })
+      return apiError('缺少 appId', 400)
     }
 
     const appRecord = await prisma.app.findUnique({
@@ -21,7 +22,7 @@ export async function POST(request: NextRequest) {
     })
 
     if (!appRecord) {
-      return NextResponse.json({ error: '应用不存在' }, { status: 404 })
+      return apiError('应用不存在', 404)
     }
 
     const existing = await prisma.vote.findUnique({
@@ -29,7 +30,7 @@ export async function POST(request: NextRequest) {
     })
 
     if (existing) {
-      return NextResponse.json({ error: '你已经投过票了' }, { status: 409 })
+      return apiError('你已经投过票了', 409)
     }
 
     const pa = { name: user.name || '匿名PA', shades: user.shades }
@@ -63,17 +64,17 @@ export async function POST(request: NextRequest) {
       logPAAction(user.id, 'vote', appId, `vote:${appRecord.name}`, reasoning, result.structured, 5),
     ])
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        vote,
-        reasoning,
-        voteType,
-        points: points.newBalance,
-      },
+    return apiSuccess({
+      vote,
+      reasoning,
+      voteType,
+      points: points.newBalance,
     })
   } catch (error) {
-    console.error('PA vote action failed:', error)
-    return NextResponse.json({ error: '投票失败' }, { status: 500 })
+    if (error instanceof AuthError) {
+      return error.response
+    }
+    reportApiError(request, error, 'pa_vote_action_failed')
+    return apiError('投票失败', 500)
   }
 }

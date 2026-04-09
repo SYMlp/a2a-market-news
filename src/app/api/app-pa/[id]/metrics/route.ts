@@ -1,5 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { reportApiError } from '@/lib/server-observability'
+import { apiError, apiSuccess } from '@/lib/api-utils'
 
 /**
  * POST /api/app-pa/:id/metrics
@@ -28,10 +30,7 @@ export async function POST(
     })
 
     if (!appRecord) {
-      return NextResponse.json(
-        { error: '应用 PA 不存在' },
-        { status: 404 }
-      )
+      return apiError('应用 PA 不存在', 404)
     }
 
     // 获取今天的日期（只保留年月日）
@@ -86,16 +85,10 @@ export async function POST(
       })
     }
 
-    return NextResponse.json({
-      success: true,
-      data: metrics,
-    })
+    return apiSuccess(metrics)
   } catch (error) {
-    console.error('上报指标失败:', error)
-    return NextResponse.json(
-      { error: '上报失败' },
-      { status: 500 }
-    )
+    reportApiError(request, error, 'submit_app_pa_metrics_failed')
+    return apiError('上报失败', 500)
   }
 }
 
@@ -122,15 +115,9 @@ export async function GET(
       take: days,
     })
 
-    return NextResponse.json({
-      success: true,
-      data: metrics,
-    })
+    return apiSuccess(metrics)
   } catch (error) {
-    console.error('获取指标失败:', error)
-    return NextResponse.json(
-      { error: '获取失败' },
-      { status: 500 }
-    )
+    reportApiError(request, error, 'get_app_pa_metrics_failed')
+    return apiError('获取失败', 500)
   }
 }

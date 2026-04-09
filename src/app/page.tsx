@@ -1,15 +1,17 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
+import { useTranslations } from 'next-intl'
 
-const TITLE = '准备好进入A2A智选报社了嘛~'
 const CHAR_DELAY = 80
 
 export default function LandingPage() {
+  const t = useTranslations('landing')
   const router = useRouter()
   const { user, loading: authLoading } = useAuth()
+  const TITLE = useMemo(() => t('title'), [t])
   const [phase, setPhase] = useState(0)
   const [exiting, setExiting] = useState(false)
 
@@ -27,7 +29,7 @@ export default function LandingPage() {
       setTimeout(() => setPhase(3), 1200 + TITLE.length * CHAR_DELAY + 600),
     ]
     return () => timers.forEach(clearTimeout)
-  }, [])
+  }, [TITLE])
 
   const handleEnter = useCallback(() => {
     if (exiting || authLoading) return
@@ -72,7 +74,7 @@ export default function LandingPage() {
       <main className="landing-center">
         <div className={`landing-status ${phase >= 1 ? 'landing-status--on' : ''}`}>
           <span className="landing-status__led" />
-          SYSTEM ONLINE
+          {t('systemOnline')}
         </div>
 
         <h1 className="landing-title" aria-label={TITLE}>
@@ -99,11 +101,11 @@ export default function LandingPage() {
         >
           <span className="landing-cta__glow" />
           <span className="landing-cta__ring" />
-          <span className="landing-cta__label">准备进入~</span>
+          <span className="landing-cta__label">{t('cta')}</span>
         </button>
 
         <div className={`landing-ver ${phase >= 3 ? 'landing-ver--on' : ''}`}>
-          // A2A NEWSROOM v2.0
+          {t('version')}
         </div>
       </main>
     </div>

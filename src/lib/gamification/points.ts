@@ -1,4 +1,4 @@
-import { prisma } from './prisma'
+import { prisma } from '../prisma'
 
 const POINTS_TABLE: Record<string, number> = {
   review: 20,

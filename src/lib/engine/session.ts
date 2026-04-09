@@ -1,4 +1,5 @@
 import type { GameSession } from './types'
+import { getHubSceneId } from './ontology'
 
 const sessions = new Map<string, GameSession>()
 const SESSION_TTL = 30 * 60 * 1000
@@ -10,7 +11,7 @@ export function createSession(
 ): GameSession {
   const session: GameSession = {
     id: `sess_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-    currentScene: 'lobby',
+    currentScene: getHubSceneId(),
     round: 0,
     globalTurn: 0,
     mode,

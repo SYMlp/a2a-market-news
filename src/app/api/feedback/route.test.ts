@@ -8,17 +8,21 @@ vi.mock('@/lib/prisma', () => ({
   },
 }))
 
-vi.mock('@/lib/feedback-schema', () => ({
+vi.mock('@/lib/reviews/feedback-schema', () => ({
   validateFeedback: vi.fn(),
 }))
 
-vi.mock('@/lib/notification', () => ({
+vi.mock('@/lib/developer/notification', () => ({
   notifyDeveloper: vi.fn().mockResolvedValue(undefined),
 }))
 
+vi.mock('@/lib/gamification', () => ({
+  processAchievements: vi.fn().mockResolvedValue({ newUnlocks: [] }),
+}))
+
 import { prisma } from '@/lib/prisma'
-import { validateFeedback } from '@/lib/feedback-schema'
-import { notifyDeveloper } from '@/lib/notification'
+import { validateFeedback } from '@/lib/reviews/feedback-schema'
+import { notifyDeveloper } from '@/lib/developer/notification'
 import { POST, GET } from './route'
 
 const mockValidate = vi.mocked(validateFeedback)
@@ -75,7 +79,7 @@ describe('POST /api/feedback', () => {
 
     expect(res.status).toBe(200)
     expect(json.success).toBe(true)
-    expect(json.data.id).toBe('fb-001')
+    expect(json.data.feedback.id).toBe('fb-001')
   })
 
   it('resolves developer from app and triggers notification', async () => {

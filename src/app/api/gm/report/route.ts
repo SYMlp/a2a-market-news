@@ -1,17 +1,18 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { getCurrentUser } from '@/lib/auth'
+import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { apiError, apiSuccess, AuthError, requireAuth } from '@/lib/api-utils'
+import { reportApiError } from '@/lib/server-observability'
+import { getLoggerForRequest } from '@/lib/logger'
 
 /**
  * POST /api/gm/report
  * Save PA's experience report as feedback + notify developer.
  */
 export async function POST(request: NextRequest) {
+  const log = getLoggerForRequest(request)
   try {
-    const user = await getCurrentUser()
-    if (!user) {
-      return NextResponse.json({ error: '请先登录' }, { status: 401 })
-    }
+    log.debug({ route: 'api/gm/report' }, 'handler_enter')
+    const user = await requireAuth()
 
     const { appId, content, rating } = await request.json() as {
       appId: string
@@ -20,7 +21,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (!appId || !content) {
-      return NextResponse.json({ error: '缺少 appId 或 content' }, { status: 400 })
+      return apiError('缺少 appId 或 content', 400)
     }
 
     const app = await prisma.app.findUnique({
@@ -29,7 +30,7 @@ export async function POST(request: NextRequest) {
     })
 
     if (!app) {
-      return NextResponse.json({ error: '应用不存在' }, { status: 404 })
+      return apiError('应用不存在', 404)
     }
 
     const feedback = await prisma.appFeedback.create({
@@ -51,13 +52,13 @@ export async function POST(request: NextRequest) {
       notifyDeveloper(app.developer.callbackUrl, app, feedback.id, content).catch(() => {})
     }
 
-    return NextResponse.json({
-      success: true,
-      data: { feedbackId: feedback.id },
-    })
+    return apiSuccess({ feedbackId: feedback.id })
   } catch (error) {
-    console.error('GM report error:', error)
-    return NextResponse.json({ error: '保存报告失败' }, { status: 500 })
+    if (error instanceof AuthError) {
+      return error.response
+    }
+    reportApiError(request, error, 'gm_report_error')
+    return apiError('保存报告失败', 500)
   }
 }
 

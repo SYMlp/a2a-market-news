@@ -1,6 +1,8 @@
 'use client'
 
+import Image from 'next/image'
 import { useState, useEffect, useCallback } from 'react'
+import { useTranslations } from 'next-intl'
 import { SCENE_CONFIG } from '@/lib/scene-visuals'
 import type { SceneAchievement } from '@/lib/engine/types'
 
@@ -20,6 +22,13 @@ interface TownFarewellProps {
 type FarewellPhase = 'door_closing' | 'walking_away' | 'summary' | 'done'
 
 export default function TownFarewell({ paName, summary, onComplete }: TownFarewellProps) {
+  const t = useTranslations('agentSpace')
+  const sceneLabel = (sceneId: string, fallback: string) => {
+    if (sceneId === 'lobby') return t('scenes.lobby.label')
+    if (sceneId === 'news') return t('scenes.news.label')
+    if (sceneId === 'developer') return t('scenes.developer.label')
+    return fallback
+  }
   const [phase, setPhase] = useState<FarewellPhase>('door_closing')
 
   useEffect(() => {
@@ -94,9 +103,11 @@ export default function TownFarewell({ paName, summary, onComplete }: TownFarewe
       <div className={`town__pa town-fw__pa town-fw__pa--${phase}`}>
         <div className="town__pa-name">{paName}</div>
         <div className="town__pa-sprite town-fw__pa-sprite">
-          <img
+          <Image
             src="/sprites/pa.png"
             alt={paName}
+            width={72}
+            height={72}
             className="town__pa-img town-fw__pa-img"
             draggable={false}
           />
@@ -116,21 +127,22 @@ export default function TownFarewell({ paName, summary, onComplete }: TownFarewe
           <div className="town-fw__card-inner">
             <div className="town-fw__card-header">
               <span className="town-fw__card-wave">👋</span>
-              <h2 className="town-fw__card-title">欢迎下次再来!</h2>
-              <p className="town-fw__card-sub">本次探访总结</p>
+              <h2 className="town-fw__card-title">{t('townFarewell.title')}</h2>
+              <p className="town-fw__card-sub">{t('townFarewell.subtitle')}</p>
             </div>
 
             <div className="town-fw__card-body">
               {uniqueScenes.length > 0 && (
                 <div className="town-fw__section">
-                  <div className="town-fw__section-label">🗺️ 到访场景</div>
+                  <div className="town-fw__section-label">🗺️ {t('townFarewell.scenesVisited')}</div>
                   <div className="town-fw__tags">
                     {uniqueScenes.map(sceneId => {
                       const cfg = SCENE_CONFIG[sceneId] || SCENE_CONFIG.lobby
+                      const label = sceneLabel(sceneId, cfg.label)
                       return (
                         <span key={sceneId} className="town-fw__tag">
                           <span className="town-fw__tag-icon">{cfg.icon}</span>
-                          {cfg.label}
+                          {label}
                         </span>
                       )
                     })}
@@ -140,7 +152,7 @@ export default function TownFarewell({ paName, summary, onComplete }: TownFarewe
 
               {uniqueNpcs.length > 0 && (
                 <div className="town-fw__section">
-                  <div className="town-fw__section-label">🤝 遇见的角色</div>
+                  <div className="town-fw__section-label">🤝 {t('townFarewell.charactersMet')}</div>
                   <div className="town-fw__tags">
                     {uniqueNpcs.map(npc => (
                       <span key={npc.name} className="town-fw__tag">
@@ -154,7 +166,7 @@ export default function TownFarewell({ paName, summary, onComplete }: TownFarewe
 
               {summary.achievements.length > 0 && (
                 <div className="town-fw__section">
-                  <div className="town-fw__section-label">🏆 成就</div>
+                  <div className="town-fw__section-label">🏆 {t('townFarewell.achievements')}</div>
                   <div className="town-fw__achievements">
                     {summary.achievements.map((a, i) => (
                       <div key={`${a.actionId}-${i}`} className="town-fw__achievement">
@@ -169,21 +181,21 @@ export default function TownFarewell({ paName, summary, onComplete }: TownFarewe
               <div className="town-fw__section town-fw__section--stat">
                 <div className="town-fw__stat">
                   <span className="town-fw__stat-number">{summary.totalTurns}</span>
-                  <span className="town-fw__stat-label">回合</span>
+                  <span className="town-fw__stat-label">{t('townFarewell.statTurns')}</span>
                 </div>
                 <div className="town-fw__stat">
                   <span className="town-fw__stat-number">{uniqueScenes.length + 1}</span>
-                  <span className="town-fw__stat-label">场景</span>
+                  <span className="town-fw__stat-label">{t('townFarewell.statScenes')}</span>
                 </div>
                 <div className="town-fw__stat">
                   <span className="town-fw__stat-number">{summary.achievements.length}</span>
-                  <span className="town-fw__stat-label">成就</span>
+                  <span className="town-fw__stat-label">{t('townFarewell.statAchievements')}</span>
                 </div>
               </div>
             </div>
 
             <div className="town-fw__card-footer">
-              <span className="town-fw__card-hint">点击任意处继续</span>
+              <span className="town-fw__card-hint">{t('townFarewell.tapToContinue')}</span>
             </div>
           </div>
         </div>

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { useTranslations } from 'next-intl'
 import Header from '@/components/Header'
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/Button'
@@ -34,6 +35,7 @@ export default function AppSettingsPage() {
   const router = useRouter()
   const appId = params.id as string
   const { user, loading: authLoading } = useAuth()
+  const t = useTranslations('developerSettings')
 
   const [app, setApp] = useState<AppData | null>(null)
   const [loading, setLoading] = useState(true)
@@ -78,15 +80,15 @@ export default function AppSettingsPage() {
             accessibility: a.metadata?.accessibility || 'none',
           })
         } else {
-          setError(data.error || 'Failed to load app')
+          setError(data.error || t('appNotFound'))
         }
         setLoading(false)
       })
       .catch(() => {
-        setError('Network error')
+        setError(t('networkError'))
         setLoading(false)
       })
-  }, [appId, user, authLoading])
+  }, [appId, user, authLoading, t])
 
   const handleStatusChange = async (newStatus: string) => {
     if (!app || saving || app.status === 'archived') return
@@ -101,14 +103,14 @@ export default function AppSettingsPage() {
       })
       const data = await res.json()
       if (data.success) {
-        setSuccess('状态已更新')
+        setSuccess(t('statusUpdated'))
         setApp(data.data)
         setTimeout(() => setSuccess(''), 3000)
       } else {
-        setError(data.error || '更新失败')
+        setError(data.error || t('updateFailed'))
       }
     } catch {
-      setError('网络错误')
+      setError(t('networkError'))
     } finally {
       setSaving(false)
     }
@@ -147,7 +149,7 @@ export default function AppSettingsPage() {
       })
       const data = await res.json()
       if (data.success) {
-        setSuccess(statusOverride === 'archived' ? '已归档' : '保存成功')
+        setSuccess(statusOverride === 'archived' ? t('archivedSuccess') : t('saveSuccess'))
         setApp(data.data)
         setShowArchivedConfirm(false)
         if (statusOverride === 'archived') {
@@ -156,10 +158,10 @@ export default function AppSettingsPage() {
           setTimeout(() => setSuccess(''), 3000)
         }
       } else {
-        setError(data.error || '保存失败')
+        setError(data.error || t('saveFailed'))
       }
     } catch {
-      setError('网络错误')
+      setError(t('networkError'))
     } finally {
       setSaving(false)
     }
@@ -170,7 +172,7 @@ export default function AppSettingsPage() {
       <div className="min-h-screen">
         <Header activeNav="developer" />
         <div className="flex items-center justify-center py-32">
-          <div className="text-orange-500 text-xl">加载中...</div>
+          <div className="text-orange-500 text-xl">{t('loading')}</div>
         </div>
       </div>
     )
@@ -181,9 +183,9 @@ export default function AppSettingsPage() {
       <div className="min-h-screen">
         <Header activeNav="developer" />
         <div className="flex flex-col items-center justify-center py-32 gap-6">
-          <p className="text-gray-500 text-lg">请先登录</p>
+          <p className="text-gray-500 text-lg">{t('login')}</p>
           <Button asChild size="sm">
-            <Link href="/api/auth/login">登录</Link>
+            <Link href="/api/auth/login">{t('loginButton')}</Link>
           </Button>
         </div>
       </div>
@@ -195,9 +197,9 @@ export default function AppSettingsPage() {
       <div className="min-h-screen">
         <Header activeNav="developer" />
         <div className="flex flex-col items-center justify-center py-32 gap-6">
-          <p className="text-gray-500 text-lg">{error || '应用不存在'}</p>
+          <p className="text-gray-500 text-lg">{error || t('appNotFound')}</p>
           <Button asChild size="sm">
-            <Link href="/developer">返回面板</Link>
+            <Link href="/developer">{t('backPanel')}</Link>
           </Button>
         </div>
       </div>
@@ -216,10 +218,10 @@ export default function AppSettingsPage() {
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="mb-8">
             <Link href="/developer" className="text-gray-400 hover:text-orange-500 transition-colors text-sm mb-4 inline-block">
-              &larr; 返回面板
+              {t('backToPanel')}
             </Link>
             <h2 className="text-3xl font-extrabold text-gray-800 mb-2 font-heading">
-              应用设置
+              {t('title')}
             </h2>
             <div className="flex items-center gap-3">
               <span className="text-gray-500">{app.name}</span>
@@ -240,10 +242,10 @@ export default function AppSettingsPage() {
             )}
 
             <Card className="p-8 space-y-6">
-              <h3 className="text-xl font-bold text-gray-800 font-heading">基本信息</h3>
+              <h3 className="text-xl font-bold text-gray-800 font-heading">{t('basicInfo')}</h3>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-600 mb-2">应用名称</label>
+                <label className="block text-sm font-semibold text-gray-600 mb-2">{t('appName')}</label>
                 <input
                   type="text"
                   required
@@ -254,7 +256,7 @@ export default function AppSettingsPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-600 mb-2">一句话介绍</label>
+                <label className="block text-sm font-semibold text-gray-600 mb-2">{t('tagline')}</label>
                 <input
                   type="text"
                   required
@@ -267,10 +269,10 @@ export default function AppSettingsPage() {
 
               <div>
                 <label className="block text-sm font-semibold text-gray-600 mb-2">
-                  SecondMe Client ID
+                  {t('clientIdLabel')}
                   {clientIdLocked && (
                     <span className="ml-2 inline-flex items-center px-2 py-0.5 bg-emerald-50 border border-emerald-200 rounded-full text-[10px] text-emerald-600 font-normal">
-                      已绑定
+                      {t('bound')}
                     </span>
                   )}
                 </label>
@@ -283,31 +285,29 @@ export default function AppSettingsPage() {
                   placeholder="526d9920-c43c-4512-917d-5f59f706f087"
                 />
                 <p className="mt-1 text-xs text-gray-400">
-                  {clientIdLocked
-                    ? '已绑定 SecondMe 平台，不可修改'
-                    : '在 SecondMe 开发者平台获取的应用唯一标识'}
+                  {clientIdLocked ? t('clientIdLockedHint') : t('clientIdUnlockedHint')}
                 </p>
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-600 mb-2">无障碍支持</label>
+                <label className="block text-sm font-semibold text-gray-600 mb-2">{t('accessibility')}</label>
                 <select
                   value={form.accessibility}
                   onChange={e => setForm(f => ({ ...f, accessibility: e.target.value }))}
                   className={inputClass}
                 >
-                  <option value="none">无特殊支持</option>
-                  <option value="partial">部分支持</option>
-                  <option value="full">完全支持</option>
+                  <option value="none">{t('accNone')}</option>
+                  <option value="partial">{t('accPartial')}</option>
+                  <option value="full">{t('accFull')}</option>
                 </select>
               </div>
             </Card>
 
             <Card className="p-8 space-y-6">
-              <h3 className="text-xl font-bold text-gray-800 font-heading">链接信息</h3>
+              <h3 className="text-xl font-bold text-gray-800 font-heading">{t('linksTitle')}</h3>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-600 mb-2">封面图片 URL</label>
+                <label className="block text-sm font-semibold text-gray-600 mb-2">{t('coverUrl')}</label>
                 <input
                   type="url"
                   value={form.coverImage}
@@ -318,7 +318,7 @@ export default function AppSettingsPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-600 mb-2">作品链接</label>
+                <label className="block text-sm font-semibold text-gray-600 mb-2">{t('projectUrl')}</label>
                 <input
                   type="url"
                   value={form.projectUrl}
@@ -329,7 +329,7 @@ export default function AppSettingsPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-600 mb-2">GitHub 链接</label>
+                <label className="block text-sm font-semibold text-gray-600 mb-2">{t('githubUrl')}</label>
                 <input
                   type="url"
                   value={form.githubUrl}
@@ -340,7 +340,7 @@ export default function AppSettingsPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-600 mb-2">视频链接</label>
+                <label className="block text-sm font-semibold text-gray-600 mb-2">{t('videoUrl')}</label>
                 <input
                   type="url"
                   value={form.videoUrl}
@@ -352,26 +352,26 @@ export default function AppSettingsPage() {
             </Card>
 
             <Card className="p-8 space-y-6">
-              <h3 className="text-xl font-bold text-gray-800 font-heading">详细描述</h3>
+              <h3 className="text-xl font-bold text-gray-800 font-heading">{t('detailedTitle')}</h3>
 
               <div>
                 <label className="block text-sm font-semibold text-gray-600 mb-2">
-                  项目详情（支持 Markdown）
+                  {t('detailedLabel')}
                 </label>
                 <textarea
                   value={form.detailedDescription}
                   onChange={e => setForm(f => ({ ...f, detailedDescription: e.target.value }))}
                   rows={10}
                   className={`${inputClass} resize-none`}
-                  placeholder="详细描述你的项目..."
+                  placeholder={t('detailedPlaceholder')}
                 />
               </div>
             </Card>
 
             <Card className="p-8 space-y-6">
-              <h3 className="text-xl font-bold text-gray-800 font-heading">应用状态</h3>
+              <h3 className="text-xl font-bold text-gray-800 font-heading">{t('appStatusTitle')}</h3>
               <div className="flex items-center gap-4 mb-4">
-                <label className="block text-sm font-semibold text-gray-600">当前状态</label>
+                <label className="block text-sm font-semibold text-gray-600">{t('currentStatus')}</label>
                 <div className="flex gap-3">
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input
@@ -382,7 +382,7 @@ export default function AppSettingsPage() {
                       disabled={app.status === 'archived' || saving}
                       className="text-orange-500"
                     />
-                    <span>活跃</span>
+                    <span>{t('statusActive')}</span>
                   </label>
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input
@@ -393,7 +393,7 @@ export default function AppSettingsPage() {
                       disabled={app.status === 'archived' || saving}
                       className="text-orange-500"
                     />
-                    <span>暂停</span>
+                    <span>{t('statusInactive')}</span>
                   </label>
                 </div>
                 <span className={`px-2 py-0.5 text-xs rounded-full ${
@@ -403,7 +403,7 @@ export default function AppSettingsPage() {
                     ? 'bg-gray-100 text-gray-500 border border-gray-200'
                     : 'bg-amber-50 text-amber-600 border border-amber-200'
                 }`}>
-                  {app.status === 'active' ? '活跃' : app.status === 'archived' ? '已归档' : '暂停'}
+                  {app.status === 'active' ? t('statusActive') : app.status === 'archived' ? t('statusArchived') : t('statusInactive')}
                 </span>
               </div>
               {app.status !== 'archived' && (
@@ -414,10 +414,10 @@ export default function AppSettingsPage() {
                     disabled={saving}
                     className="px-4 py-2 text-sm text-gray-500 border border-gray-200 rounded-lg hover:bg-gray-50 hover:border-gray-300 transition-colors disabled:opacity-50"
                   >
-                    归档应用
+                    {t('archiveApp')}
                   </button>
                   <p className="mt-1 text-xs text-gray-400">
-                    归档后不可恢复，应用将不再显示在列表中
+                    {t('archiveHint')}
                   </p>
                 </div>
               )}
@@ -426,9 +426,9 @@ export default function AppSettingsPage() {
             {showArchivedConfirm && (
               <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
                 <Card className="p-6 max-w-sm mx-4">
-                  <h3 className="text-lg font-bold text-gray-800 mb-2">确认归档</h3>
+                  <h3 className="text-lg font-bold text-gray-800 mb-2">{t('confirmArchiveTitle')}</h3>
                   <p className="text-gray-500 text-sm mb-4">
-                    归档后应用将无法恢复为活跃或暂停状态，确定要归档「{app.name}」吗？
+                    {t('confirmArchiveBody', { name: app.name })}
                   </p>
                   <div className="flex gap-3 justify-end">
                     <button
@@ -436,7 +436,7 @@ export default function AppSettingsPage() {
                       onClick={() => setShowArchivedConfirm(false)}
                       className="px-4 py-2 border border-gray-200 text-gray-500 rounded-lg hover:bg-gray-50"
                     >
-                      取消
+                      {t('cancel')}
                     </button>
                     <button
                       type="button"
@@ -444,7 +444,7 @@ export default function AppSettingsPage() {
                       disabled={saving}
                       className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 disabled:opacity-50"
                     >
-                      {saving ? '归档中...' : '确认归档'}
+                      {saving ? t('archiving') : t('confirmArchive')}
                     </button>
                   </div>
                 </Card>
@@ -456,13 +456,13 @@ export default function AppSettingsPage() {
                 href="/developer"
                 className="px-6 py-3 border border-gray-200 text-gray-500 rounded-xl hover:border-gray-300 transition-colors"
               >
-                取消
+                {t('cancel')}
               </Link>
               <Button
                 type="submit"
                 disabled={saving}
               >
-                {saving ? '保存中...' : '保存设置'}
+                {saving ? t('saving') : t('saveSettings')}
               </Button>
             </div>
           </form>

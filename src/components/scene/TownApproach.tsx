@@ -1,6 +1,8 @@
 'use client'
 
+import Image from 'next/image'
 import { useState, useEffect } from 'react'
+import { useTranslations } from 'next-intl'
 import SpriteAnimation from './SpriteAnimation'
 import type { SpriteSheet } from './SpriteAnimation'
 
@@ -28,6 +30,7 @@ const PA_RUN_SHEET: SpriteSheet = {
 }
 
 export default function TownApproach({ onModeSelect, paName }: TownApproachProps) {
+  const t = useTranslations('agentSpace')
   const [phase, setPhase] = useState<ApproachPhase>('walking')
   const [chosenMode, setChosenMode] = useState<GameMode | null>(null)
 
@@ -54,9 +57,11 @@ export default function TownApproach({ onModeSelect, paName }: TownApproachProps
 
   return (
     <div className={`town ${phase === 'pa_entering' ? 'town--entering' : ''}`}>
-      <img
+      <Image
         src="/sprites/backgrounds/city-street-bg.png"
         alt=""
+        width={1920}
+        height={1080}
         className="town__bg-img"
         draggable={false}
       />
@@ -80,9 +85,11 @@ export default function TownApproach({ onModeSelect, paName }: TownApproachProps
               direction="right"
             />
           ) : (
-            <img
+            <Image
               src="/sprites/pa.png"
               alt={paName}
+              width={72}
+              height={72}
               className="town__pa-img"
               draggable={false}
             />
@@ -110,27 +117,27 @@ export default function TownApproach({ onModeSelect, paName }: TownApproachProps
             onClick={() => handleChoose('advisor')}
           >
             <div className="town__choice-icon">💬</div>
-            <div className="town__choice-name">顾问模式</div>
-            <div className="town__choice-desc">给 PA 建议，TA 自己表达</div>
-            <div className="town__choice-tag">你在幕后指导</div>
+            <div className="town__choice-name">{t('townApproach.advisorName')}</div>
+            <div className="town__choice-desc">{t('townApproach.advisorDesc')}</div>
+            <div className="town__choice-tag">{t('townApproach.advisorTag')}</div>
           </button>
           <button
             className={`town__choice town__choice--delay ${chosenMode === 'auto' ? 'town__choice--chosen' : ''} ${chosenMode && chosenMode !== 'auto' ? 'town__choice--dimmed' : ''}`}
             onClick={() => handleChoose('auto')}
           >
             <div className="town__choice-icon">🤖</div>
-            <div className="town__choice-name">自动模式</div>
-            <div className="town__choice-desc">PA 自主探索报社</div>
-            <div className="town__choice-tag">全自动运行</div>
+            <div className="town__choice-name">{t('townApproach.autoName')}</div>
+            <div className="town__choice-desc">{t('townApproach.autoDesc')}</div>
+            <div className="town__choice-tag">{t('townApproach.autoTag')}</div>
           </button>
           <button
             className={`town__choice town__choice--delay2 ${chosenMode === 'manual' ? 'town__choice--chosen' : ''} ${chosenMode && chosenMode !== 'manual' ? 'town__choice--dimmed' : ''}`}
             onClick={() => handleChoose('manual')}
           >
             <div className="town__choice-icon">🎮</div>
-            <div className="town__choice-name">手动模式</div>
-            <div className="town__choice-desc">你来选择每一步操作</div>
-            <div className="town__choice-tag">完全人工操控</div>
+            <div className="town__choice-name">{t('townApproach.manualName')}</div>
+            <div className="town__choice-desc">{t('townApproach.manualDesc')}</div>
+            <div className="town__choice-tag">{t('townApproach.manualTag')}</div>
           </button>
         </div>
       )}

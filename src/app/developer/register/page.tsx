@@ -1,23 +1,28 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { useTranslations } from 'next-intl'
 import Header from '@/components/Header'
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 
-const NOTIFY_OPTIONS = [
-  { value: 'in_app', label: '仅站内' },
-  { value: 'callback', label: '仅回调' },
-  { value: 'both', label: '两者都要' },
-  { value: 'none', label: '不通知' },
-] as const
-
 export default function DeveloperRegisterPage() {
   const router = useRouter()
   const { user, loading: authLoading, mutate } = useAuth()
+  const t = useTranslations('developerRegister')
+  const tc = useTranslations('common')
+  const notifyOptions = useMemo(
+    () => [
+      { value: 'in_app', label: t('notifyInApp') },
+      { value: 'callback', label: t('notifyCallback') },
+      { value: 'both', label: t('notifyBoth') },
+      { value: 'none', label: t('notifyNone') },
+    ],
+    [t],
+  )
   const [form, setForm] = useState({
     developerName: '',
     callbackUrl: '',
@@ -75,10 +80,10 @@ export default function DeveloperRegisterPage() {
         await mutate()
         router.push('/developer')
       } else {
-        setError(data.error || (isDeveloper ? '更新失败' : 'Registration failed'))
+        setError(data.error || (isDeveloper ? t('updateFailed') : t('registerFailed')))
       }
     } catch {
-      setError('Network error')
+      setError(tc('networkError'))
     } finally {
       setLoading(false)
     }
@@ -90,7 +95,7 @@ export default function DeveloperRegisterPage() {
         <div className="fixed inset-0 cyber-grid pointer-events-none" />
         <Header activeNav="developer" />
         <main className="relative py-20 flex items-center justify-center">
-          <p className="text-gray-500">加载中...</p>
+          <p className="text-gray-500">{t('loading')}</p>
         </main>
       </div>
     )
@@ -103,9 +108,9 @@ export default function DeveloperRegisterPage() {
         <Header activeNav="developer" />
         <main className="relative py-20">
           <div className="max-w-2xl mx-auto px-4 text-center">
-            <p className="text-gray-600 mb-4">请先登录后再进行开发者注册。</p>
+            <p className="text-gray-600 mb-4">{t('loginPrompt')}</p>
             <Link href="/" className="text-orange-600 hover:underline">
-              返回首页
+              {t('backHome')}
             </Link>
           </div>
         </main>
@@ -123,15 +128,13 @@ export default function DeveloperRegisterPage() {
         <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <div className="inline-block px-6 py-2 bg-orange-50 border border-orange-200 rounded-full mb-6">
-              <span className="text-orange-600 text-sm tracking-wide">🛠 开发者入口</span>
+              <span className="text-orange-600 text-sm tracking-wide">{t('badge')}</span>
             </div>
             <h2 className="text-4xl font-extrabold text-gray-800 mb-4 font-heading">
-              {isDeveloper ? '编辑开发者资料' : '成为开发者'}
+              {isDeveloper ? t('titleEdit') : t('titleNew')}
             </h2>
             <p className="text-gray-500">
-              {isDeveloper
-                ? '更新你的开发者资料和通知偏好'
-                : '注册成为开发者，管理你的 A2A 应用，接收结构化反馈'}
+              {isDeveloper ? t('descEdit') : t('descNew')}
             </p>
           </div>
 
@@ -145,7 +148,7 @@ export default function DeveloperRegisterPage() {
 
             <div>
               <label className="block text-orange-600 text-xs tracking-widest mb-2 font-semibold">
-                开发者名称 *
+                {t('developerNameLabel')}
               </label>
               <input
                 type="text"
@@ -161,7 +164,7 @@ export default function DeveloperRegisterPage() {
 
             <div>
               <label className="block text-orange-600 text-xs tracking-widest mb-2 font-semibold">
-                回调 URL <span className="text-gray-300">(可选)</span>
+                {t('callbackUrlLabel')} <span className="text-gray-300">{t('optional')}</span>
               </label>
               <input
                 type="url"
@@ -173,16 +176,16 @@ export default function DeveloperRegisterPage() {
                 placeholder="https://your-agent.example.com/webhook"
               />
               <p className="text-gray-400 text-xs mt-1">
-                新反馈时 POST 通知到此 URL
+                {t('callbackHint')}
               </p>
             </div>
 
             <div>
               <label className="block text-orange-600 text-xs tracking-widest mb-2 font-semibold">
-                通知偏好
+                {t('notifyPreferenceLabel')}
               </label>
               <div className="grid grid-cols-2 gap-3">
-                {NOTIFY_OPTIONS.map(opt => (
+                {notifyOptions.map(opt => (
                   <button
                     key={opt.value}
                     type="button"
@@ -206,11 +209,11 @@ export default function DeveloperRegisterPage() {
             >
               {loading
                 ? isDeveloper
-                  ? '更新中...'
-                  : '注册中...'
+                  ? t('updating')
+                  : t('registering')
                 : isDeveloper
-                  ? '更新资料'
-                  : '注册成为开发者'}
+                  ? t('submitUpdate')
+                  : t('submitRegister')}
             </Button>
             </Card>
           </form>

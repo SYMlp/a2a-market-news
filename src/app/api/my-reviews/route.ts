@@ -1,35 +1,18 @@
-import { NextResponse } from 'next/server'
-import { getCurrentUser } from '@/lib/auth'
-import { prisma } from '@/lib/prisma'
+import { NextRequest } from 'next/server'
+import { apiError, apiSuccess, AuthError, requireAuth } from '@/lib/api-utils'
+import { reportApiError } from '@/lib/server-observability'
+import { listMyReviews } from '@/lib/pa-actions'
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const user = await getCurrentUser()
-    if (!user) {
-      return NextResponse.json({ error: 'Login required' }, { status: 401 })
-    }
-
-    const feedbacks = await prisma.appFeedback.findMany({
-      where: { agentId: user.secondmeUserId },
-      include: { app: { select: { name: true, clientId: true } } },
-      orderBy: { createdAt: 'desc' },
-    })
-
-    const data = feedbacks.map(f => ({
-      id: f.id,
-      appName: f.app?.name ?? f.targetClientId,
-      appClientId: f.app?.clientId ?? f.targetClientId,
-      overallRating: f.overallRating,
-      summary: f.summary,
-      source: f.source,
-      status: f.status,
-      createdAt: f.createdAt.toISOString(),
-      payload: f.payload as Record<string, unknown> | null,
-    }))
-
-    return NextResponse.json({ success: true, data })
+    const user = await requireAuth()
+    const data = await listMyReviews(user.secondmeUserId)
+    return apiSuccess(data)
   } catch (error) {
-    console.error('GET /api/my-reviews failed:', error)
-    return NextResponse.json({ error: 'Failed to fetch reviews' }, { status: 500 })
+    if (error instanceof AuthError) {
+      return error.response
+    }
+    reportApiError(request, error, 'get_my_reviews_failed')
+    return apiError('Failed to fetch reviews', 500)
   }
 }

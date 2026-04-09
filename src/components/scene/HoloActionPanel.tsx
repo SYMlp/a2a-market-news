@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useTranslations } from 'next-intl'
 
 interface ActionOption {
   id: string
@@ -22,6 +23,7 @@ export default function HoloActionPanel({
   onFreeInput,
   disabled = false,
 }: HoloActionPanelProps) {
+  const t = useTranslations('agentSpace')
   const [input, setInput] = useState('')
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -56,7 +58,7 @@ export default function HoloActionPanel({
           className="holo-actions__input"
           value={input}
           onChange={e => setInput(e.target.value)}
-          placeholder="或者直接告诉我你想做什么..."
+          placeholder={t('holoAction.freeInputPlaceholder')}
           disabled={disabled}
         />
         <button

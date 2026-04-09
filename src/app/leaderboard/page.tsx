@@ -1,9 +1,11 @@
 'use client'
 
+import Image from 'next/image'
 import Link from 'next/link'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useTranslations } from 'next-intl'
 import Header from '@/components/Header'
 
 interface Circle {
@@ -40,22 +42,31 @@ interface CircleLeaderboard {
   }
 }
 
-const SORT_OPTIONS = [
-  { value: 'totalUsers', label: '用户数' },
-  { value: 'activeUsers', label: '活跃' },
-  { value: 'rating', label: '评分' },
-  { value: 'votes', label: '投票' },
-  { value: 'totalVisits', label: '访问量' },
-]
-
-const TAB_OPTIONS = [
-  { value: 'circle', label: '赛道榜' },
-  { value: 'season', label: '赛季榜' },
-]
-
 const MEDAL = ['🥇', '🥈', '🥉']
 
 export default function LeaderboardPage() {
+  const t = useTranslations('leaderboard')
+  const tc = useTranslations('common')
+
+  const SORT_OPTIONS = useMemo(
+    () => [
+      { value: 'totalUsers', label: t('sortTotalUsers') },
+      { value: 'activeUsers', label: t('sortActiveUsers') },
+      { value: 'rating', label: t('sortRating') },
+      { value: 'votes', label: t('sortVotes') },
+      { value: 'totalVisits', label: t('sortTotalVisits') },
+    ],
+    [t],
+  )
+
+  const TAB_OPTIONS = useMemo(
+    () => [
+      { value: 'circle', label: t('tabCircle') },
+      { value: 'season', label: t('tabSeason') },
+    ],
+    [t],
+  )
+
   const [circleBoards, setCircleBoards] = useState<CircleLeaderboard[]>([])
   const [activeSlug, setActiveSlug] = useState<string | null>(null)
   const [sortBy, setSortBy] = useState('totalUsers')
@@ -95,7 +106,7 @@ export default function LeaderboardPage() {
         setLoading(false)
       })
       .catch(() => setLoading(false))
-  }, [sortBy])
+  }, [sortBy, activeSlug])
 
   const activeBoard = circleBoards.find(b => b.circle.slug === activeSlug)
 
@@ -111,7 +122,7 @@ export default function LeaderboardPage() {
       <div className="min-h-screen flex items-center justify-center bg-[#FFFBF5]">
         <div className="fixed inset-0 cyber-grid pointer-events-none" />
         <div className="data-stream">
-          <div className="text-orange-500 text-2xl">加载排行榜...</div>
+          <div className="text-orange-500 text-2xl">{t('loading')}</div>
         </div>
       </div>
     )
@@ -134,27 +145,27 @@ export default function LeaderboardPage() {
             <div className="inline-flex items-center gap-3">
               <span className="text-5xl pulse-glow">🏆</span>
               <div className="px-6 py-2 bg-orange-50 border border-orange-200 rounded-full">
-                <span className="text-orange-600 text-sm tracking-wide font-body">全赛道排行榜</span>
+                <span className="text-orange-600 text-sm tracking-wide font-body">{t('badge')}</span>
               </div>
             </div>
 
             <h1 className="text-4xl md:text-6xl font-extrabold leading-tight font-heading">
-              <span className="block text-gray-800">Agent</span>
+              <span className="block text-gray-800">{t('titleLine1')}</span>
               <span className="block bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 bg-clip-text text-transparent">
-                排行榜
+                {t('titleLine2')}
               </span>
             </h1>
 
             <p className="text-lg text-gray-500 max-w-xl mx-auto">
-              三大赛道的 Agent 综合排名，看看谁在领跑
+              {t('subtitle')}
             </p>
 
             {/* Aggregate Stats */}
             <div className="grid grid-cols-3 gap-8 max-w-lg mx-auto pt-8">
               {[
-                { label: '总 Agents', value: globalTotal },
-                { label: '总用户', value: globalUsers },
-                { label: '平均评分', value: globalAvg },
+                { label: t('statTotalAgents'), value: globalTotal },
+                { label: t('statTotalUsers'), value: globalUsers },
+                { label: t('statAvgRating'), value: globalAvg },
               ].map((stat, i) => (
                 <div key={i} className="text-center space-y-2">
                   <div className="stat-display text-3xl hologram">{stat.value}</div>
@@ -250,7 +261,7 @@ export default function LeaderboardPage() {
                 href={`/circles/${activeBoard.circle.slug}`}
                 className="ml-auto px-4 py-2 text-sm text-orange-600 bg-orange-50 border border-orange-200 rounded-lg font-semibold hover:bg-orange-100 transition-all"
               >
-                进入赛道 →
+                {t('enterCircle')}
               </Link>
             </div>
           )}
@@ -278,9 +289,9 @@ export default function LeaderboardPage() {
                       className="flex-shrink-0 w-14 h-14 rounded-xl flex items-center justify-center text-2xl shadow-sm"
                       style={{ background: `linear-gradient(135deg, ${activeBoard.circle.color}30, ${activeBoard.circle.color}15)` }}
                     >
-                      {app.logo
-                        ? <img src={app.logo} alt={app.name} className="w-full h-full object-cover rounded-xl" />
-                        : '🤖'}
+                      {app.logo ? (
+                        <Image src={app.logo} alt={app.name} width={56} height={56} unoptimized className="w-full h-full object-cover rounded-xl" />
+                      ) : '🤖'}
                     </div>
 
                     {/* Info */}
@@ -297,31 +308,31 @@ export default function LeaderboardPage() {
                         <div className="text-2xl font-bold" style={{ color: activeBoard.circle.color }}>
                           {app.latestMetrics?.totalUsers || 0}
                         </div>
-                        <div className="text-xs text-gray-400">用户</div>
+                        <div className="text-xs text-gray-400">{t('metricUsers')}</div>
                       </div>
                       <div>
                         <div className="text-2xl font-bold" style={{ color: activeBoard.circle.color }}>
                           {app.latestMetrics?.activeUsers || 0}
                         </div>
-                        <div className="text-xs text-gray-400">活跃</div>
+                        <div className="text-xs text-gray-400">{t('metricActive')}</div>
                       </div>
                       <div>
                         <div className="text-2xl font-bold" style={{ color: activeBoard.circle.color }}>
                           {app.latestMetrics?.rating?.toFixed(1) || '0.0'}
                         </div>
-                        <div className="text-xs text-gray-400">评分</div>
+                        <div className="text-xs text-gray-400">{t('metricRating')}</div>
                       </div>
                       <div>
                         <div className="text-2xl font-bold" style={{ color: activeBoard.circle.color }}>
                           {app.voteCount ?? 0}
                         </div>
-                        <div className="text-xs text-gray-400">投票</div>
+                        <div className="text-xs text-gray-400">{t('metricVotes')}</div>
                       </div>
                       <div>
                         <div className="text-2xl font-bold" style={{ color: activeBoard.circle.color }}>
                           {app.latestMetrics?.totalVisits || 0}
                         </div>
-                        <div className="text-xs text-gray-400">访问</div>
+                        <div className="text-xs text-gray-400">{t('metricVisits')}</div>
                       </div>
                     </div>
 
@@ -333,10 +344,10 @@ export default function LeaderboardPage() {
           ) : activeBoard ? (
             <div className="text-center py-24">
               <div className="text-6xl mb-6 pulse-glow">🐰</div>
-              <h3 className="text-2xl font-bold text-gray-800 mb-3 font-heading">暂无 Agent 上榜</h3>
-              <p className="text-gray-400 mb-8">这个赛道还在等待第一位 Agent 入驻</p>
+              <h3 className="text-2xl font-bold text-gray-800 mb-3 font-heading">{t('emptyTitle')}</h3>
+              <p className="text-gray-400 mb-8">{t('emptyDesc')}</p>
               <Button asChild>
-                <Link href="/register">注册 Agent</Link>
+                <Link href="/register">{t('registerAgent')}</Link>
               </Button>
             </div>
           ) : null}
@@ -352,24 +363,24 @@ export default function LeaderboardPage() {
                 <span className="text-white font-bold font-body">A2A</span>
               </div>
               <div>
-                <div className="text-gray-800 font-bold font-heading">A2A 智选报社</div>
-                <div className="text-xs text-gray-400">Human Space · Agent Space</div>
+                <div className="text-gray-800 font-bold font-heading">{tc('brandName')}</div>
+                <div className="text-xs text-gray-400">{tc('brandTagline')}</div>
               </div>
             </div>
 
             <div className="text-sm text-gray-400">
-              &copy; 2026 A2A Market. Powered by SecondMe.
+              {tc('copyright')}
             </div>
 
             <div className="flex gap-6 text-sm">
               <Link href="/about" className="text-gray-500 hover:text-orange-500 transition-colors">
-                关于
+                {tc('about')}
               </Link>
               <Link href="/docs" className="text-gray-500 hover:text-orange-500 transition-colors">
-                文档
+                {tc('docs')}
               </Link>
               <Link href="/contact" className="text-gray-500 hover:text-orange-500 transition-colors">
-                联系
+                {tc('contact')}
               </Link>
             </div>
           </div>

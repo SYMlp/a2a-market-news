@@ -7,10 +7,12 @@
  */
 
 import { prisma } from '@/lib/prisma'
+import { rootLogger } from '@/lib/logger'
 import { validateSecondMeApp } from '@/lib/registration/validate'
 import { extractAppInfo, extractClientId } from '@/lib/registration/extract'
-import { notifyDeveloper } from '@/lib/notification'
+import { notifyDeveloper } from '@/lib/developer/notification'
 import { resolveAppFromMessage, extractRatingHint } from '@/lib/gm/route-utils'
+import { rewardReview } from '@/lib/gamification'
 import type { GameSession } from '@/lib/engine/types'
 
 // ─── Context passed to effect handlers ───
@@ -147,7 +149,6 @@ async function handleDbAppCreate(
 /** db.appMetrics.create — register postEffect. Creates metrics record for new app. */
 async function handleDbAppMetricsCreate(
   args: Record<string, unknown>,
-  _ctx: EffectContext,
 ): Promise<unknown> {
   const appId = args.appId as string | undefined
   const date = (args.date as Date) ?? new Date()
@@ -174,7 +175,6 @@ async function handleValidateSecondMeApp(
 /** extract.app-info — register collect. Extracts app info from message history. */
 function handleExtractAppInfo(
   args: Record<string, unknown>,
-  _ctx: EffectContext,
 ): unknown {
   const messages = (args.messages as string[]) ?? []
   return extractAppInfo(messages)
@@ -183,7 +183,6 @@ function handleExtractAppInfo(
 /** extract.client-id — register awaitingClientId. Extracts clientId from single message. */
 function handleExtractClientId(
   args: Record<string, unknown>,
-  _ctx: EffectContext,
 ): unknown {
   const message = String(args.message ?? args.input ?? '')
   return extractClientId(message) || (args.fallback as string) || message.trim()
@@ -283,8 +282,17 @@ async function handleFcSaveReport(
         appName: appRecord.name,
         summary: message.slice(0, 200),
         overallRating: feedback.overallRating,
-      }).catch(err => console.error('Notification failed:', err))
+      }).catch(err => rootLogger.error({ err }, 'notification_failed'))
     }
+
+    rewardReview({
+      userId: ctx.user.id,
+      agentId: secondmeUserId,
+      agentName: userName,
+      appId: appRecord.id,
+      appName: appRecord.name,
+      content: message.slice(0, 200),
+    }).catch(err => rootLogger.error({ err }, 'reward_pipeline_failed'))
   }
 
   const prevTotal = (session.flags?.totalReports as number) || 0
@@ -295,6 +303,48 @@ async function handleFcSaveReport(
     totalReports: prevTotal + 1,
   }
   return { name: 'GM.saveReport', status: 'executed', detail: '体验报告已保存，已通知开发者' }
+}
+
+// ─── SubFlow context builders ───
+// Used by fc-dispatcher to build SubFlow activation context without L0 imports.
+
+/** fc.buildContext.registration — queries user's existing apps for registration SubFlow. */
+async function handleBuildRegistrationContext(
+  _args: Record<string, unknown>,
+  ctx: EffectContext,
+): Promise<unknown> {
+  const existingApps = await prisma.app.findMany({
+    where: { developerId: ctx.user.id },
+    select: { id: true, name: true, clientId: true, status: true },
+  })
+
+  if (existingApps.length > 0 && existingApps.some(a => a.clientId)) {
+    const registered = existingApps.filter(a => a.clientId)
+    const appList = registered.map(a => `「${a.name}」`).join('、')
+    return {
+      earlyReturn: true,
+      detail: `你已经注册了 ${appList}。如果想注册新的应用，请继续说明新应用的信息。`,
+    }
+  }
+
+  return {
+    context: {
+      developerId: ctx.user.id,
+      existingApps: existingApps.map(a => ({ name: a.name, clientId: a.clientId })),
+    },
+  }
+}
+
+/** fc.buildContext.appSettings — queries user's apps for app-settings SubFlow. */
+async function handleBuildAppSettingsContext(
+  _args: Record<string, unknown>,
+  ctx: EffectContext,
+): Promise<unknown> {
+  const userApps = await prisma.app.findMany({
+    where: { developerId: ctx.user.id },
+    select: { id: true, name: true, description: true, website: true, clientId: true },
+  })
+  return { context: { userApps } }
 }
 
 // ─── Register built-ins ───
@@ -308,6 +358,8 @@ registry.set('extract.app-info', handleExtractAppInfo)
 registry.set('extract.client-id', handleExtractClientId)
 registry.set('fc.assignMission', handleFcAssignMission)
 registry.set('fc.saveReport', handleFcSaveReport)
+registry.set('fc.buildContext.registration', handleBuildRegistrationContext)
+registry.set('fc.buildContext.appSettings', handleBuildAppSettingsContext)
 
 // ─── Public API ───
 

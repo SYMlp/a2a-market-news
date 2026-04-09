@@ -148,7 +148,8 @@ export function deactivateBehavior(session: GameSession): void {
   const spec = getBehaviorById(active.specId)
   if (!spec) {
     if (session.flags) {
-      const { activeBehavior: _, ...rest } = session.flags
+      const rest = { ...session.flags }
+      delete rest.activeBehavior
       session.flags = rest
     }
     return

@@ -7,24 +7,13 @@ import Header from '@/components/Header'
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
+import { useTranslations } from 'next-intl'
 
-const CATEGORIES = [
-  { value: 'practice', emoji: '📋', label: '实践', desc: '开发经验' },
-  { value: 'showcase', emoji: '🏆', label: '案例', desc: '项目展示' },
-  { value: 'tip', emoji: '💡', label: '技巧', desc: '小贴士' },
-] as const
+type CategoryType = 'practice' | 'showcase' | 'tip'
 
-type CategoryType = (typeof CATEGORIES)[number]['value']
-
-const APPLICABLE_OPTIONS = [
-  { value: 'beginner', label: '新手入门' },
-  { value: 'intermediate', label: '中级开发者' },
-  { value: 'advanced', label: '高级开发者' },
-  { value: 'a2a', label: 'A2A 开发' },
-  { value: 'secondme', label: 'SecondMe 集成' },
-  { value: 'frontend', label: '前端开发' },
-  { value: 'backend', label: '后端开发' },
-  { value: 'ai', label: 'AI / Agent' },
+const APPLICABLE_KEYS = [
+  'beginner', 'intermediate', 'advanced', 'a2a',
+  'secondme', 'frontend', 'backend', 'ai',
 ] as const
 
 interface KeyStep {
@@ -46,6 +35,19 @@ interface FormState {
 export default function NewPracticePage() {
   const router = useRouter()
   const { user, loading: authLoading, mutate } = useAuth()
+  const t = useTranslations('practiceNew')
+  const tc = useTranslations('common')
+
+  const CATEGORIES = [
+    { value: 'practice' as const, emoji: '📋', label: t('categoryPractice'), desc: t('categoryPracticeDesc') },
+    { value: 'showcase' as const, emoji: '🏆', label: t('categoryShowcase'), desc: t('categoryShowcaseDesc') },
+    { value: 'tip' as const, emoji: '💡', label: t('categoryTip'), desc: t('categoryTipDesc') },
+  ]
+
+  const APPLICABLE_OPTIONS = APPLICABLE_KEYS.map(key => ({
+    value: key,
+    label: t(key),
+  }))
 
   const [form, setForm] = useState<FormState>({
     title: '',
@@ -156,10 +158,10 @@ export default function NewPracticePage() {
       if (data.success) {
         router.push(`/practices/${data.data.id}`)
       } else {
-        setError(data.error || '发布失败')
+        setError(data.error || t('publishFailed'))
       }
     } catch {
-      setError('网络错误，请稍后再试')
+      setError(tc('networkError'))
     } finally {
       setSubmitting(false)
     }
@@ -171,7 +173,7 @@ export default function NewPracticePage() {
         <div className="fixed inset-0 cyber-grid pointer-events-none" />
         <Header activeNav="practices" />
         <main className="relative py-20 flex items-center justify-center">
-          <p className="text-gray-500">加载中...</p>
+          <p className="text-gray-500">{tc('loading')}</p>
         </main>
       </div>
     )
@@ -184,9 +186,9 @@ export default function NewPracticePage() {
         <Header activeNav="practices" />
         <main className="relative py-20">
           <div className="max-w-2xl mx-auto px-4 text-center">
-            <p className="text-gray-600 mb-4">登录后才能发布实践</p>
+            <p className="text-gray-600 mb-4">{t('loginRequired')}</p>
             <Button asChild size="sm">
-              <Link href="/api/auth/login">登录</Link>
+              <Link href="/api/auth/login">{tc('login')}</Link>
             </Button>
           </div>
         </main>
@@ -202,16 +204,16 @@ export default function NewPracticePage() {
         <main className="relative py-20">
           <div className="max-w-2xl mx-auto px-4 text-center">
             <div className="inline-block px-6 py-2 bg-orange-50 border border-orange-200 rounded-full mb-6">
-              <span className="text-orange-600 text-sm tracking-wide">需要开发者身份</span>
+              <span className="text-orange-600 text-sm tracking-wide">{t('developerRequired')}</span>
             </div>
             <h2 className="text-3xl font-extrabold text-gray-800 mb-4 font-heading">
-              先注册成为开发者
+              {t('registerFirst')}
             </h2>
             <p className="text-gray-500 mb-8">
-              发布实践分享前需要先完成开发者注册
+              {t('registerHint')}
             </p>
             <Button onClick={handleBecomeDeveloper} disabled={becomingDev}>
-              {becomingDev ? '注册中...' : '一键注册开发者'}
+              {becomingDev ? t('registering') : t('oneClickRegister')}
             </Button>
           </div>
         </main>
@@ -229,13 +231,13 @@ export default function NewPracticePage() {
         <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-12">
             <div className="inline-block px-6 py-2 bg-orange-50 border border-orange-200 rounded-full mb-6">
-              <span className="text-orange-600 text-sm tracking-wide">分享实践</span>
+              <span className="text-orange-600 text-sm tracking-wide">{t('badge')}</span>
             </div>
             <h2 className="text-4xl font-extrabold text-gray-800 mb-4 font-heading">
-              发布开发者实践
+              {t('title')}
             </h2>
             <p className="text-gray-500">
-              分享你的开发经验，帮助其他开发者和 PA 更好地了解最佳实践
+              {t('description')}
             </p>
           </div>
 
@@ -250,7 +252,7 @@ export default function NewPracticePage() {
               {/* Title */}
               <div>
                 <label className="block text-orange-600 text-xs tracking-widest mb-2 font-semibold">
-                  标题 *
+                  {t('titleLabel')}
                 </label>
                 <input
                   type="text"
@@ -258,14 +260,14 @@ export default function NewPracticePage() {
                   value={form.title}
                   onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
                   className={fieldClass()}
-                  placeholder="给你的实践取个标题"
+                  placeholder={t('titlePlaceholder')}
                 />
               </div>
 
               {/* Summary */}
               <div>
                 <label className="block text-orange-600 text-xs tracking-widest mb-2 font-semibold">
-                  摘要 *
+                  {t('summaryLabel')}
                 </label>
                 <input
                   type="text"
@@ -273,17 +275,17 @@ export default function NewPracticePage() {
                   value={form.summary}
                   onChange={e => setForm(f => ({ ...f, summary: e.target.value }))}
                   className={fieldClass()}
-                  placeholder="一句话概括你的实践（PA 会用这段话向用户推荐）"
+                  placeholder={t('summaryPlaceholder')}
                 />
                 <p className="text-gray-400 text-xs mt-1">
-                  摘要会显示在列表卡片上，也是 PA 向用户推荐时使用的内容
+                  {t('summaryHint')}
                 </p>
               </div>
 
               {/* Content */}
               <div>
                 <label className="block text-orange-600 text-xs tracking-widest mb-2 font-semibold">
-                  正文 * <span className="text-gray-300 font-normal">（支持 Markdown）</span>
+                  {t('contentLabel')} <span className="text-gray-300 font-normal">{t('contentMarkdownHint')}</span>
                 </label>
                 <textarea
                   required
@@ -291,14 +293,14 @@ export default function NewPracticePage() {
                   value={form.content}
                   onChange={e => setForm(f => ({ ...f, content: e.target.value }))}
                   className={fieldClass()}
-                  placeholder="详细描述你的实践经验、步骤和收获..."
+                  placeholder={t('contentPlaceholder')}
                 />
               </div>
 
               {/* Category */}
               <div>
                 <label className="block text-orange-600 text-xs tracking-widest mb-2 font-semibold">
-                  分类 *
+                  {t('categoryLabel')}
                 </label>
                 <div className="grid grid-cols-3 gap-3">
                   {CATEGORIES.map(c => (
@@ -323,7 +325,7 @@ export default function NewPracticePage() {
               {/* Tags */}
               <div>
                 <label className="block text-orange-600 text-xs tracking-widest mb-2 font-semibold">
-                  标签 *
+                  {t('tagsLabel')}
                 </label>
                 <input
                   type="text"
@@ -331,7 +333,7 @@ export default function NewPracticePage() {
                   value={form.tagsInput}
                   onChange={e => setForm(f => ({ ...f, tagsInput: e.target.value }))}
                   className={fieldClass()}
-                  placeholder="用逗号分隔，如：A2A, SecondMe, 最佳实践"
+                  placeholder={t('tagsPlaceholder')}
                 />
                 {parseTags(form.tagsInput).length > 0 && (
                   <div className="flex flex-wrap gap-2 mt-2">
@@ -350,7 +352,7 @@ export default function NewPracticePage() {
               {/* Key Steps (dynamic list) */}
               <div>
                 <label className="block text-orange-600 text-xs tracking-widest mb-2 font-semibold">
-                  关键步骤 <span className="text-gray-300 font-normal">（可选，PA 会用来向用户讲解）</span>
+                  {t('keyStepsLabel')} <span className="text-gray-300 font-normal">{t('keyStepsHint')}</span>
                 </label>
                 <div className="space-y-3">
                   {form.keySteps.map((ks, i) => (
@@ -364,14 +366,14 @@ export default function NewPracticePage() {
                           value={ks.step}
                           onChange={e => updateKeyStep(i, 'step', e.target.value)}
                           className={fieldClass()}
-                          placeholder="步骤名称"
+                          placeholder={t('stepNamePlaceholder')}
                         />
                         <input
                           type="text"
                           value={ks.description}
                           onChange={e => updateKeyStep(i, 'description', e.target.value)}
                           className={fieldClass()}
-                          placeholder="步骤说明"
+                          placeholder={t('stepDescPlaceholder')}
                         />
                       </div>
                       {form.keySteps.length > 1 && (
@@ -379,7 +381,7 @@ export default function NewPracticePage() {
                           type="button"
                           onClick={() => removeKeyStep(i)}
                           className="flex-shrink-0 w-7 h-7 rounded-full text-gray-300 hover:text-red-400 hover:bg-red-50 flex items-center justify-center mt-1.5 transition-colors"
-                          aria-label="删除此步骤"
+                          aria-label={t('removeStep')}
                         >
                           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -397,14 +399,14 @@ export default function NewPracticePage() {
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                   </svg>
-                  添加步骤
+                  {t('addStep')}
                 </button>
               </div>
 
               {/* Applicable To (checkboxes) */}
               <div>
                 <label className="block text-orange-600 text-xs tracking-widest mb-2 font-semibold">
-                  适用人群 <span className="text-gray-300 font-normal">（可选，帮助 PA 精准推荐）</span>
+                  {t('applicableLabel')} <span className="text-gray-300 font-normal">{t('applicableHint')}</span>
                 </label>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   {APPLICABLE_OPTIONS.map(opt => {
@@ -430,7 +432,7 @@ export default function NewPracticePage() {
               {/* Status toggle */}
               <div className="flex items-center gap-3 pt-2">
                 <label className="text-orange-600 text-xs tracking-widest font-semibold">
-                  发布状态
+                  {t('statusLabel')}
                 </label>
                 <div className="flex gap-2">
                   <button
@@ -442,7 +444,7 @@ export default function NewPracticePage() {
                         : 'border border-[#E8E0D8] text-gray-400 hover:border-green-200'
                       }`}
                   >
-                    发布
+                    {t('publish')}
                   </button>
                   <button
                     type="button"
@@ -453,7 +455,7 @@ export default function NewPracticePage() {
                         : 'border border-[#E8E0D8] text-gray-400 hover:border-gray-200'
                       }`}
                   >
-                    草稿
+                    {t('draft')}
                   </button>
                 </div>
               </div>
@@ -463,7 +465,7 @@ export default function NewPracticePage() {
                 disabled={submitting || !canSubmit}
                 className="w-full py-4 text-center"
               >
-                {submitting ? '发布中...' : form.status === 'draft' ? '保存草稿' : '发布实践'}
+                {submitting ? t('submitting') : form.status === 'draft' ? t('saveDraft') : t('publishPractice')}
               </Button>
             </Card>
           </form>

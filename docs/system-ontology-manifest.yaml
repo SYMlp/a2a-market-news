@@ -1,0 +1,314 @@
+# System Ontology Manifest
+#
+# Meta-schema for the A2A 智选日报 ontology system.
+# Defines WHAT entity and edge types exist, WHERE their authoritative
+# definitions live, and HOW to validate referential integrity across
+# the three ontology layers + BehaviorSpec files.
+#
+# This file is a SCHEMA — it does not duplicate instance data.
+# Instance data remains in the three JSON files and specs/*.yaml.
+#
+# Authoritative source files:
+#   Layer 1: src/lib/engine/platform-ontology.json
+#   Layer 2: src/lib/engine/operational-ontology.json
+#   Layer 3: src/lib/engine/communication-protocol.json
+#   Behavior: specs/*.yaml
+
+version: "1.0"
+
+# ────────────────────────────────────────────────────
+# §1  Entity Types
+# ────────────────────────────────────────────────────
+
+entityTypes:
+
+  Scene:
+    description: "游戏场景 — 平台空间单元，承载 NPC、能力和行为"
+    authoritySource:
+      worldModel: src/lib/engine/platform-ontology.json   # NPC binding, capabilities, exits, behaviors
+      gameplay: "specs/scenes/*.yaml"                     # opening, actions, fallback, theme, dataLoader
+    instancePath: "scenes[id]"
+    identifierField: id            # map key (lobby, news, developer)
+    instanceCount: 3               # lobby, news, developer
+    notes: "Scene 数据分两源：世界模型层（platform-ontology）定义拓扑和能力，玩法层（SceneSpec YAML）定义交互内容。scene-loader.ts 加载 YAML 并用 scenespec.schema.json 校验。"
+
+  NPC:
+    description: "场景主持人 — 每个场景绑定唯一 NPC"
+    authoritySource:
+      binding: src/lib/engine/platform-ontology.json   # Scene→NPC 绑定（name string）
+      seedData: "specs/npcs/*.yaml"                    # NPC 完整定义（key, personality, systemPrompt）
+    instancePath: "scenes[id].npc"
+    identifierField: value         # string value (灵枢兔, 编辑部助手, 技术顾问)
+    instanceCount: 3
+    notes: "NPC 绑定关系在 platform-ontology（name string），NPC 完整 seed 数据（key, name, emoji, role, sceneId, accent, scope, systemPrompt）在 specs/npcs/*.yaml。npc-loader.ts 加载 YAML。"
+
+  Capability:
+    description: "场景能力 — 场景提供的可达功能"
+    authoritySource: src/lib/engine/platform-ontology.json
+    instancePath: "scenes[id].capabilities[]"
+    identifierField: value         # array element string
+    instanceCount: 12              # lobby:3 + news:3 + developer:6
+
+  FunctionCall:
+    description: "FC — GM 引擎可执行的操作单元"
+    authoritySource: src/lib/engine/operational-ontology.json
+    instancePath: "functionCalls[name]"
+    identifierField: name          # map key (GM.assignMission, GM.enterSpace, ...)
+    instanceCount: 13
+    subStructure:
+      execution:
+        description: "FC 执行分类 — 决定 fc-dispatcher 如何路由此 FC"
+        fields:
+          type: "builtin | subflow | handler | behavior"
+          handler: "builtin 子类型（navigation | passthrough），仅 type=builtin 时有效"
+          specName: "SubFlow spec 名称，仅 type=subflow 时有效"
+          handlerKey: "handler-registry 中的 effect key，仅 type=handler 时有效"
+          specId: "BehaviorSpec ID，仅 type=behavior 时有效"
+          detail: "可选的执行结果描述文本"
+    notes: "execution 字段驱动 fc-dispatcher.ts 的路由逻辑，取代了旧的 switch/case 和 SUBFLOW_FC_MAP"
+
+  DataLoader:
+    description: "数据加载器 — 场景进入时的数据获取端点"
+    authoritySource: src/lib/engine/operational-ontology.json
+    instancePath: "dataLoaders[route]"
+    identifierField: route         # map key (/api/gm/recommend, ...)
+    instanceCount: 2
+
+  Precondition:
+    description: "前置条件 — 能力解锁的运行时谓词"
+    authoritySource: src/lib/engine/operational-ontology.json
+    instancePath: "preconditions[id]"
+    identifierField: id            # map key (hasExperienced, hasApps, ...)
+    instanceCount: 4
+    notes: "SceneSpec YAML 中的 precondition.check 使用表达式语法（如 session.flags.hasExperienced == true），由 precondition-eval.ts 求值。operational-ontology 中的 preconditions 条目仍作为语义注册表。"
+
+  MessageType:
+    description: "消息类型 — 通信协议中的消息分类"
+    authoritySource: src/lib/engine/communication-protocol.json
+    instancePath: "messageTypes[type]"
+    identifierField: type          # map key (pa_speech, npc_reply, ...)
+    instanceCount: 6
+
+  BehaviorSpec:
+    description: "行为声明 — agent 行为的声明式抽象（含 v1 ComponentSpec 和 v2 BehaviorSpec）"
+    authoritySource: "specs/*.yaml"
+    instancePath: file-level       # each file = one spec
+    identifierField: id            # YAML top-level `id` field
+    instanceCount: 4               # v1: register, profile, app-lifecycle, app-settings
+    notes: "browse_apps (v2 BehaviorSpec format) 在设计文档中已定义，尚未实现"
+
+  BehaviorPattern:
+    description: "行为模式 — FC 的交互模式枚举"
+    authoritySource: src/lib/engine/operational-ontology.json
+    instancePath: "functionCalls[name].behaviorPattern"
+    identifierField: value         # enum value
+    instanceCount: 4
+    enumValues:
+      - select_one
+      - subflow
+      - free_response
+      - navigate
+
+  PresentationStyle:
+    description: "呈现样式 — BehaviorSpec 的前端渲染方式枚举"
+    authoritySource: docs/behavior-spec-architecture.md
+    instancePath: "§2.4 style enum"
+    identifierField: value         # enum value
+    instanceCount: 2               # currently implemented
+    enumValues:
+      - card_deck                  # DeckView component
+      - form_card                  # SpecFormCard component
+    futureValues:
+      - list
+      - map
+
+# ────────────────────────────────────────────────────
+# §2  Edge Types
+# ────────────────────────────────────────────────────
+
+edgeTypes:
+
+  has_npc:
+    description: "场景拥有的 NPC"
+    source: Scene
+    target: NPC
+    cardinality: "1:1"             # 每个 Scene 恰好 1 个 NPC
+    declarationSource: src/lib/engine/platform-ontology.json
+    fieldPath: "scenes[id].npc"
+
+  has_capability:
+    description: "场景提供的能力"
+    source: Scene
+    target: Capability
+    cardinality: "1:N"
+    declarationSource: src/lib/engine/platform-ontology.json
+    fieldPath: "scenes[id].capabilities[]"
+
+  exits_to:
+    description: "场景间的出口拓扑"
+    source: Scene
+    target: Scene
+    cardinality: "1:N"
+    declarationSource: src/lib/engine/platform-ontology.json
+    fieldPath: "scenes[id].exits[]"
+
+  hosts_behavior:
+    description: "场景承载的行为（能力 → BehaviorSpec 映射）"
+    source: Scene
+    target: BehaviorSpec
+    cardinality: "1:N"             # nullable — null 表示行为未声明
+    declarationSource: src/lib/engine/platform-ontology.json
+    fieldPath: "scenes[id].behaviors{}"
+    notes: "value 为 null 表示该能力尚无 BehaviorSpec 实现"
+
+  fc_in_scene:
+    description: "FC 所属的场景"
+    source: FunctionCall
+    target: Scene
+    cardinality: "N:1"             # 多个 FC 可属于同一场景
+    declarationSource: src/lib/engine/operational-ontology.json
+    fieldPath: "functionCalls[name].scene"
+    notes: "scene 为 null 表示全局 FC（如 GM.enterSpace, GM.rest）"
+
+  fc_requires:
+    description: "FC 执行的前置条件描述"
+    source: FunctionCall
+    target: Precondition
+    cardinality: "N:1"
+    declarationSource: src/lib/engine/operational-ontology.json
+    fieldPath: "functionCalls[name].requires"
+    notes: "requires 为自由文本，引用 precondition 语义但非严格 ID 引用"
+
+  fc_has_pattern:
+    description: "FC 的交互模式"
+    source: FunctionCall
+    target: BehaviorPattern
+    cardinality: "N:1"
+    declarationSource: src/lib/engine/operational-ontology.json
+    fieldPath: "functionCalls[name].behaviorPattern"
+
+  loader_bound_to:
+    description: "数据加载器绑定的场景"
+    source: DataLoader
+    target: Scene
+    cardinality: "N:1"
+    declarationSource: src/lib/engine/operational-ontology.json
+    fieldPath: "dataLoaders[route].scene"
+
+  precondition_unlocks:
+    description: "前置条件解锁的能力"
+    source: Precondition
+    target: Capability
+    cardinality: "1:N"
+    declarationSource: src/lib/engine/operational-ontology.json
+    fieldPath: "preconditions[id].unlocks"
+    notes: "unlocks 为自由文本描述，引用 Capability 语义"
+
+  behavior_implements:
+    description: "BehaviorSpec 实现的能力"
+    source: BehaviorSpec
+    target: Capability
+    cardinality: "N:1"
+    declarationSource: "specs/*.yaml (BehaviorSpec format)"
+    fieldPath: "availability.implements"
+    notes: "引用 platform-ontology.capability_map 中的 key"
+
+  behavior_preconditions:
+    description: "BehaviorSpec 依赖的前置条件"
+    source: BehaviorSpec
+    target: Precondition
+    cardinality: "N:N"
+    declarationSource: "specs/*.yaml (BehaviorSpec format)"
+    fieldPath: "availability.preconditions[]"
+
+  behavior_resolves_via:
+    description: "BehaviorSpec 解析时触发的 FC"
+    source: BehaviorSpec
+    target: FunctionCall
+    cardinality: "N:1"
+    declarationSource: "specs/*.yaml (BehaviorSpec format)"
+    fieldPath: "resolution.mapsTo.fc"
+
+  behavior_uses_data:
+    description: "BehaviorSpec 使用的数据加载器"
+    source: BehaviorSpec
+    target: DataLoader
+    cardinality: "N:1"
+    declarationSource: "specs/*.yaml (BehaviorSpec format)"
+    fieldPath: "presentation.data.dataLoader"
+
+  behavior_presents_with:
+    description: "BehaviorSpec 使用的呈现样式"
+    source: BehaviorSpec
+    target: PresentationStyle
+    cardinality: "N:1"
+    declarationSource: "specs/*.yaml (BehaviorSpec format)"
+    fieldPath: "presentation.style"
+
+# ────────────────────────────────────────────────────
+# §3  Validation Rules
+# ────────────────────────────────────────────────────
+
+validationRules:
+
+  R1:
+    constraint: "每个 Scene 必须有且仅有 1 个 NPC"
+    severity: error
+    edge: has_npc
+    check: "for each scenes[id]: typeof scenes[id].npc === 'string' && scenes[id].npc.length > 0"
+
+  R2:
+    constraint: "每个 Scene 必须有 ≥1 个 exit"
+    severity: error
+    edge: exits_to
+    check: "for each scenes[id]: Array.isArray(scenes[id].exits) && scenes[id].exits.length >= 1"
+
+  R3:
+    constraint: "每个 FC 的 scene 引用必须是有效 Scene ID 或 null（全局 FC）"
+    severity: error
+    edge: fc_in_scene
+    check: "for each functionCalls[name]: fc.scene === null || fc.scene in scenes"
+
+  R4:
+    constraint: "每个 scenes[id].behaviors{} 的 value（非 null）必须对应一个存在的 BehaviorSpec"
+    severity: warning
+    edge: hosts_behavior
+    check: "for each scenes[id].behaviors[cap]: value === null || exists specs/{value}.yaml"
+    notes: "warning 因为 BehaviorSpec 体系尚在建设中，behaviors map 中有大量 null"
+
+  R5:
+    constraint: "每个 BehaviorSpec.availability.implements 必须在 capability_map 中存在"
+    severity: error
+    edge: behavior_implements
+    check: "for each specs/*.yaml: spec.availability.implements in platform-ontology.capability_map"
+
+  R6:
+    constraint: "每个 BehaviorSpec.availability.preconditions[] 必须在 preconditions 中存在"
+    severity: error
+    edge: behavior_preconditions
+    check: "for each specs/*.yaml: every spec.availability.preconditions[i] in operational-ontology.preconditions"
+
+  R7:
+    constraint: "每个 BehaviorSpec.resolution.mapsTo.fc 必须在 functionCalls 中存在"
+    severity: error
+    edge: behavior_resolves_via
+    check: "for each specs/*.yaml: spec.resolution.mapsTo.fc in operational-ontology.functionCalls"
+
+  R8:
+    constraint: "每个 BehaviorSpec.presentation.data.dataLoader 必须在 dataLoaders 中存在"
+    severity: error
+    edge: behavior_uses_data
+    check: "for each specs/*.yaml: spec.presentation.data.dataLoader in operational-ontology.dataLoaders"
+
+  R9:
+    constraint: "每个 Capability 应有 ≥1 个 Behavior 实现（覆盖度检查）"
+    severity: info
+    edge: behavior_implements
+    check: "for each capability in all scenes[id].capabilities[]: exists spec where spec.availability.implements == capability"
+    notes: "info 级别 — 用于追踪 BehaviorSpec 覆盖进度，非阻塞"
+
+  R10:
+    constraint: "exits_to 的目标必须是有效 Scene ID"
+    severity: error
+    edge: exits_to
+    check: "for each scenes[id].exits[i]: exits[i] in scenes"

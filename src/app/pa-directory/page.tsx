@@ -2,8 +2,10 @@
 
 import Link from 'next/link'
 import { Card } from '@/components/ui/Card'
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
+import { useTranslations } from 'next-intl'
 import Header from '@/components/Header'
+import { formatTimeAgo } from '@/lib/format-time-ago'
 
 interface Badge {
   key: string
@@ -34,25 +36,7 @@ interface Pagination {
   totalPages: number
 }
 
-const SORT_OPTIONS = [
-  { value: 'lastActive', label: '最近活跃' },
-  { value: 'feedbacks', label: '反馈数' },
-  { value: 'newest', label: '最新加入' },
-]
-
 const TIER_ORDER: Record<string, number> = { legendary: 0, gold: 1, silver: 2, bronze: 3 }
-
-function timeAgo(dateStr: string) {
-  const diff = Date.now() - new Date(dateStr).getTime()
-  const minutes = Math.floor(diff / 60000)
-  if (minutes < 1) return '刚刚'
-  if (minutes < 60) return `${minutes}分钟前`
-  const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `${hours}小时前`
-  const days = Math.floor(hours / 24)
-  if (days < 30) return `${days}天前`
-  return `${Math.floor(days / 30)}月前`
-}
 
 function AgentTypeTag({ type }: { type: string }) {
   const styles: Record<string, string> = {
@@ -69,6 +53,19 @@ function AgentTypeTag({ type }: { type: string }) {
 }
 
 export default function PADirectoryPage() {
+  const t = useTranslations('paDirectory')
+  const tt = useTranslations('time')
+  const tc = useTranslations('common')
+
+  const SORT_OPTIONS = useMemo(
+    () => [
+      { value: 'lastActive', label: t('sortLastActive') },
+      { value: 'feedbacks', label: t('sortFeedbacks') },
+      { value: 'newest', label: t('sortNewest') },
+    ],
+    [t],
+  )
+
   const [visitors, setVisitors] = useState<PAVisitor[]>([])
   const [pagination, setPagination] = useState<Pagination>({ page: 1, limit: 50, total: 0, totalPages: 0 })
   const [loading, setLoading] = useState(true)
@@ -120,31 +117,31 @@ export default function PADirectoryPage() {
           <div className="inline-flex items-center gap-3">
             <span className="text-5xl pulse-glow">📋</span>
             <div className="px-6 py-2 bg-orange-50 border border-orange-200 rounded-full">
-              <span className="text-orange-600 text-sm tracking-wide font-body">谁在看智选日报？</span>
+              <span className="text-orange-600 text-sm tracking-wide font-body">{t('badge')}</span>
             </div>
           </div>
 
           <h1 className="text-4xl md:text-6xl font-extrabold leading-tight font-heading">
-            <span className="block text-gray-800">PA</span>
+            <span className="block text-gray-800">{t('titleLine1')}</span>
             <span className="block bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 bg-clip-text text-transparent">
-              通讯录
+              {t('titleLine2')}
             </span>
           </h1>
 
           <p className="text-lg text-gray-500 max-w-xl mx-auto">
-            所有登录到智选日报的 PA 都在这里，开发者可以找到对应 PA 详细了解
+            {t('subtitle')}
           </p>
 
           <div className="grid grid-cols-2 gap-8 max-w-sm mx-auto pt-8">
             <div className="text-center space-y-2">
               <div className="stat-display text-3xl hologram">{pagination.total}</div>
-              <div className="text-xs text-gray-400 tracking-wide">注册 PA</div>
+              <div className="text-xs text-gray-400 tracking-wide">{t('statRegistered')}</div>
             </div>
             <div className="text-center space-y-2">
               <div className="stat-display text-3xl hologram">
                 {visitors.reduce((s, v) => s + v.feedbackCount, 0)}
               </div>
-              <div className="text-xs text-gray-400 tracking-wide">总反馈数</div>
+              <div className="text-xs text-gray-400 tracking-wide">{t('statFeedbacks')}</div>
             </div>
           </div>
         </div>
@@ -158,7 +155,7 @@ export default function PADirectoryPage() {
             <div className="flex gap-2 flex-1 max-w-md">
               <input
                 type="text"
-                placeholder="搜索 PA 名称..."
+                placeholder={t('searchPlaceholder')}
                 value={searchInput}
                 onChange={e => setSearchInput(e.target.value)}
                 onKeyDown={handleKeyDown}
@@ -168,7 +165,7 @@ export default function PADirectoryPage() {
                 onClick={handleSearch}
                 className="px-4 py-2 text-sm font-semibold text-orange-600 bg-orange-50 border border-orange-200 rounded-xl hover:bg-orange-100 transition-all"
               >
-                搜索
+                {t('search')}
               </button>
             </div>
 
@@ -197,16 +194,16 @@ export default function PADirectoryPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {loading ? (
             <div className="text-center py-20">
-              <div className="text-orange-500 text-xl">加载中...</div>
+              <div className="text-orange-500 text-xl">{tc('loading')}</div>
             </div>
           ) : visitors.length === 0 ? (
             <div className="text-center py-24">
               <div className="text-6xl mb-6 pulse-glow">🐰</div>
               <h3 className="text-2xl font-bold text-gray-800 mb-3 font-heading">
-                {search ? '没有找到匹配的 PA' : '暂无 PA 登录'}
+                {search ? t('emptySearchTitle') : t('emptyTitle')}
               </h3>
               <p className="text-gray-400">
-                {search ? '试试其他关键词' : 'PA 提交反馈后会自动出现在这里'}
+                {search ? t('emptySearchDesc') : t('emptyDesc')}
               </p>
             </div>
           ) : (
@@ -217,11 +214,11 @@ export default function PADirectoryPage() {
                   <table className="w-full">
                     <thead>
                       <tr className="border-b border-[#E8E0D8] bg-orange-50/30">
-                        <th className="text-left px-6 py-4 text-xs font-bold text-gray-500 tracking-wider">PA 名称</th>
-                        <th className="text-left px-4 py-4 text-xs font-bold text-gray-500 tracking-wider">类型</th>
-                        <th className="text-center px-4 py-4 text-xs font-bold text-gray-500 tracking-wider">反馈数</th>
-                        <th className="text-left px-4 py-4 text-xs font-bold text-gray-500 tracking-wider">徽章</th>
-                        <th className="text-left px-4 py-4 text-xs font-bold text-gray-500 tracking-wider">最近活跃</th>
+                        <th className="text-left px-6 py-4 text-xs font-bold text-gray-500 tracking-wider">{t('thName')}</th>
+                        <th className="text-left px-4 py-4 text-xs font-bold text-gray-500 tracking-wider">{t('thType')}</th>
+                        <th className="text-center px-4 py-4 text-xs font-bold text-gray-500 tracking-wider">{t('thFeedbacks')}</th>
+                        <th className="text-left px-4 py-4 text-xs font-bold text-gray-500 tracking-wider">{t('thBadges')}</th>
+                        <th className="text-left px-4 py-4 text-xs font-bold text-gray-500 tracking-wider">{t('thActive')}</th>
                         <th className="px-4 py-4"></th>
                       </tr>
                     </thead>
@@ -270,7 +267,7 @@ export default function PADirectoryPage() {
                             </div>
                           </td>
                           <td className="px-4 py-4">
-                            <span className="text-sm text-gray-500">{timeAgo(v.lastActiveAt)}</span>
+                            <span className="text-sm text-gray-500">{formatTimeAgo(v.lastActiveAt, tt)}</span>
                           </td>
                           <td className="px-4 py-4">
                             <Link
@@ -308,8 +305,8 @@ export default function PADirectoryPage() {
                           <AgentTypeTag type={v.agentType} />
                         </div>
                         <div className="flex items-center gap-3 mt-1">
-                          <span className="text-xs text-gray-500">{v.feedbackCount} 条反馈</span>
-                          <span className="text-xs text-gray-400">{timeAgo(v.lastActiveAt)}</span>
+                          <span className="text-xs text-gray-500">{t('feedbacksCount', { count: v.feedbackCount })}</span>
+                          <span className="text-xs text-gray-400">{formatTimeAgo(v.lastActiveAt, tt)}</span>
                         </div>
                       </div>
                       <div className="flex gap-0.5">
@@ -356,15 +353,15 @@ export default function PADirectoryPage() {
                 <span className="text-white font-bold font-body">A2A</span>
               </div>
               <div>
-                <div className="text-gray-800 font-bold font-heading">A2A 智选日报</div>
-                <div className="text-xs text-gray-400">v2.0 · 灵枢兔</div>
+                <div className="text-gray-800 font-bold font-heading">{tc('footerBrand')}</div>
+                <div className="text-xs text-gray-400">{tc('footerVersion')}</div>
               </div>
             </div>
-            <div className="text-sm text-gray-400">&copy; 2026 A2A Market. Powered by SecondMe.</div>
+            <div className="text-sm text-gray-400">{tc('copyright')}</div>
             <div className="flex gap-6 text-sm">
-              <Link href="/about" className="text-gray-500 hover:text-orange-500 transition-colors">关于</Link>
-              <Link href="/docs" className="text-gray-500 hover:text-orange-500 transition-colors">文档</Link>
-              <Link href="/contact" className="text-gray-500 hover:text-orange-500 transition-colors">联系</Link>
+              <Link href="/about" className="text-gray-500 hover:text-orange-500 transition-colors">{tc('about')}</Link>
+              <Link href="/docs" className="text-gray-500 hover:text-orange-500 transition-colors">{tc('docs')}</Link>
+              <Link href="/contact" className="text-gray-500 hover:text-orange-500 transition-colors">{tc('contact')}</Link>
             </div>
           </div>
         </div>

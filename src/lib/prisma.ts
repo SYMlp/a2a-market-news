@@ -1,4 +1,5 @@
-import { PrismaClient, Prisma } from '@prisma/client'
+import { PrismaClient } from '@prisma/client'
+import { rootLogger } from '@/lib/logger'
 
 const MAX_RETRIES = 2
 const RETRY_DELAY_MS = 500
@@ -28,8 +29,15 @@ function createPrismaClient() {
               lastError = error
               const code = (error as { code?: string })?.code
               if (!code || !TRANSIENT_CODES.has(code) || attempt === MAX_RETRIES) throw error
-              console.warn(
-                `[Prisma] ${model}.${operation} failed (${code}), retry ${attempt + 1}/${MAX_RETRIES}...`
+              rootLogger.warn(
+                {
+                  model,
+                  operation,
+                  code,
+                  attempt: attempt + 1,
+                  maxRetries: MAX_RETRIES,
+                },
+                'prisma_query_retry',
               )
               await new Promise(r => setTimeout(r, RETRY_DELAY_MS * (attempt + 1)))
             }

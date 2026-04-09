@@ -89,7 +89,9 @@ export function useGameSession() {
       })
     )
       .then((pairs) => setSpecsCache(Object.fromEntries(pairs)))
-      .catch(console.error)
+      .catch(() => {
+        /* non-fatal: spec preload failed */
+      })
   }, [])
 
   const handleSessionEnd = useCallback((farewellMsg?: string, apiSummary?: {

@@ -9,9 +9,13 @@
 import type { Scene, SceneAction, GameSession } from './types'
 import { matchAction } from './match'
 import { listScenes } from '@/lib/scenes'
+import { getCommunicationProtocol } from './ontology'
 import { buildSessionContextForClassifier, buildActionConstraints } from './session-context'
 import { parseJSONLoose } from '@/lib/json-utils'
 import { MODEL_FOR } from '@/lib/model-config'
+import { rootLogger } from '@/lib/logger'
+
+const classifierLog = rootLogger.child({ component: 'AIClassifier' })
 
 // ─── Cache ───────────────────────────────────────
 
@@ -34,8 +38,9 @@ function pruneCache(): void {
 // ─── Prompt ──────────────────────────────────────
 
 function describeActions(actions: SceneAction[]): string {
+  const config = getCommunicationProtocol().classifierConfig
   return actions.map(a => {
-    const tag = a.outcome === 'move' ? '离开场景' : '留在场景'
+    const tag = a.outcome === 'move' ? config.actionTagMove : config.actionTagStay
     return `- [${a.id}] ${a.label.pa}（${tag}）intent: ${a.actIntent}`
   }).join('\n')
 }
@@ -48,29 +53,21 @@ function describeOtherScenes(currentId: string): string {
 }
 
 function buildPayload(scene: Scene, message: string, session?: GameSession): { message: string; actionControl: string } {
+  const config = getCommunicationProtocol().classifierConfig
   const sessionContext = session
     ? `\n\n${buildSessionContextForClassifier(session, scene.actions)}`
     : ''
 
-  return {
-    message,
-    actionControl: `根据用户在「${scene.theme.label}」场景的发言判断意图，选择一个操作。
+  const rulesText = config.rules.map(r => `- ${r}`).join('\n')
 
-可用操作：
-${describeActions(scene.actions)}
+  const actionControl = config.promptTemplate
+    .replace('{sceneLabel}', scene.theme.label)
+    .replace('{actions}', describeActions(scene.actions))
+    .replace('{otherScenes}', describeOtherScenes(scene.id))
+    .replace('{sessionContext}', sessionContext)
+    .replace('{rules}', rulesText)
 
-平台其他场景：
-${describeOtherScenes(scene.id)}${sessionContext}
-
-分类规则：
-- 意图明确匹配某个操作 → 返回该操作 id
-- 意图涉及其他场景的功能（如在日报栏说想注册/开发） → 归类为离开场景的操作（通常是 back_lobby）
-- 不可用的操作不应被匹配，即使用户意图明确指向它 → actionId 为空字符串
-- 闲聊或意图不明 → actionId 为空字符串
-
-严格返回 JSON，不要添加任何其他文字：
-{"actionId":"<操作id或空字符串>","confidence":<0.0到1.0>}`,
-  }
+  return { message, actionControl }
 }
 
 // ─── Classifier ──────────────────────────────────
@@ -105,7 +102,7 @@ export async function classifyAction(options: {
 
   if (accessToken) {
     try {
-      const { callSecondMeStream } = await import('@/lib/pa-engine')
+      const { callSecondMeStream } = await import('@/lib/pa-actions')
       const payload = buildPayload(scene, message, session)
 
       const raw = await Promise.race([
@@ -125,7 +122,10 @@ export async function classifyAction(options: {
         const kwMatch = matchAction(scene.actions, message)
         const kwId = kwMatch && !gatedIds.has(kwMatch.id) ? kwMatch.id : null
         if (kwId && kwId !== actionId) {
-          console.log(`[classifier] AI low-conf (${confidence}): ${actionId} → keyword override: ${kwId}`)
+          classifierLog.info(
+            { confidence, actionId, keywordOverride: kwId },
+            'AI low confidence; keyword override',
+          )
           cache.set(key, { actionId: kwId, confidence: 0.6, ts: Date.now() })
           pruneCache()
           return { actionId: kwId, confidence: 0.6, source: 'keyword' }
@@ -136,7 +136,10 @@ export async function classifyAction(options: {
       pruneCache()
       return { actionId, confidence, source: 'ai' }
     } catch (e) {
-      console.warn('AI classifier fallback to keyword:', e instanceof Error ? e.message : e)
+      classifierLog.warn(
+        { err: e instanceof Error ? e.message : String(e) },
+        'AI classifier fallback to keyword',
+      )
     }
   }
 

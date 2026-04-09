@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getCurrentUser } from '@/lib/auth'
+import { apiError, AuthError, requireAuth } from '@/lib/api-utils'
 import { getOrCreateSession, enterSceneWithAI, processMessageWithAI, generateNPCReplyForTurn, persistSession } from '@/lib/gm/engine'
 import { endSession } from '@/lib/engine/session'
 import { recordEvent, getCurrentGoal, setReturnContext, recordAchievement, computeReturnContext, incrementSceneTurns, resetSceneTurns } from '@/lib/engine/session-context'
@@ -12,10 +12,12 @@ import {
 } from '@/lib/subflow/router'
 import { executeFunctionCall } from '@/lib/gm/function-call-executor'
 import { ensureSessionLog, logTurn, closeSessionLog } from '@/lib/engine/event-logger'
-import type { GameSession, FCResult } from '@/lib/engine/types'
+import type { FCResult } from '@/lib/engine/types'
 import { getSceneLabel, getOntology, toEnvelope } from '@/lib/engine/ontology'
 import { buildSessionSummary, buildPreconditionState, loadSceneData } from '@/lib/gm/route-utils'
 import { processBehavior, buildBehaviorPresentation, serializePresentation } from '@/lib/behavior-engine'
+import { reportApiError } from '@/lib/server-observability'
+import { getLoggerForRequest } from '@/lib/logger'
 
 /**
  * POST /api/gm/process
@@ -25,11 +27,10 @@ import { processBehavior, buildBehaviorPresentation, serializePresentation } fro
  */
 export async function POST(request: NextRequest) {
   const turnStart = Date.now()
+  const log = getLoggerForRequest(request)
   try {
-    const user = await getCurrentUser()
-    if (!user) {
-      return NextResponse.json({ error: '请先登录' }, { status: 401 })
-    }
+    log.debug({ route: 'api/gm/process' }, 'handler_enter')
+    const user = await requireAuth()
 
     const body = await request.json()
     const { message, sessionId, action, originalMessage } = body as {
@@ -205,7 +206,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (!message) {
-      return NextResponse.json({ error: '缺少 message' }, { status: 400 })
+      return apiError('缺少 message', 400)
     }
 
     // ─── SubFlow: intercept messages while any sub-flow is active ───
@@ -482,8 +483,11 @@ export async function POST(request: NextRequest) {
       timing: { npcGenerateMs, totalMs: Date.now() - turnStart },
     })
   } catch (error) {
-    console.error('GM process error:', error)
-    return NextResponse.json({ error: '处理失败' }, { status: 500 })
+    if (error instanceof AuthError) {
+      return error.response
+    }
+    reportApiError(request, error, 'gm_process_error')
+    return apiError('处理失败', 500)
   }
 }
 

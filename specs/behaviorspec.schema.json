@@ -1,0 +1,134 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "behaviorspec.schema.json",
+  "title": "BehaviorSpec",
+  "description": "Declarative agent behavior specification — see docs/behavior-spec-architecture.md",
+  "type": "object",
+  "required": ["id", "availability", "resolution"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*$",
+      "description": "Unique behavior identifier (snake_case)"
+    },
+    "description": {
+      "type": "string",
+      "description": "Human-readable description of the behavior"
+    },
+    "availability": { "$ref": "#/definitions/Availability" },
+    "cognition": { "$ref": "#/definitions/Cognition" },
+    "presentation": { "$ref": "#/definitions/Presentation" },
+    "resolution": { "$ref": "#/definitions/Resolution" }
+  },
+  "additionalProperties": false,
+  "definitions": {
+    "Availability": {
+      "type": "object",
+      "required": ["scenes", "trigger"],
+      "properties": {
+        "scenes": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 1,
+          "description": "Scene IDs where this behavior is available"
+        },
+        "implements": {
+          "type": "string",
+          "description": "Which capability_map key this behavior covers"
+        },
+        "trigger": {
+          "type": "object",
+          "properties": {
+            "onSceneEnter": { "type": "boolean" },
+            "onFunctionCall": { "type": "string" }
+          },
+          "additionalProperties": false,
+          "description": "When this behavior activates"
+        },
+        "preconditions": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Precondition IDs from operational-ontology that must be satisfied"
+        }
+      },
+      "additionalProperties": false
+    },
+    "Cognition": {
+      "type": "object",
+      "properties": {
+        "forPA": { "type": "string", "description": "Injected into PA prompt when active" },
+        "forNPC": { "type": "string", "description": "Injected into NPC prompt when active" },
+        "forClassifier": { "type": "string", "description": "Additional context for AI classifier" }
+      },
+      "additionalProperties": false
+    },
+    "Presentation": {
+      "type": "object",
+      "required": ["style"],
+      "properties": {
+        "style": {
+          "type": "string",
+          "enum": ["card_deck", "form_card", "list", "map"],
+          "description": "Frontend renderer dispatch key"
+        },
+        "data": {
+          "type": "object",
+          "required": ["dataLoader", "field", "itemKey"],
+          "properties": {
+            "dataLoader": { "type": "string", "description": "API route that provides data" },
+            "field": { "type": "string", "description": "Response field containing item array" },
+            "itemKey": { "type": "string", "description": "Unique key field within each item" }
+          },
+          "additionalProperties": false
+        },
+        "card": {
+          "type": "object",
+          "required": ["title"],
+          "properties": {
+            "title": { "type": "string" },
+            "subtitle": { "type": "string" }
+          },
+          "additionalProperties": false
+        },
+        "animation": {
+          "type": "object",
+          "properties": {
+            "enter": { "type": "string" },
+            "idle": { "type": "string" }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "Resolution": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["select_one", "subflow", "free_response", "navigate"],
+          "description": "Resolution strategy"
+        },
+        "interceptsMessages": {
+          "type": "boolean",
+          "description": "If true, this behavior intercepts messages — game loop is bypassed"
+        },
+        "mapsTo": {
+          "type": "object",
+          "properties": {
+            "action": { "type": "string", "description": "SceneAction ID" },
+            "fc": { "type": "string", "description": "FunctionCall to invoke on resolution" }
+          },
+          "additionalProperties": false
+        },
+        "params": {
+          "type": "object",
+          "additionalProperties": { "type": "string" },
+          "description": "Parameter templates for resolution (uses {field} interpolation)"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

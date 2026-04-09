@@ -1,10 +1,13 @@
 'use client'
 
+import Image from 'next/image'
 import Link from 'next/link'
 import { Button } from '@/components/ui/Button'
 import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/AuthContext'
+import { useTranslations } from 'next-intl'
+import LocaleSwitcher from '@/components/LocaleSwitcher'
 
 interface HeaderProps {
   activeNav?: 'home' | 'portal' | 'circles' | 'leaderboard' | 'hall-of-fame' | 'pa-directory' | 'developer' | 'practices' | 'my-reviews' | 'pa-activity'
@@ -13,6 +16,7 @@ interface HeaderProps {
 export default function Header({ activeNav = 'home' }: HeaderProps) {
   const router = useRouter()
   const { user, mutate } = useAuth()
+  const t = useTranslations()
   const [menuOpen, setMenuOpen] = useState(false)
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const [becomingDev, setBecomingDev] = useState(false)
@@ -72,17 +76,17 @@ export default function Header({ activeNav = 'home' }: HeaderProps) {
   }
 
   const navItems = [
-    { key: 'home', label: '首页', href: '/' },
-    { key: 'portal', label: '门户', href: '/portal' },
-    { key: 'circles', label: '赛道', href: '/circles' },
-    { key: 'leaderboard', label: '排行榜', href: '/leaderboard' },
-    { key: 'hall-of-fame', label: '名人墙', href: '/hall-of-fame' },
-    { key: 'pa-directory', label: 'PA通讯录', href: '/pa-directory' },
-    { key: 'practices', label: '实践', href: '/practices' },
-    { key: 'developer', label: '开发者', href: '/developer' },
+    { key: 'home', label: t('nav.home'), href: '/' },
+    { key: 'portal', label: t('nav.portal'), href: '/portal' },
+    { key: 'circles', label: t('nav.circles'), href: '/circles' },
+    { key: 'leaderboard', label: t('nav.leaderboard'), href: '/leaderboard' },
+    { key: 'hall-of-fame', label: t('nav.hallOfFame'), href: '/hall-of-fame' },
+    { key: 'pa-directory', label: t('nav.paDirectory'), href: '/pa-directory' },
+    { key: 'practices', label: t('nav.practices'), href: '/practices' },
+    { key: 'developer', label: t('nav.developer'), href: '/developer' },
     ...(user ? [
-      { key: 'my-reviews' as const, label: '我的评价', href: '/my-reviews' },
-      { key: 'pa-activity' as const, label: 'PA 动态', href: '/pa-activity' },
+      { key: 'my-reviews' as const, label: t('nav.myReviews'), href: '/my-reviews' },
+      { key: 'pa-activity' as const, label: t('nav.paActivity'), href: '/pa-activity' },
     ] : []),
   ]
 
@@ -102,8 +106,8 @@ export default function Header({ activeNav = 'home' }: HeaderProps) {
               </div>
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-gray-800 font-heading">A2A 智选报社</h1>
-              <p className="text-xs text-orange-500 tracking-widest font-body">HUMAN SPACE · AGENT SPACE</p>
+              <h1 className="text-2xl font-bold text-gray-800 font-heading">{t('common.brandName')}</h1>
+              <p className="text-xs text-orange-500 tracking-widest font-body">{t('common.brandTagline')}</p>
             </div>
           </Link>
 
@@ -120,7 +124,7 @@ export default function Header({ activeNav = 'home' }: HeaderProps) {
             <button
               onClick={() => setMobileNavOpen(prev => !prev)}
               className="p-2 rounded-lg hover:bg-orange-50 transition-colors"
-              aria-label="导航菜单"
+              aria-label={t('nav.mobileMenu')}
             >
               {mobileNavOpen ? (
                 <svg className="w-6 h-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -160,9 +164,12 @@ export default function Header({ activeNav = 'home' }: HeaderProps) {
                 className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-orange-50 transition-colors"
               >
                 {user.avatarUrl ? (
-                  <img
+                  <Image
                     src={user.avatarUrl}
                     alt={user.name || ''}
+                    width={36}
+                    height={36}
+                    unoptimized
                     className="w-9 h-9 rounded-full object-cover ring-2 ring-orange-200"
                   />
                 ) : (
@@ -203,7 +210,7 @@ export default function Header({ activeNav = 'home' }: HeaderProps) {
                       onClick={() => setMenuOpen(false)}
                       className="block px-4 py-2.5 text-sm text-gray-600 hover:bg-orange-50 hover:text-orange-600 transition-colors"
                     >
-                      开发者空间
+                      {t('header.developerSpace')}
                     </Link>
                   ) : (
                     <button
@@ -211,7 +218,7 @@ export default function Header({ activeNav = 'home' }: HeaderProps) {
                       disabled={becomingDev}
                       className="w-full text-left px-4 py-2.5 text-sm text-gray-600 hover:bg-orange-50 hover:text-orange-600 transition-colors disabled:opacity-50"
                     >
-                      {becomingDev ? '开通中...' : '我是开发者'}
+                      {becomingDev ? t('header.becomingDeveloper') : t('header.becomeDeveloper')}
                     </button>
                   )}
 
@@ -219,16 +226,17 @@ export default function Header({ activeNav = 'home' }: HeaderProps) {
                     onClick={handleLogout}
                     className="w-full text-left px-4 py-2.5 text-sm text-gray-600 hover:bg-red-50 hover:text-red-500 transition-colors"
                   >
-                    退出登录
+                    {t('common.logout')}
                   </button>
                 </div>
               )}
             </div>
           ) : (
             <Button asChild size="sm">
-              <Link href="/api/auth/login">登录</Link>
+              <Link href="/api/auth/login">{t('common.login')}</Link>
             </Button>
           )}
+          <LocaleSwitcher />
           </div>
         </div>
       </div>

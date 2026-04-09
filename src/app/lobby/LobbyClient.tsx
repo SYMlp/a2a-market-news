@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback } from 'react'
+import { useTranslations } from 'next-intl'
 import { SCENE_CONFIG } from '@/lib/scene-visuals'
 import type { TransitionAnimation } from '@/lib/scene-visuals/types'
 import type { Scene } from '@/lib/engine/types'
@@ -60,6 +61,7 @@ interface LobbyClientProps {
 }
 
 export default function LobbyClient({ scenes }: LobbyClientProps) {
+  const t = useTranslations('agentSpace')
   const {
     user, cfg,
     phase, setPhase,
@@ -125,7 +127,10 @@ export default function LobbyClient({ scenes }: LobbyClientProps) {
 
     setPhase('conversation')
     setProcessing(false)
-  }, [enterSceneApi, cfg.npcGreeting, cfg.agentName, appendChat])
+  }, [
+    enterSceneApi, cfg.npcGreeting, cfg.agentName, appendChat,
+    lastAgentMsgRef, setMode, setNpcBubble, setPhase, setPreconditions, setProcessing, setSceneData,
+  ])
 
   // ─── Scene transition ───
 
@@ -150,9 +155,12 @@ export default function LobbyClient({ scenes }: LobbyClientProps) {
     setPhase('conversation')
     transitionResolveRef.current?.()
     transitionResolveRef.current = null
-  }, [transition, mode, enterSceneApi, appendChat])
+  }, [
+    transition, mode, enterSceneApi, appendChat,
+    lastAgentMsgRef, setNpcBubble, setNpcState, setPhase, setPreconditions, setScene, setSceneData, setTransition, transitionResolveRef,
+  ])
 
-  const handleSceneTransition = useCallback(async (tr: { from: string; to: string }) => {
+  const handleSceneTransition = async (tr: { from: string; to: string }) => {
     setPhase('transitioning')
     autoLoopRef.current = false
     setNpcBubble(null)
@@ -172,22 +180,22 @@ export default function LobbyClient({ scenes }: LobbyClientProps) {
     await new Promise<void>(resolve => {
       transitionResolveRef.current = resolve
     })
-  }, [])
+  }
 
   // ─── Navigation ───
 
-  const handleNavigate = useCallback((targetScene: string) => {
+  const handleNavigate = (targetScene: string) => {
     if (targetScene === scene || phase === 'transitioning') return
     handleSceneTransition({ from: scene, to: targetScene })
-  }, [scene, phase, handleSceneTransition])
+  }
 
-  const handleBack = useCallback(() => {
+  const handleBack = () => {
     if (scene !== 'lobby') {
       handleSceneTransition({ from: scene, to: 'lobby' })
     }
-  }, [scene, handleSceneTransition])
+  }
 
-  const handleModeToggle = useCallback(() => {
+  const handleModeToggle = () => {
     if (!mode) return
     const idx = MODE_ORDER.indexOf(mode)
     const next = MODE_ORDER[(idx + 1) % MODE_ORDER.length]
@@ -199,7 +207,7 @@ export default function LobbyClient({ scenes }: LobbyClientProps) {
     recentNpcMsgsRef.current = []
     setNpcState('idle')
     setAdviceInput('')
-  }, [mode])
+  }
 
   // ─── Chain Stage 0+1: shared PA formulation + intent → GM → NPC ───
 
@@ -213,13 +221,14 @@ export default function LobbyClient({ scenes }: LobbyClientProps) {
       humanAdvice,
     )
     if (!paResult?.success) {
-      setPaBubble('……让我想想')
+      const thinking = t('lobbyClient.paThinking')
+      setPaBubble(thinking)
       setPaState('idle')
-      appendChat('pa', paLabel, '……让我想想')
+      appendChat('pa', paLabel, thinking)
       return { type: 'error' as const, reason: 'pa respond failed' }
     }
 
-    const paResponse = paResult.paResponse || '……让我想想'
+    const paResponse = paResult.paResponse || t('lobbyClient.paThinking')
     setPaBubble(paResponse)
     setPaState('idle')
     appendChat('pa', paLabel, paResponse)
@@ -255,17 +264,21 @@ export default function LobbyClient({ scenes }: LobbyClientProps) {
     lastAgentMsgRef.current = npcMessage
     if (npcMessage) appendChat('npc', currentCfg.agentName, npcMessage)
     return { type: 'continue' as const }
-  }, [paRespondApi, sendMessageApi, user?.name, appendChat, checkForSubFlowCard])
+  }, [
+    paRespondApi, sendMessageApi, user?.name, appendChat, checkForSubFlowCard,
+    lastAgentMsgRef, sceneRef, setNpcBubble, setNpcState, setPaBubble, setPaState,
+    t,
+  ])
 
   // ─── Advisor mode: human gives advice → PA formulates → GM/NPC ───
 
-  const handleAdvisorSubmit = useCallback(async (advice: string) => {
+  const handleAdvisorSubmit = async (advice: string) => {
     if (processing || !advice.trim()) return
     setProcessing(true)
     setNpcBubble(null)
     setPaState('thinking')
     setAdviceInput('')
-    appendChat('system', '你', `💬 ${advice.trim()}`)
+    appendChat('system', t('lobbyClient.systemYou'), `💬 ${advice.trim()}`)
 
     const result = await runFormulateAndSend(advice.trim())
 
@@ -277,11 +290,11 @@ export default function LobbyClient({ scenes }: LobbyClientProps) {
 
     setPaState('idle')
     setProcessing(false)
-  }, [processing, runFormulateAndSend, handleSceneTransition, appendChat])
+  }
 
   // ─── Manual-direct mode: user picks action → text to GM ───
 
-  const handleAction = useCallback(async (text: string) => {
+  const handleAction = async (text: string) => {
     if (processing) return
     setProcessing(true)
     setNpcBubble(null)
@@ -320,7 +333,7 @@ export default function LobbyClient({ scenes }: LobbyClientProps) {
       }
     }
     setProcessing(false)
-  }, [processing, sendMessageApi, handleSceneTransition, user?.name, appendChat, checkForSubFlowCard])
+  }
 
   // ─── Auto mode loop ───
 
@@ -349,7 +362,7 @@ export default function LobbyClient({ scenes }: LobbyClientProps) {
   const handlePauseToggle = useCallback(() => {
     setPaused(!paused)
     pausedRef.current = !paused
-  }, [paused])
+  }, [paused, pausedRef, setPaused])
 
   if (phase === 'approach') {
     return <TownApproach onModeSelect={handleModeSelect} paName={paName} />

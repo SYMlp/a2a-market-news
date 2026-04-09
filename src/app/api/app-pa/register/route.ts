@@ -1,6 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { getCurrentUser } from '@/lib/auth'
+import { apiError, apiSuccess, AuthError, requireAuth } from '@/lib/api-utils'
+import { reportApiError } from '@/lib/server-observability'
 
 /**
  * POST /api/app-pa/register
@@ -10,13 +11,7 @@ import { getCurrentUser } from '@/lib/auth'
  */
 export async function POST(request: NextRequest) {
   try {
-    const user = await getCurrentUser()
-    if (!user) {
-      return NextResponse.json(
-        { error: '请先登录' },
-        { status: 401 }
-      )
-    }
+    const user = await requireAuth()
 
     const body = await request.json()
 
@@ -35,10 +30,7 @@ export async function POST(request: NextRequest) {
     } = body
 
     if (!name || !description || !circleType) {
-      return NextResponse.json(
-        { error: '缺少必填字段: name, description, circleType' },
-        { status: 400 }
-      )
+      return apiError('缺少必填字段: name, description, circleType', 400)
     }
 
     const circle = await prisma.circle.findUnique({
@@ -46,16 +38,13 @@ export async function POST(request: NextRequest) {
     })
 
     if (!circle) {
-      return NextResponse.json(
-        { error: `圈子不存在: ${circleType}` },
-        { status: 404 }
-      )
+      return apiError(`圈子不存在: ${circleType}`, 404)
     }
 
     const clientId = metadata?.clientId || `app-${crypto.randomUUID().slice(0, 8)}`
     const existingClient = await prisma.app.findUnique({ where: { clientId } })
     if (existingClient) {
-      return NextResponse.json({ error: 'Client ID 已被注册' }, { status: 409 })
+      return apiError('Client ID 已被注册', 409)
     }
 
     const app = await prisma.app.create({
@@ -103,15 +92,12 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    return NextResponse.json({
-      success: true,
-      data: app,
-    })
+    return apiSuccess(app)
   } catch (error) {
-    console.error('应用 PA 注册失败:', error)
-    return NextResponse.json(
-      { error: '注册失败' },
-      { status: 500 }
-    )
+    if (error instanceof AuthError) {
+      return error.response
+    }
+    reportApiError(request, error, 'app_pa_register_failed')
+    return apiError('注册失败', 500)
   }
 }

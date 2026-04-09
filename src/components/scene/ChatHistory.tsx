@@ -1,7 +1,9 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { useTranslations, useLocale } from 'next-intl'
 import { useProgressiveText } from '@/lib/ux/progressive-text'
+import { formatTime } from '@/lib/format-date'
 
 export interface ChatMessage {
   id: string
@@ -34,6 +36,8 @@ export default function ChatHistory({
   isTyping,
   typingNpcName,
 }: ChatHistoryProps) {
+  const t = useTranslations('agentSpace')
+  const locale = useLocale()
   const [open, setOpen] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
   const prevCountRef = useRef(messages.length)
@@ -71,13 +75,13 @@ export default function ChatHistory({
         style={{ '--sc-accent-rgb': accentRgb } as React.CSSProperties}
       >
         <div className="chat-hist__header">
-          <span className="chat-hist__title">对话记录</span>
-          <span className="chat-hist__count">{messages.length} 条</span>
+          <span className="chat-hist__title">{t('chatHistory.title')}</span>
+          <span className="chat-hist__count">{t('chatHistory.messagesCount', { count: messages.length })}</span>
         </div>
 
         <div className="chat-hist__scroll" ref={scrollRef}>
           {messages.length === 0 && !isTyping && (
-            <div className="chat-hist__empty">暂无对话记录</div>
+            <div className="chat-hist__empty">{t('chatHistory.empty')}</div>
           )}
           {messages.map((msg, i) => {
             const isLatestNpc = isLastNpcFresh && i === messages.length - 1
@@ -89,10 +93,7 @@ export default function ChatHistory({
                 <div className="chat-hist__msg-head">
                   <span className="chat-hist__msg-name">{msg.name}</span>
                   <span className="chat-hist__msg-time">
-                    {new Date(msg.timestamp).toLocaleTimeString('zh-CN', {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
+                    {formatTime(new Date(msg.timestamp), locale)}
                   </span>
                 </div>
                 {isLatestNpc ? (

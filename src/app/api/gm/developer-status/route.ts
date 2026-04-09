@@ -1,6 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { getCurrentUser } from '@/lib/auth'
+import { NextRequest } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { apiError, apiSuccess, AuthError, requireAuth } from '@/lib/api-utils'
+import { reportApiError } from '@/lib/server-observability'
 
 /**
  * GET /api/gm/developer-status
@@ -8,10 +9,7 @@ import { prisma } from '@/lib/prisma'
  */
 export async function GET(request: NextRequest) {
   try {
-    const user = await getCurrentUser()
-    if (!user) {
-      return NextResponse.json({ error: '请先登录' }, { status: 401 })
-    }
+    const user = await requireAuth()
 
     let isDeveloper = !!user.isDeveloper
 
@@ -65,23 +63,20 @@ export async function GET(request: NextRequest) {
     )
 
     if (!isDeveloper) {
-      return NextResponse.json({
-        success: true,
-        data: {
-          isDeveloper: false,
-          hasApps: false,
-          feedback_status: '你还没有成为开发者。',
-          feedback_hint: '可以前往开发者注册页面完成注册，或点击「我是开发者」进入注册流程。',
-          feedback_summary: 'Not a developer.',
-          apps_summary: '请先完成开发者注册。',
-          apps_summary_brief: '请先完成开发者认证，即可把应用推荐给日报。',
-          apps_json: '[]',
-          feedbacks: [],
-          practices_count: 0,
-          practices_summary: practicesSummary,
-          practices_list: practicesSummary,
-          practices_json: practicesJson,
-        },
+      return apiSuccess({
+        isDeveloper: false,
+        hasApps: false,
+        feedback_status: '你还没有成为开发者。',
+        feedback_hint: '可以前往开发者注册页面完成注册，或点击「我是开发者」进入注册流程。',
+        feedback_summary: 'Not a developer.',
+        apps_summary: '请先完成开发者注册。',
+        apps_summary_brief: '请先完成开发者认证，即可把应用推荐给日报。',
+        apps_json: '[]',
+        feedbacks: [],
+        practices_count: 0,
+        practices_summary: practicesSummary,
+        practices_list: practicesSummary,
+        practices_json: practicesJson,
       })
     }
 
@@ -95,23 +90,20 @@ export async function GET(request: NextRequest) {
     })
 
     if (apps.length === 0) {
-      return NextResponse.json({
-        success: true,
-        data: {
-          isDeveloper: true,
-          hasApps: false,
-          feedback_status: '你还没有在日报收录应用。',
-          feedback_hint: '把你做好的应用推荐给日报，让大家来体验和评价！',
-          feedback_summary: 'No apps submitted.',
-          apps_summary: '你还没有推荐应用给日报。',
-          apps_summary_brief: '你还没有推荐应用给日报，把你做的应用告诉我们吧！',
-          apps_json: '[]',
-          feedbacks: [],
-          practices_count: ownPracticesCount,
-          practices_summary: practicesSummary,
-          practices_list: practicesSummary,
-          practices_json: practicesJson,
-        },
+      return apiSuccess({
+        isDeveloper: true,
+        hasApps: false,
+        feedback_status: '你还没有在日报收录应用。',
+        feedback_hint: '把你做好的应用推荐给日报，让大家来体验和评价！',
+        feedback_summary: 'No apps submitted.',
+        apps_summary: '你还没有推荐应用给日报。',
+        apps_summary_brief: '你还没有推荐应用给日报，把你做的应用告诉我们吧！',
+        apps_json: '[]',
+        feedbacks: [],
+        practices_count: ownPracticesCount,
+        practices_summary: practicesSummary,
+        practices_list: practicesSummary,
+        practices_json: practicesJson,
       })
     }
 
@@ -189,34 +181,34 @@ export async function GET(request: NextRequest) {
       }))
     )
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        isDeveloper: true,
-        hasApps: true,
-        appCount: apps.length,
-        feedbackCount: totalFeedbacks,
-        feedback_status: totalFeedbacks > 0
-          ? `你有 ${totalFeedbacks} 条用户建议！`
-          : '目前没有新的用户建议。',
-        feedback_hint: totalFeedbacks > 0
-          ? '可以查看应用概况、查看用户建议，或者推荐新应用给日报。'
-          : '等有用户体验后就能收到建议了，可以查看应用概况或推荐新应用。',
-        feedback_summary: `${apps.length} apps, ${totalFeedbacks} feedbacks.`,
-        feedback_list: feedbackList,
-        feedback_json: feedbackJson,
-        apps_summary: appsSummary,
-        apps_summary_brief: appsSummaryBrief,
-        apps_json: JSON.stringify(appsWithStats),
-        feedbacks,
-        practices_count: ownPracticesCount,
-        practices_summary: practicesSummary,
-        practices_list: practicesSummary,
-        practices_json: practicesJson,
-      },
+    return apiSuccess({
+      isDeveloper: true,
+      hasApps: true,
+      appCount: apps.length,
+      feedbackCount: totalFeedbacks,
+      feedback_status: totalFeedbacks > 0
+        ? `你有 ${totalFeedbacks} 条用户建议！`
+        : '目前没有新的用户建议。',
+      feedback_hint: totalFeedbacks > 0
+        ? '可以查看应用概况、查看用户建议，或者推荐新应用给日报。'
+        : '等有用户体验后就能收到建议了，可以查看应用概况或推荐新应用。',
+      feedback_summary: `${apps.length} apps, ${totalFeedbacks} feedbacks.`,
+      feedback_list: feedbackList,
+      feedback_json: feedbackJson,
+      apps_summary: appsSummary,
+      apps_summary_brief: appsSummaryBrief,
+      apps_json: JSON.stringify(appsWithStats),
+      feedbacks,
+      practices_count: ownPracticesCount,
+      practices_summary: practicesSummary,
+      practices_list: practicesSummary,
+      practices_json: practicesJson,
     })
   } catch (error) {
-    console.error('GM developer-status error:', error)
-    return NextResponse.json({ error: '获取状态失败' }, { status: 500 })
+    if (error instanceof AuthError) {
+      return error.response
+    }
+    reportApiError(request, error, 'gm_developer_status_error')
+    return apiError('获取状态失败', 500)
   }
 }

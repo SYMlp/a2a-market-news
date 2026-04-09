@@ -1,6 +1,7 @@
 'use client'
 
 import type { RefObject } from 'react'
+import { useTranslations } from 'next-intl'
 import { SCENE_CONFIG, getSceneLayout } from '@/lib/scene-visuals'
 import type { SceneVisualConfig, TransitionAnimation } from '@/lib/scene-visuals'
 import type { ComponentSpec } from '@/lib/component-runtime/types'
@@ -94,11 +95,28 @@ export default function ConversationView({
   onSubFlowConfirm, onSubFlowCancel, onAdvisorSubmit, onAction,
   onFeedbackOpen, onFeedbackClose, onAdviceInputChange, onPauseToggle,
 }: ConversationViewProps) {
+  const t = useTranslations('agentSpace')
   const showManualActions = phase === 'conversation' && mode === 'manual'
   const showAdvisorInput = phase === 'conversation' && mode === 'advisor'
   const showAutoControls = phase === 'conversation' && mode === 'auto'
 
   const layout = getSceneLayout(scene)
+  const dockHintTr =
+    scene === 'lobby'
+      ? t('dockHints.lobby')
+      : scene === 'news'
+        ? t('dockHints.news')
+        : scene === 'developer'
+          ? t('dockHints.developer')
+          : layout.dockBubbleHint
+  const dockTitleTr =
+    scene === 'lobby'
+      ? t('dockTitles.lobby')
+      : scene === 'news'
+        ? t('dockTitles.news')
+        : scene === 'developer'
+          ? t('dockTitles.developer')
+          : layout.appDockTitle
   const showCardDock = phase === 'conversation'
     && !subFlowCard
     && behaviorPresentation?.style === 'card_deck'
@@ -113,7 +131,7 @@ export default function ConversationView({
     if (!showCardDock || !layout.shortNpcBubbleWhenDock) return npcBubble
     const max = layout.npcBubbleMaxChars
     if (npcBubble.length <= max) return npcBubble
-    return `${npcBubble.slice(0, max).trim()}…\n${layout.dockBubbleHint}`
+    return `${npcBubble.slice(0, max).trim()}…\n${dockHintTr}`
   })()
 
   return (
@@ -122,7 +140,25 @@ export default function ConversationView({
       accentRgb={cfg.accentRgb}
       particleCount={cfg.bgParticleCount}
       plaque={phase === 'conversation'
-        ? { label: cfg.label, icon: cfg.icon, npcName: cfg.agentName }
+        ? {
+            label:
+              scene === 'lobby'
+                ? t('scenes.lobby.label')
+                : scene === 'news'
+                  ? t('scenes.news.label')
+                  : scene === 'developer'
+                    ? t('scenes.developer.label')
+                    : cfg.label,
+            icon: cfg.icon,
+            npcName:
+              scene === 'lobby'
+                ? t('scenes.lobby.agentName')
+                : scene === 'news'
+                  ? t('scenes.news.agentName')
+                  : scene === 'developer'
+                    ? t('scenes.developer.agentName')
+                    : cfg.agentName,
+          }
         : null}
       dockActive={showCardDock}
     >
@@ -130,8 +166,8 @@ export default function ConversationView({
         <div className="scene-tr-v2">
           <div className="scene-tr-v2__content">
             <div className="scene-tr-v2__icon">🚪</div>
-            <div className="scene-tr-v2__label">进入报社</div>
-            <div className="scene-tr-v2__sub">ENTERING</div>
+            <div className="scene-tr-v2__label">{t('conversation.enteringTitle')}</div>
+            <div className="scene-tr-v2__sub">{t('conversation.enteringSub')}</div>
             <div className="scene-tr-v2__bar">
               <div className="scene-tr-v2__bar-fill" />
             </div>
@@ -165,7 +201,15 @@ export default function ConversationView({
       />
 
       <CharacterStage
-        npcName={cfg.agentName}
+        npcName={
+          scene === 'lobby'
+            ? t('scenes.lobby.agentName')
+            : scene === 'news'
+              ? t('scenes.news.agentName')
+              : scene === 'developer'
+                ? t('scenes.developer.agentName')
+                : cfg.agentName
+        }
         paName={paName}
         accentRgb={cfg.accentRgb}
         npcBubble={npcBubbleForStage}
@@ -176,7 +220,7 @@ export default function ConversationView({
 
       {showCardDock && behaviorPresentation && (
         <SceneAppDock
-          title={layout.appDockTitle}
+          title={dockTitleTr}
           accentRgb={cfg.accentRgb}
           data={dockItems}
           card={behaviorPresentation.card as { title: string; subtitle?: string } | undefined}
@@ -193,7 +237,15 @@ export default function ConversationView({
           from={transition.from}
           to={transition.to}
           toIcon={(SCENE_CONFIG[transition.to] || SCENE_CONFIG.lobby).agentEmoji}
-          toLabel={(SCENE_CONFIG[transition.to] || SCENE_CONFIG.lobby).label}
+          toLabel={
+            transition.to === 'lobby'
+              ? t('scenes.lobby.label')
+              : transition.to === 'news'
+                ? t('scenes.news.label')
+                : transition.to === 'developer'
+                  ? t('scenes.developer.label')
+                  : (SCENE_CONFIG[transition.to] || SCENE_CONFIG.lobby).label
+          }
           accentRgb={(SCENE_CONFIG[transition.to] || SCENE_CONFIG.lobby).accentRgb}
           onComplete={onTransitionComplete}
         />
@@ -218,7 +270,7 @@ export default function ConversationView({
                   background: 'linear-gradient(135deg, rgba(255,255,255,0.06), rgba(0,0,0,0.4))',
                 }}
               >
-                加载中…
+                {t('conversation.loadingSpec')}
               </div>
             )}
           </div>
@@ -236,7 +288,7 @@ export default function ConversationView({
             }}
           >
             <div className="advisor-input__hint">
-              💬 悄悄告诉你的 PA...
+              {t('conversation.advisorHint')}
             </div>
             <div className="advisor-input__row">
               <input
@@ -245,7 +297,7 @@ export default function ConversationView({
                 type="text"
                 value={adviceInput}
                 onChange={(e) => onAdviceInputChange(e.target.value)}
-                placeholder="例如：去日报栏看看吧"
+                placeholder={t('conversation.advisorPlaceholder')}
                 disabled={processing}
                 autoFocus
               />
@@ -278,7 +330,7 @@ export default function ConversationView({
             style={{ opacity: 1, transform: 'none', animation: 'none' }}
           >
             <span className="holo-actions__card-icon">{paused ? '▶' : '⏸'}</span>
-            <span className="holo-actions__card-label">{paused ? '继续对话' : '暂停对话'}</span>
+            <span className="holo-actions__card-label">{paused ? t('conversation.resumeChat') : t('conversation.pauseChat')}</span>
           </button>
         </div>
       )}

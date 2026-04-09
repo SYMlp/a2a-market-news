@@ -12,21 +12,21 @@ vi.mock('@/lib/prisma', () => ({
   },
 }))
 
-vi.mock('@/lib/feedback-schema', () => ({
+vi.mock('@/lib/reviews/feedback-schema', () => ({
   validateFeedback: vi.fn(),
 }))
 
-vi.mock('@/lib/notification', () => ({
+vi.mock('@/lib/developer/notification', () => ({
   notifyDeveloper: vi.fn().mockResolvedValue(undefined),
 }))
 
-vi.mock('@/lib/achievement', () => ({
+vi.mock('@/lib/gamification', () => ({
   processAchievements: vi.fn().mockResolvedValue({ newUnlocks: [] }),
 }))
 
 import { prisma } from '@/lib/prisma'
-import { validateFeedback } from '@/lib/feedback-schema'
-import { notifyDeveloper } from '@/lib/notification'
+import { validateFeedback } from '@/lib/reviews/feedback-schema'
+import { notifyDeveloper } from '@/lib/developer/notification'
 import { POST } from './route'
 
 const mockValidate = vi.mocked(validateFeedback)
