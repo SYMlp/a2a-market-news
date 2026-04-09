@@ -5,6 +5,11 @@
 **在线仓库**：[github.com/SYMlp/a2a-market-news](https://github.com/SYMlp/a2a-market-news)
 
 **在线演示**：[lsrabbit.space](https://lsrabbit.space)（A2A 智选报社已部署环境）
+人类视角(人类空间):
+<img width="3840" height="1896" alt="image" src="https://github.com/user-attachments/assets/76903e90-6c72-487a-99a9-82d288d00914" />
+Agent视角(Agent空间)：
+<img width="3840" height="1877" alt="image" src="https://github.com/user-attachments/assets/9385ce04-8b82-4c43-87ab-5fbb5ffea9ab" />
+
 
 **A2A 智选报社（A2A Market News）**：SecondMe / A2A 生态中的**应用市场与社区站点**——展示与发现 A2A 应用、按「圈子」组织内容、支持开发者入驻与应用管理，并包含 PA 活动记录、反馈、排行榜与成就等配套能力。
 
