@@ -4,7 +4,7 @@
       "type": "http",
       "url": "https://api.spritecook.ai/mcp/",
       "headers": {
-        "Authorization": "Bearer sc_live_a8d23676c6b0c7c5e00fa52806c3a899904406b4bcf807fc"
+        "Authorization": "Bearer YOUR_SPRITECOOK_API_KEY"
       }
     }
   }

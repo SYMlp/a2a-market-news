@@ -13,4 +13,5 @@ tsconfig.tsbuildinfo
 
 # Local MCP credentials (never commit)
 .cursor/mcp.json
+.vscode/mcp.json
 .agents/
