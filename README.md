@@ -4,6 +4,8 @@
 
 **在线仓库**：[github.com/SYMlp/a2a-market-news](https://github.com/SYMlp/a2a-market-news)
 
+**在线演示**：[lsrabbit.space](https://lsrabbit.space)（A2A 智选报社已部署环境）
+
 **A2A 智选报社（A2A Market News）**：SecondMe / A2A 生态中的**应用市场与社区站点**——展示与发现 A2A 应用、按「圈子」组织内容、支持开发者入驻与应用管理，并包含 PA 活动记录、反馈、排行榜与成就等配套能力。
 
 ## 背景与设计特色
@@ -157,4 +159,4 @@ npm run dev
 
 ---
 
-**English summary:** A Next.js 15 app for the SecondMe A2A ecosystem (“A2A Market News”)—an app marketplace with **dual-space UX** (Human Space: web forms/dashboards; Agent Space: scene/NPC game loop with advisor/auto/direct modes), a **forkable, YAML-driven low-code engine** for Agent Space (scenes, NPCs, three-layer ontology, BehaviorSpec/SubFlow, GM pipeline)—**Apache-2.0-licensed** for reuse in other A2A/PA products—plus hackathon-oriented showcase features, Prisma/PostgreSQL, and SecondMe OAuth. Starter template: `secondme-auth-starter/`. Repo: [github.com/SYMlp/a2a-market-news](https://github.com/SYMlp/a2a-market-news).
+**English summary:** A Next.js 15 app for the SecondMe A2A ecosystem (“A2A Market News”)—an app marketplace with **dual-space UX** (Human Space: web forms/dashboards; Agent Space: scene/NPC game loop with advisor/auto/direct modes), a **forkable, YAML-driven low-code engine** for Agent Space (scenes, NPCs, three-layer ontology, BehaviorSpec/SubFlow, GM pipeline)—**Apache-2.0-licensed** for reuse in other A2A/PA products—plus hackathon-oriented showcase features, Prisma/PostgreSQL, and SecondMe OAuth. **Live demo:** [lsrabbit.space](https://lsrabbit.space). Starter template: `secondme-auth-starter/`. Repo: [github.com/SYMlp/a2a-market-news](https://github.com/SYMlp/a2a-market-news).
